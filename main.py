@@ -3,14 +3,9 @@ from transformers import AutoModel
 import torch
 
 import numpy as np
-import random
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 import os
 
 model = AutoModel.from_pretrained("ragavsachdeva/magiv2", trust_remote_code=True).eval()
-
-print(model)
 
 def read_image(path_to_image):
     with open(path_to_image, "rb") as file:
@@ -20,6 +15,8 @@ def read_image(path_to_image):
     return image
 
 chapter_directory = "Dragon Ball (Official Colored)/Ch 229"
+chapter_directory = "One Piece (Official Colored)/Ch. 567"
+chapter_directory = "One Piece (Official Colored)/[PowerManga] Vol. 44 Ch. 427"
 
 # Get all image file paths from the directory
 chapter_pages = [
@@ -73,4 +70,4 @@ def save_cropped_panels(image_as_np_array, predictions, output_folder):
         print(f"Saved: {output_path}")
 
 for i, (image_as_np_array, page_result_predictions) in enumerate(zip(chapter_pages, per_page_results)):
-    save_cropped_panels(image_as_np_array, page_result_predictions, f"output_panels/page_{i + 1}")
+    save_cropped_panels(image_as_np_array, page_result_predictions, f"panel-by-panel/{chapter_directory}/page_{i + 1}")
