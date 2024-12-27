@@ -5,7 +5,7 @@ import select
 from rename_folders_to_chapter_format import rename_folders_to_chapter_format
 from utils import select_folder
 
-def download_from_mangadex(url_to_download_from = 'https://mangadex.org/chapter/03c8f635-f361-45fe-84c6-f6c1da7ba3ff', output_directory = ''):
+def download_from_mangadex(url_to_download_from = '', output_directory = ''):
     # Running the command
     command = ["python3", "-m", "mangadex_downloader", url_to_download_from, "-d", output_directory, "--use-chapter-title", "--no-group-name"]
 
