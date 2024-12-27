@@ -3,7 +3,7 @@ import os
 import sys
 import select
 from rename_folders_to_chapter_format import rename_folders_to_chapter_format
-from group_panels import select_folder
+from utils import select_folder
 
 def download_from_mangadex(url_to_download_from = 'https://mangadex.org/chapter/03c8f635-f361-45fe-84c6-f6c1da7ba3ff', output_directory = ''):
     # Running the command
