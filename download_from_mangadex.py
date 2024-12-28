@@ -1,37 +1,76 @@
 import subprocess
 import os
-import sys
 import select
 from rename_folders_to_chapter_format import rename_folders_to_chapter_format
 from utils import select_folder
 
-def download_from_mangadex(url_to_download_from = '', output_directory = ''):
-    # Running the command
-    command = ["python3", "-m", "mangadex_downloader", url_to_download_from, "-d", output_directory, "--use-chapter-title", "--no-group-name"]
 
-    # Ensure output is not buffered
+def download_from_mangadex(
+    mangadex_url_to_download_from: str = "", output_directory: str = ""
+):
+    """
+    @description Use the third-party "mangadex_downloader" command line tool to download manga from the given URL. URL must be a valid MangaDex URL.
+    @IMPORTANT "mangadex_downloader" MUST be installed on your system to use this.
+    - TODO: Perhaps automatically install it here if not already installed? Should look into this later.
+    """
+
+    # TODO: I've added some default commands here that I personally like however, later on as I develop the GUI, I should make this more flexible and dynamic so that it corresponds to the options from the GUI.
+    terminal_command = [
+        "python3",
+        "-m",
+        "mangadex_downloader",
+        mangadex_url_to_download_from,
+        "-d",
+        output_directory,
+        "--use-chapter-title",
+        "--no-group-name",
+    ]
+
+    # Make a shallow copy of the OS environment variables.
     env = os.environ.copy()
+
+    # Ensures that the subprocess writes output immediately to stdout/stderr without buffering so we data can be processed line-by-line in real-time programatically.
+    # We need to take of the two running process with BOTH "PYTHONUNBUFFERED" (parent process - the running "download_from_mangadex.py" file) and bufsize=1 (subprocess) below.
     env["PYTHONUNBUFFERED"] = "1"
 
-    with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, env=env) as process:
+    # Open a child "process" (it's a child because it's opened within the parent process, the process that executes the "download_from_mangadex.py" file)
+    with subprocess.Popen(
+        terminal_command,
+        stdout=subprocess.PIPE,  # Redirected to a PIPE so that the parent process (this python file) can manipulate the output and error lines in the code below instead of in the terminal.
+        stderr=subprocess.PIPE,
+        text=True,  # Return the output and errors as strings (text mode) instead of in binary data (bytes). If this was not done, then I would have to decode the binary data myself below.
+        bufsize=1,  # Ensures that Python itself reads the output line-by-line from the pipe rather than waiting for the entire buffer to fill up. Only works in text mode (text = True)
+        env=env,  # Use the modified "env" variable so that it takes "PYTHONUNBUFFERED" which will give us access to each line output immediately instead of after the program is done executing.
+    ) as process:
         try:
             # Use `select` to monitor stdout and stderr
             while True:
-                reads = [process.stdout.fileno(), process.stderr.fileno()]
-                ret = select.select(reads, [], [])
-                for fd in ret[0]:
-                    if fd == process.stdout.fileno():
+                stdout_stream_id = process.stdout.fileno()
+                stderr_stream_id = process.stderr.fileno()
+
+                reads = [stdout_stream_id, stderr_stream_id]
+
+                # "select.select()" basically subscribes to the "reads" array and the operating system will let select know when any new data is available on one of the monitored file descriptors. While this
+                # In this case, we are only interested in monitoring the rlist (read-list). The wlist and xlist are not needed, so they are empty.
+                ready_to_read_stream_ids = select.select(reads, [], [])
+
+                for stream_id in ready_to_read_stream_ids[0]:
+                    if stream_id == stdout_stream_id:
                         line = process.stdout.readline()
+
                         if line:
-                            sys.stdout.write(line)
-                            sys.stdout.flush()
-                    elif fd == process.stderr.fileno():
+                            # end="" - Removes the new line at the end of the print statement.
+                            # flush=True - Ensures immediate output to the terminal.
+                            print(line, end="", flush=True)
+                    elif stream_id == stderr_stream_id:
                         line = process.stderr.readline()
+
                         if line:
-                            sys.stderr.write(line)
-                            sys.stderr.flush()
-                
-                if process.poll() is not None:
+                            print(line, end="", flush=True)
+
+                subprocess_has_finished = process.poll() is not None
+
+                if subprocess_has_finished:
                     break  # Exit loop when process finishes
         except Exception as e:
             print(f"An error occurred: {e}")
@@ -41,12 +80,11 @@ def download_from_mangadex(url_to_download_from = '', output_directory = ''):
             else:
                 print(f"Command failed with return code {process.returncode}")
 
-def start():
-    manga_dex_url = input('\nEnter a Manga Dex URL: ')
-    
-    print('\nSelect an output directory: ')
-    output_directory = select_folder()
-    download_from_mangadex(manga_dex_url, output_directory)
-    # rename_folders_to_chapter_format("One Piece (Official Colored)")
 
-start()
+if __name__ == "__main__":
+    mangadex_url_to_download_from = input("\nEnter a Manga Dex URL: ")
+
+    print("\nSelect an output directory: ")
+    output_directory = select_folder()
+
+    download_from_mangadex(mangadex_url_to_download_from, output_directory)

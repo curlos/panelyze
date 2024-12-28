@@ -1,11 +1,14 @@
 import tkinter as tk
 from tkinter import filedialog
 
+
 def select_folder():
     # Create a root window
     root = tk.Tk()
     root.withdraw()  # Hide the root window
-    root.attributes('-topmost', True)  # Ensure the dialog is on top of all other windows
+    root.attributes(
+        "-topmost", True
+    )  # Ensure the dialog is on top of all other windows
 
     # Force focus to the root window to ensure the dialog appears in front
     root.deiconify()
