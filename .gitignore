@@ -1,4 +1,5 @@
 venv
+.envrc
 outputs
 .DS_Store
 *.pyc

@@ -1,22 +1,22 @@
 import subprocess
 import os
+import sys
 import select
 from rename_folders_to_chapter_format import rename_folders_to_chapter_format
-from utils import select_folder
+from utils import select_folder, is_tool_installed, pip_install_or_uninstall_tool
 
 
 def download_from_mangadex(
     mangadex_url_to_download_from: str = "", output_directory: str = ""
-):
+) -> None:
     """
     @description Use the third-party "mangadex_downloader" command line tool to download manga from the given URL. URL must be a valid MangaDex URL.
     @IMPORTANT "mangadex_downloader" MUST be installed on your system to use this.
-    - TODO: Perhaps automatically install it here if not already installed? Should look into this later.
     """
 
     # TODO: I've added some default commands here that I personally like however, later on as I develop the GUI, I should make this more flexible and dynamic so that it corresponds to the options from the GUI.
     terminal_command = [
-        "python3",
+        sys.executable,
         "-m",
         "mangadex_downloader",
         mangadex_url_to_download_from,
@@ -82,6 +82,12 @@ def download_from_mangadex(
 
 
 if __name__ == "__main__":
+    mangadex_downloader_module_name = "mangadex_downloader"
+
+    if not is_tool_installed(mangadex_downloader_module_name):
+        print(f"Error: {mangadex_downloader_module_name} is not installed.")
+        pip_install_or_uninstall_tool(mangadex_downloader_module_name, "install")
+
     mangadex_url_to_download_from = input("\nEnter a Manga Dex URL: ")
 
     print("\nSelect an output directory: ")
