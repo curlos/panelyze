@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog
 import subprocess
 import sys
+import os
 
 
 def select_folder():
@@ -112,3 +113,66 @@ def is_tool_installed(module_name: str) -> bool:
     except Exception as e:
         print(f"An unexpected error occurred while checking {module_name}: {e}")
         return False
+
+
+def convert_size(size_in_bytes, unit="KB"):
+    """
+    Convert a size in bytes to the specified unit.
+
+    Args:
+        size_in_bytes (int): The size in bytes.
+        unit (str): The desired unit for conversion ("B", "KB", "MB", "GB").
+
+    Returns:
+        float: The size converted to the specified unit, rounded to 2 decimal places.
+    """
+
+    unit = unit.upper()
+    if unit == "B":
+        return size_in_bytes
+    elif unit == "KB":
+        return round(size_in_bytes / 1024, 2)
+    elif unit == "MB":
+        return round(size_in_bytes / (1024**2), 2)
+    elif unit == "GB":
+        return round(size_in_bytes / (1024**3), 3)
+    else:
+        raise ValueError(f"Invalid unit '{unit}'. Use 'B', 'KB', 'MB', or 'GB'.")
+
+
+def get_dir_total_image_size(
+    directory: str = "./outputs/One Piece (Official Colored)/0427_Chapter.427",
+    unit: str = "KB",
+) -> int:
+    """
+    Calculate the total size of image files in a directory and return it in the specified unit.
+
+    Args:
+        directory (str): The path to the directory to analyze.
+        unit (str): The desired unit for the total size ("B", "KB", "MB", "GB").
+
+    Returns:
+        int: The total size of the images files in the specified unit.
+    """
+
+    total_size = 0
+
+    if not os.path.exists(directory):
+        print("Directory does not exist.")
+        return total_size
+
+    for file_name in os.listdir(directory):
+        file_path = os.path.join(directory, file_name)
+
+        file_is_an_image = file_name.lower().endswith(
+            (".png", ".jpg", ".jpeg", ".gif", ".bmp")
+        )
+
+        if file_is_an_image:
+            total_size += os.path.getsize(file_path)
+
+    total_size_in_unit = convert_size(total_size, unit)
+
+    print(f"{total_size_in_unit} {unit}")
+
+    return total_size_in_unit
