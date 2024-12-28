@@ -6,28 +6,25 @@ import os
 
 
 def select_folder():
-    # Create a root window
-    root = tk.Tk()
-    root.withdraw()  # Hide the root window
-    root.attributes(
-        "-topmost", True
-    )  # Ensure the dialog is on top of all other windows
+    """
+    Create a "tk" window that will allow the user to select a folder and return the folder's path.
+    The "tk" window shows up on the top-left and above all other windows.
+    """
 
-    # Force focus to the root window to ensure the dialog appears in front
-    root.deiconify()
+    root = tk.Tk()
+    root.attributes("-topmost", True)
+
     root.lift()
     root.focus_force()
 
-    # Open the folder selection dialog
     folder_path = filedialog.askdirectory(title="Select a Folder", parent=root)
 
-    # Check if a folder was selected
     if folder_path:
         print(f"Selected folder: {folder_path}")
     else:
         print("No folder selected.")
 
-    # Clean up the root window
+    # Clean Up
     root.destroy()
 
     return folder_path
