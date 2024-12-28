@@ -1,5 +1,6 @@
 import os
 import re
+from utils import select_folder
 
 
 def rename_folders_to_chapter_format(directory):
@@ -14,7 +15,7 @@ def rename_folders_to_chapter_format(directory):
 
         if folder_exists:
             # Extract "Ch. xxx" using regex
-            match = re.search(r"\bCh\. \d+\b", folder_name, re.IGNORECASE)
+            match = re.search(r"\bCh\. (\d+)\b", folder_name, re.IGNORECASE)
 
             # If we find the Chapter Number, then rename the folder in the format of "xxxx_Chapter.xxx" using the chapter number.
             if match:
@@ -27,4 +28,11 @@ def rename_folders_to_chapter_format(directory):
                 print(f'Skipped: "{folder_name}" (no chapter found)')
 
 
-# rename_folders_to_chapter_format("Dragon Ball (Official Colored)")
+is_running_as_main_program = __name__ == "__main__"
+
+if is_running_as_main_program:
+    print(
+        "\nSelect a directory with chapter folders to rename in the format of 'xxxx_Chapter.xxx': "
+    )
+    chapter_folder_list_directory = select_folder()
+    rename_folders_to_chapter_format(chapter_folder_list_directory)
