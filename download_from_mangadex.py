@@ -81,7 +81,9 @@ def download_from_mangadex(
                 print(f"Command failed with return code {process.returncode}")
 
 
-if __name__ == "__main__":
+is_running_as_main_program = __name__ == "__main__"
+
+if is_running_as_main_program:
     mangadex_downloader_module_name = "mangadex_downloader"
 
     if not is_tool_installed(mangadex_downloader_module_name):
