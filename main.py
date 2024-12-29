@@ -1,43 +1,62 @@
 from PIL import Image
 from transformers import AutoModel
 import torch
-
-import numpy as np
+import numpy
 import os
-
-model = AutoModel.from_pretrained("ragavsachdeva/magiv2", trust_remote_code=True).eval()
-
-
-def read_image(path_to_image):
-    with open(path_to_image, "rb") as file:
-        # Converts the image to grayscale (most manga are black and white) and I'm guessing this is necessary for the AI to properly detect the different panels, characters, and text.
-        image = Image.open(file)
-        image = np.array(image)
-    return image
+from utils import select_folder
 
 
-chapter_directory = "Dragon Ball (Official Colored)/Ch 229"
-chapter_directory = "One Piece (Official Colored)/Ch. 567"
-chapter_directory = "One Piece (Official Colored)/[PowerManga] Vol. 44 Ch. 427"
+def get_image_as_numpy_array(image_path: str) -> numpy.ndarray:
+    """
+    Read an image path and convert it to a numpy array.
+    """
+    with open(image_path, "rb") as file:
+        pillow_image = Image.open(file)
+        image_numpy_array = numpy.array(pillow_image)
+    return image_numpy_array
 
-# Get all image file paths from the directory
-chapter_pages = [
-    os.path.join(chapter_directory, file)
-    for file in sorted(os.listdir(chapter_directory))
-    if file.lower().endswith((".png", ".jpg", ".jpeg"))
-]
 
-character_bank = {"images": [], "names": []}
+def get_chapter_pages_image_numpy_array(chapter_directory):
+    """
+    From the passed in "chapter_directory", get the image numpy array of all of the image files in that directory.
+    """
+    sorted_chapter_directory = sorted(os.listdir(chapter_directory))
+    files_that_are_images = [
+        file
+        for file in sorted_chapter_directory
+        if file.lower().endswith((".png", ".jpg", ".jpeg"))
+    ]
+    chapter_pages_image_paths = [
+        os.path.join(chapter_directory, file) for file in files_that_are_images
+    ]
 
-chapter_pages = [read_image(x) for x in chapter_pages]
-character_bank["images"] = [read_image(x) for x in character_bank["images"]]
+    chapter_pages_image_numpy_array = [
+        get_image_as_numpy_array(image_path) for image_path in chapter_pages_image_paths
+    ]
 
-print(chapter_pages)
+    return chapter_pages_image_numpy_array
 
-with torch.no_grad():
-    per_page_results = model.do_chapter_wide_prediction(
-        chapter_pages, character_bank, use_tqdm=True, do_ocr=True
-    )
+
+def get_character_bank():
+    """
+    Get the character bank to use for the manga page (s) that the model will look through and detect the characters in those pages.
+    """
+    character_bank = {"images": [], "names": []}
+    character_bank["images"] = [
+        get_image_as_numpy_array(x) for x in character_bank["images"]
+    ]
+
+    return character_bank
+
+
+def get_per_page_results(magi_model, chapter_pages, character_bank):
+    # Set to "no_grad()" so that there's inference without tracking gradients. Basically, this saves memory and computational resources by turning off gradient tracking.
+    with torch.no_grad():
+        per_page_results = magi_model.do_chapter_wide_prediction(
+            chapter_pages, character_bank, use_tqdm=True, do_ocr=True
+        )
+
+    return per_page_results
 
 
 def save_cropped_panels(image_as_np_array, predictions, output_folder):
@@ -72,11 +91,34 @@ def save_cropped_panels(image_as_np_array, predictions, output_folder):
         print(f"Saved: {output_path}")
 
 
-for i, (image_as_np_array, page_result_predictions) in enumerate(
-    zip(chapter_pages, per_page_results)
-):
-    save_cropped_panels(
-        image_as_np_array,
-        page_result_predictions,
-        f"panel-by-panel/{chapter_directory}/page_{i + 1}",
+def get_panels_for_chapter():
+    chapter_directory = select_folder()
+    chapter_pages_image_numpy_array = get_chapter_pages_image_numpy_array(
+        chapter_directory
     )
+    character_bank = get_character_bank()
+    per_page_results = get_per_page_results(
+        magi_model, chapter_pages_image_numpy_array, character_bank
+    )
+
+    panels_parent_directory = select_folder()
+
+    for i, (image_as_np_array, page_result_predictions) in enumerate(
+        zip(chapter_pages_image_numpy_array, per_page_results)
+    ):
+        save_cropped_panels(
+            image_as_np_array,
+            page_result_predictions,
+            f"{panels_parent_directory}/{chapter_directory}/page_{i + 1}",
+        )
+
+
+is_running_as_main_program = __name__ == "__main__"
+
+if is_running_as_main_program:
+    # Use the pre-trained MagiV2 model that can help us detect panels, characters, text, and more from manga pages.
+    magi_model = AutoModel.from_pretrained(
+        "ragavsachdeva/magiv2", trust_remote_code=True
+    ).eval()
+
+    get_panels_for_chapter()
