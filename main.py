@@ -106,22 +106,15 @@ def get_panels_for_chapter(magi_model):
     )
     character_bank = get_character_bank()
 
-    print("Starting timer...")
     # Start the timer
     start_time = time.time()
-
-    print(chapter_directory)
-    print(panels_parent_directory)
+    print("Starting timer...")
 
     # Wasn't able to fully get this working but if Google Colab did work, then in theory send the request to Colab and it would use the Magi Model on there and do all the computationally expensive operations on the superior GPUs on Colab and give me the numpy array results here and do the rest of the operations on this local code.
     if using_google_colab:
-        print("Sending request to Google Colab!")
-
         google_colab_ngrok_server_url = (
             "https://ba8a-35-198-221-130.ngrok-free.app/process-images-with-magi-model"
         )
-
-        print(chapter_pages_image_numpy_array)
 
         # Encode each NumPy array into base64
         encoded_arrays = [
@@ -155,10 +148,6 @@ def get_panels_for_chapter(magi_model):
 
             if response.status_code == 200:
                 per_page_results = response.json()
-
-            print("From Google Colab!")
-            print(per_page_results)
-            print("From Google Colab!")
 
             image_as_np_array = chapter_pages_image_numpy_array[page_num]
             page_result_predictions = per_page_results[0]
