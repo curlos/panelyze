@@ -3,3 +3,4 @@ venv
 outputs
 .DS_Store
 *.pyc
+google-colab

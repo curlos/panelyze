@@ -4,6 +4,12 @@ import torch
 import numpy
 import os
 from utils import select_folder
+import requests
+import time
+import base64
+import json
+
+using_google_colab = True
 
 
 def get_image_as_numpy_array(image_path: str) -> numpy.ndarray:
@@ -91,17 +97,66 @@ def save_cropped_panels(image_as_np_array, predictions, output_folder):
         print(f"Saved: {output_path}")
 
 
-def get_panels_for_chapter():
+def get_panels_for_chapter(magi_model):
     chapter_directory = select_folder()
+    panels_parent_directory = select_folder()
+
     chapter_pages_image_numpy_array = get_chapter_pages_image_numpy_array(
         chapter_directory
     )
     character_bank = get_character_bank()
-    per_page_results = get_per_page_results(
-        magi_model, chapter_pages_image_numpy_array, character_bank
-    )
 
-    panels_parent_directory = select_folder()
+    print("Starting timer...")
+    # Start the timer
+    start_time = time.time()
+
+    print(chapter_directory)
+    print(panels_parent_directory)
+
+    # Wasn't able to fully get this working but if Google Colab did work, then in theory send the request to Colab and it would use the Magi Model on there and do all the computationally expensive operations on the superior GPUs on Colab and give me the numpy array results here and do the rest of the operations on this local code.
+    if using_google_colab:
+        print("Sending request to Google Colab!")
+
+        colab_url = (
+            "https://4b9b-35-224-78-55.ngrok-free.app/process-images-with-magi-model"
+        )
+
+        print(chapter_pages_image_numpy_array)
+
+        # Encode each NumPy array into base64
+        encoded_arrays = [
+            {
+                "data": base64.b64encode(array.tobytes()).decode("utf-8"),
+                "shape": array.shape,
+                "dtype": str(array.dtype),
+            }
+            for array in chapter_pages_image_numpy_array
+        ]
+
+        # Create the payload
+        data = {
+            "chapter_pages_image_numpy_array": encoded_arrays,
+            "character_bank": character_bank,
+        }
+
+        payload_size = len(json.dumps(data))
+        print(f"Payload size: {payload_size} bytes")
+
+        response = requests.post(
+            colab_url,
+            json=data,
+        )
+
+        if response.status_code == 200:
+            per_page_results = response.json()
+
+        print("From Google Colab!")
+        print(per_page_results)
+        print("From Google Colab!")
+    else:
+        per_page_results = get_per_page_results(
+            magi_model, chapter_pages_image_numpy_array, character_bank
+        )
 
     for i, (image_as_np_array, page_result_predictions) in enumerate(
         zip(chapter_pages_image_numpy_array, per_page_results)
@@ -112,6 +167,13 @@ def get_panels_for_chapter():
             f"{panels_parent_directory}/{chapter_directory}/page_{i + 1}",
         )
 
+    # Calculate and print the total time taken
+    end_time = time.time()
+    total_time = end_time - start_time
+    print(
+        f"Magi AI Model Panel-by-Panel conversion time taken: {total_time:.2f} seconds"
+    )
+
 
 is_running_as_main_program = __name__ == "__main__"
 
@@ -121,4 +183,4 @@ if is_running_as_main_program:
         "ragavsachdeva/magiv2", trust_remote_code=True
     ).eval()
 
-    get_panels_for_chapter()
+    get_panels_for_chapter(magi_model)
