@@ -117,8 +117,8 @@ def get_panels_for_chapter(magi_model):
     if using_google_colab:
         print("Sending request to Google Colab!")
 
-        colab_url = (
-            "https://4b9b-35-224-78-55.ngrok-free.app/process-images-with-magi-model"
+        google_colab_ngrok_server_url = (
+            "https://ba8a-35-198-221-130.ngrok-free.app/process-images-with-magi-model"
         )
 
         print(chapter_pages_image_numpy_array)
@@ -133,39 +133,56 @@ def get_panels_for_chapter(magi_model):
             for array in chapter_pages_image_numpy_array
         ]
 
-        # Create the payload
-        data = {
-            "chapter_pages_image_numpy_array": encoded_arrays,
-            "character_bank": character_bank,
-        }
+        page_num = 0
 
-        payload_size = len(json.dumps(data))
-        print(f"Payload size: {payload_size} bytes")
+        for encoded_array in encoded_arrays:
+            local_encoded_arrays_of_current = [encoded_array]
+            # Create the payload
+            data = {
+                "chapter_pages_image_numpy_array": local_encoded_arrays_of_current,
+                "character_bank": character_bank,
+            }
 
-        response = requests.post(
-            colab_url,
-            json=data,
-        )
+            payload_size = len(json.dumps(data))
+            print(
+                f"Payload size: {payload_size} bytes"
+            )  # Payload CANNOT be over 16MB. Watch out for colorspreads/covers and other big images.
 
-        if response.status_code == 200:
-            per_page_results = response.json()
+            response = requests.post(
+                google_colab_ngrok_server_url,
+                json=data,
+            )
 
-        print("From Google Colab!")
-        print(per_page_results)
-        print("From Google Colab!")
+            if response.status_code == 200:
+                per_page_results = response.json()
+
+            print("From Google Colab!")
+            print(per_page_results)
+            print("From Google Colab!")
+
+            image_as_np_array = chapter_pages_image_numpy_array[page_num]
+            page_result_predictions = per_page_results[0]
+
+            save_cropped_panels(
+                image_as_np_array,
+                page_result_predictions,
+                f"{panels_parent_directory}/{chapter_directory}/page_{page_num + 1}",
+            )
+
+            page_num += 1
     else:
         per_page_results = get_per_page_results(
             magi_model, chapter_pages_image_numpy_array, character_bank
         )
 
-    for i, (image_as_np_array, page_result_predictions) in enumerate(
-        zip(chapter_pages_image_numpy_array, per_page_results)
-    ):
-        save_cropped_panels(
-            image_as_np_array,
-            page_result_predictions,
-            f"{panels_parent_directory}/{chapter_directory}/page_{i + 1}",
-        )
+        for i, (image_as_np_array, page_result_predictions) in enumerate(
+            zip(chapter_pages_image_numpy_array, per_page_results)
+        ):
+            save_cropped_panels(
+                image_as_np_array,
+                page_result_predictions,
+                f"{panels_parent_directory}/{chapter_directory}/page_{i + 1}",
+            )
 
     # Calculate and print the total time taken
     end_time = time.time()
