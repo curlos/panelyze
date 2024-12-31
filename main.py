@@ -116,7 +116,7 @@ def get_panels_for_chapter(magi_model):
     # Wasn't able to fully get this working but if Google Colab did work, then in theory send the request to Colab and it would use the Magi Model on there and do all the computationally expensive operations on the superior GPUs on Colab and give me the numpy array results here and do the rest of the operations on this local code.
     if using_google_colab:
         google_colab_ngrok_server_url_parts = {
-            "base": "https://446d-35-198-207-72.ngrok-free.app/",
+            "base": "https://93c1-34-125-70-89.ngrok-free.app/",
             "route": "process-images-with-magi-model",
         }
         base, route = google_colab_ngrok_server_url_parts.values()
@@ -195,8 +195,11 @@ is_running_as_main_program = __name__ == "__main__"
 
 if is_running_as_main_program:
     # Use the pre-trained MagiV2 model that can help us detect panels, characters, text, and more from manga pages.
-    magi_model = AutoModel.from_pretrained(
-        "ragavsachdeva/magiv2", trust_remote_code=True
-    ).eval()
+    magi_model = None
+
+    if not using_google_colab:
+        magi_model = AutoModel.from_pretrained(
+            "ragavsachdeva/magiv2", trust_remote_code=True
+        ).eval()
 
     get_panels_for_chapter(magi_model)
