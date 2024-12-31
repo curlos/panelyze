@@ -134,11 +134,17 @@ def get_panels_for_chapter(magi_model):
 
         page_num = 0
 
+        # Go through each image's "encoded_array" and send it in the payload to Google Colab's Flask server (the server must be running for this to work).
         for encoded_array in encoded_arrays:
+            # Each image (or page in this case), has an encoded array. The Magi Model has a function called "do_chapter_wide_predictions" that will expect an array of image numpy arrays.
+            # However, because I'm sending this as a payload to the Flask server and that payload has a max MB of 16MB, if I tried to send all of the page images at once, it'd fail.
+            # If there are 15 images on average in one chapter and each image is 2 MB, that's 32 MB which is over the limit.
+            # So, because of that, I'm making one request per image to the server with that image in the payload as it'd be very rare if not impossible for 1 manga page to be over 16MB.
             local_encoded_arrays_of_current = [encoded_array]
             # Create the payload
             data = {
                 "chapter_pages_image_numpy_array": local_encoded_arrays_of_current,
+                # TODO: Character Bank is always going to be empty for now but maybe I can do something with it later (unlikely though as it'd required a lot of individual work and it's not a required feature).
                 "character_bank": character_bank,
             }
 
@@ -148,6 +154,7 @@ def get_panels_for_chapter(magi_model):
             )  # Payload CANNOT be over 16MB. Watch out for colorspreads/covers and other big images.
 
             try:
+                # Send the request to the server where Google Colab will use it's faster GPUs (like the A100 GPU) to run the Magi Model on the image numpy array that is sent in the payload.
                 response = requests.post(
                     google_colab_ngrok_server_url, json=data, verify=False
                 )
@@ -160,6 +167,7 @@ def get_panels_for_chapter(magi_model):
                 image_as_np_array = chapter_pages_image_numpy_array[page_num]
                 page_result_predictions = per_page_results[0]
 
+                # This will save the cropped panels one page at a time.
                 save_cropped_panels(
                     image_as_np_array,
                     page_result_predictions,
@@ -170,6 +178,8 @@ def get_panels_for_chapter(magi_model):
             except Exception as e:
                 print(e)
     else:
+        # If the Magi Model is being ran on the local machine (like a Macbook), then send all of the Chapter's images in a batch at once.
+        # We're not making a request to an external server so no limit on how big the numpy array is.
         per_page_results = get_per_page_results(
             magi_model, chapter_pages_image_numpy_array, character_bank
         )
