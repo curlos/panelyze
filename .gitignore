@@ -1,6 +1,8 @@
 venv
 .envrc
+.env
 outputs
 .DS_Store
 *.pyc
 google-colab
+local-test

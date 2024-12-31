@@ -173,3 +173,26 @@ def get_dir_total_image_size(
     print(f"{total_size_in_unit} {unit}")
 
     return total_size_in_unit
+
+
+def get_last_two_directories(path):
+    """
+    Extracts and returns the last two directories from a given path string.
+
+    Args:
+        path (str): The directory path string.
+
+    Returns:
+        str: A string containing the last two directories.
+    """
+    # Normalize the path to handle different OS path separators
+    normalized_path = os.path.normpath(path)
+
+    # Split the path into components
+    path_parts = normalized_path.split(os.sep)
+
+    # Extract the last two directories
+    last_two = path_parts[-2:]
+
+    # Join them back into a string
+    return os.path.join(*last_two)

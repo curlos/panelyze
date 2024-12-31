@@ -3,7 +3,7 @@ from transformers import AutoModel
 import torch
 import numpy
 import os
-from utils import select_folder
+from utils import select_folder, get_last_two_directories
 import requests
 import time
 import base64
@@ -98,11 +98,14 @@ def save_cropped_panels(image_as_np_array, predictions, output_folder):
 
 
 def get_panels_for_chapter(magi_model):
-    chapter_directory = select_folder()
+    absolute_chapter_directory = select_folder()
+    series_and_chapter_name_directory = get_last_two_directories(
+        absolute_chapter_directory
+    )
     panels_parent_directory = select_folder()
 
     chapter_pages_image_numpy_array = get_chapter_pages_image_numpy_array(
-        chapter_directory
+        absolute_chapter_directory
     )
     character_bank = get_character_bank()
 
@@ -112,9 +115,12 @@ def get_panels_for_chapter(magi_model):
 
     # Wasn't able to fully get this working but if Google Colab did work, then in theory send the request to Colab and it would use the Magi Model on there and do all the computationally expensive operations on the superior GPUs on Colab and give me the numpy array results here and do the rest of the operations on this local code.
     if using_google_colab:
-        google_colab_ngrok_server_url = (
-            "https://ba8a-35-198-221-130.ngrok-free.app/process-images-with-magi-model"
-        )
+        google_colab_ngrok_server_url_parts = {
+            "base": "https://446d-35-198-207-72.ngrok-free.app/",
+            "route": "process-images-with-magi-model",
+        }
+        base, route = google_colab_ngrok_server_url_parts.values()
+        google_colab_ngrok_server_url = base + route
 
         # Encode each NumPy array into base64
         encoded_arrays = [
@@ -141,24 +147,28 @@ def get_panels_for_chapter(magi_model):
                 f"Payload size: {payload_size} bytes"
             )  # Payload CANNOT be over 16MB. Watch out for colorspreads/covers and other big images.
 
-            response = requests.post(
-                google_colab_ngrok_server_url,
-                json=data,
-            )
+            try:
+                response = requests.post(
+                    google_colab_ngrok_server_url, json=data, verify=False
+                )
 
-            if response.status_code == 200:
-                per_page_results = response.json()
+                print(response)
 
-            image_as_np_array = chapter_pages_image_numpy_array[page_num]
-            page_result_predictions = per_page_results[0]
+                if response.status_code == 200:
+                    per_page_results = response.json()
 
-            save_cropped_panels(
-                image_as_np_array,
-                page_result_predictions,
-                f"{panels_parent_directory}/{chapter_directory}/page_{page_num + 1}",
-            )
+                image_as_np_array = chapter_pages_image_numpy_array[page_num]
+                page_result_predictions = per_page_results[0]
 
-            page_num += 1
+                save_cropped_panels(
+                    image_as_np_array,
+                    page_result_predictions,
+                    f"{panels_parent_directory}/{series_and_chapter_name_directory}/page_{page_num + 1}",
+                )
+
+                page_num += 1
+            except Exception as e:
+                print(e)
     else:
         per_page_results = get_per_page_results(
             magi_model, chapter_pages_image_numpy_array, character_bank
@@ -170,7 +180,7 @@ def get_panels_for_chapter(magi_model):
             save_cropped_panels(
                 image_as_np_array,
                 page_result_predictions,
-                f"{panels_parent_directory}/{chapter_directory}/page_{i + 1}",
+                f"{panels_parent_directory}/{series_and_chapter_name_directory}/page_{i + 1}",
             )
 
     # Calculate and print the total time taken
