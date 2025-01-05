@@ -40,13 +40,16 @@ class AppBar(ft.Container):
             change_view=self.change_view,
         )
 
-        self.bgcolor = ft.Colors.BLUE_GREY_800
+        self.bgcolor = "#3b4252"
+        self.padding = 0
+        self.margin = 0
         self.content = ft.Row(
             controls=[
                 ft.Row(
                     controls=[
                         self.mangadex_button,
-                        self.panel_button,
+                        # TODO: Bring back after I start working on the "Panel-By-Panel" view.
+                        # self.panel_button,
                     ]
                 ),
                 ft.IconButton(ft.icons.MENU, on_click=lambda e: page.navigation.open()),

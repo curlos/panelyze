@@ -13,6 +13,7 @@ from classes.AppBar import AppBar
 class MangaDexDownloaderView(ft.Container):
     def __init__(self, page):
         super().__init__()
+        self.bgcolor = "#3b4252"
 
         print("Calling install function now!")
 
@@ -37,7 +38,7 @@ class MangaDexDownloaderView(ft.Container):
             bgcolor="#3b4252",
             padding=10,
             height=200,
-            border=ft.border.only(top=ft.border.BorderSide(1, "white")),
+            border=ft.border.only(top=ft.border.BorderSide(1, "#5e81ac")),
         )
 
         self.expand = True
@@ -111,10 +112,7 @@ def main(page: ft.Page):
     page.padding = 0
 
     page.title = "Manga Panel Splitter"
-
-    app_bar = AppBar(page)
-
-    page.add(app_bar)
+    page.bgcolor = "#3b4252"
 
     # Define Navigation Drawer content
     page.navigation = ft.NavigationDrawer(
@@ -132,8 +130,10 @@ def main(page: ft.Page):
         ]
     )
 
+    app_bar = AppBar(page)
     mangadex_downloader_view = MangaDexDownloaderView(page)
 
+    page.add(app_bar)
     page.add(mangadex_downloader_view)
 
 
