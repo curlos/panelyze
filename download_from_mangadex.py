@@ -4,10 +4,13 @@ import sys
 import select
 from rename_folders_to_chapter_format import rename_folders_to_chapter_format
 from utils import select_folder, is_tool_installed, pip_install_or_uninstall_tool
+import flet as ft
 
 
 def download_from_mangadex(
-    mangadex_url_to_download_from: str = "", output_directory: str = ""
+    mangadex_url_to_download_from: str = "",
+    output_directory: str = "",
+    output_list: ft.ListView = None,
 ) -> None:
     """
     @description Use the third-party "mangadex_downloader" command line tool to download manga from the given URL. URL must be a valid MangaDex URL.
@@ -62,23 +65,61 @@ def download_from_mangadex(
                             # end="" - Removes the new line at the end of the print statement.
                             # flush=True - Ensures immediate output to the terminal.
                             print(line, end="", flush=True)
+
+                            if output_list:
+                                # Add the line to the Flet ListView
+                                output_list.controls.append(
+                                    ft.Text(line.strip(), color=ft.colors.WHITE)
+                                )
+                                output_list.update()  # Update the Flet UI
                     elif stream_id == stderr_stream_id:
                         line = process.stderr.readline()
 
                         if line:
                             print(line, end="", flush=True)
 
+                            if output_list:
+                                # Add the error line to the Flet ListView
+                                output_list.controls.append(
+                                    ft.Text(line.strip(), color=ft.colors.WHITE)
+                                )
+                                output_list.update()  # Update the Flet UI
+
                 subprocess_has_finished = process.poll() is not None
 
                 if subprocess_has_finished:
                     break  # Exit loop when process finishes
         except Exception as e:
-            print(f"An error occurred: {e}")
+            exception_str = f"An error occurred: {e}"
+
+            print(exception_str)
+
+            if output_list:
+                # Add the error line to the Flet ListView
+                output_list.controls.append(
+                    ft.Text(exception_str, color=ft.colors.WHITE)
+                )
+                output_list.update()  # Update the Flet UI
         finally:
             if process.returncode == 0:
                 print("Command executed successfully!")
+
+                if output_list:
+                    output_list.controls.append(
+                        ft.Text("Command executed successfully!", color=ft.colors.WHITE)
+                    )
+                    output_list.update()  # Update the Flet UI
             else:
                 print(f"Command failed with return code {process.returncode}")
+
+                if output_list:
+                    output_list.controls.append(
+                        ft.Text(
+                            f"Command failed with return code {process.returncode}",
+                            color=ft.colors.WHITE,
+                        )
+                    )
+                    output_list.update()  # Update the Flet UI
 
 
 is_running_as_main_program = __name__ == "__main__"
