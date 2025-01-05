@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Add the root directory to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import flet as ft
 from utils import is_tool_installed, pip_install_or_uninstall_tool
 from download_from_mangadex import download_from_mangadex
