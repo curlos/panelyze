@@ -6,10 +6,10 @@ class AppBarButton(ft.TextButton):
         super().__init__()
         self.text = text
         self.on_click = lambda e: change_view(text)
-        self.set_button_style_by_view(current_view)
+        self.style = self.get_button_style_by_view(current_view)
 
-    def set_button_style_by_view(self, current_view):
-        self.style = ft.ButtonStyle(
+    def get_button_style_by_view(self, current_view):
+        return ft.ButtonStyle(
             bgcolor=(
                 "#5e81ac" if current_view == self.text else ft.Colors.BLUE_GREY_800
             ),
@@ -60,22 +60,12 @@ class AppBar(ft.Container):
         self.current_view = view_name
 
         # Update button styles dynamically
-        self.mangadex_button.style = ft.ButtonStyle(
-            bgcolor=(
-                "#5e81ac"
-                if self.current_view == "MangaDex Downloader"
-                else ft.Colors.BLUE_GREY_800
-            ),
-            color="white",
+        self.mangadex_button.style = self.mangadex_button.get_button_style_by_view(
+            self.current_view
         )
 
-        self.panel_button.style = ft.ButtonStyle(
-            bgcolor=(
-                "#5e81ac"
-                if self.current_view == "Panel-By-Panel"
-                else ft.Colors.BLUE_GREY_800
-            ),
-            color="white",
+        self.panel_button.style = self.panel_button.get_button_style_by_view(
+            self.current_view
         )
 
         self.page.update()  # Refresh the UI
