@@ -43,6 +43,23 @@ class AppBar(ft.Container):
         self.bgcolor = "#3b4252"
         self.padding = 0
         self.margin = 0
+
+        drawer = ft.NavigationDrawer(
+            position=ft.NavigationDrawerPosition.END,
+            controls=[
+                ft.ListTile(
+                    title=ft.Text("Settings"),
+                    leading=ft.Icon(ft.icons.SETTINGS),
+                    on_click=lambda e: print("Settings clicked!"),
+                ),
+                ft.ListTile(
+                    title=ft.Text("About"),
+                    leading=ft.Icon(ft.icons.INFO),
+                    on_click=lambda e: print("About clicked!"),
+                ),
+            ],
+        )
+
         self.content = ft.Row(
             controls=[
                 ft.Row(
@@ -52,7 +69,10 @@ class AppBar(ft.Container):
                         # self.panel_button,
                     ]
                 ),
-                ft.IconButton(ft.icons.MENU, on_click=lambda e: page.navigation.open()),
+                ft.IconButton(
+                    ft.icons.MENU,
+                    on_click=lambda e: self.page.open(drawer),
+                ),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             expand=True,

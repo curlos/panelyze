@@ -148,22 +148,6 @@ def main(page: ft.Page):
     page.title = "Manga Panel Splitter"
     page.bgcolor = "#3b4252"
 
-    # Define Navigation Drawer content
-    page.navigation = ft.NavigationDrawer(
-        controls=[
-            ft.ListTile(
-                title=ft.Text("Settings"),
-                leading=ft.Icon(ft.icons.SETTINGS),
-                on_click=lambda e: print("Settings clicked!"),
-            ),
-            ft.ListTile(
-                title=ft.Text("About"),
-                leading=ft.Icon(ft.icons.INFO),
-                on_click=lambda e: print("About clicked!"),
-            ),
-        ]
-    )
-
     app_bar = AppBar(page)
     mangadex_downloader_view = MangaDexDownloaderView(page)
 
