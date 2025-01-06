@@ -33,7 +33,10 @@ class MangaDexDownloaderView(ft.Container):
 
         output_list_wrapper = ft.Container(
             content=ft.Column(
-                controls=[ft.Text(value="Terminal", color="#8fbcbb"), self.output_list]
+                controls=[
+                    ft.Text(value="Terminal Output", color="#8fbcbb"),
+                    self.output_list,
+                ]
             ),
             bgcolor="#3b4252",
             padding=10,

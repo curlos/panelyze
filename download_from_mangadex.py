@@ -3,7 +3,12 @@ import os
 import sys
 import select
 from rename_folders_to_chapter_format import rename_folders_to_chapter_format
-from utils import select_folder, is_tool_installed, pip_install_or_uninstall_tool
+from utils import (
+    select_folder,
+    is_tool_installed,
+    pip_install_or_uninstall_tool,
+    open_directory,
+)
 import flet as ft
 
 
@@ -109,6 +114,10 @@ def download_from_mangadex(
                         ft.Text("Command executed successfully!", color=ft.colors.WHITE)
                     )
                     output_list.update()  # Update the Flet UI
+
+                # Open the directory that contains the downloads.
+                open_directory(output_directory)
+
             else:
                 print(f"Command failed with return code {process.returncode}")
 

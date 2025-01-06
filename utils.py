@@ -3,6 +3,7 @@ from tkinter import filedialog
 import subprocess
 import sys
 import os
+import platform
 
 
 def select_folder():
@@ -196,3 +197,14 @@ def get_last_two_directories(path):
 
     # Join them back into a string
     return os.path.join(*last_two)
+
+
+def open_directory(path):
+    if platform.system() == "Darwin":  # macOS
+        subprocess.run(["open", path])
+    elif platform.system() == "Windows":  # Windows
+        os.startfile(path)
+    elif platform.system() == "Linux":  # Linux
+        subprocess.run(["xdg-open", path])
+    else:
+        raise OSError(f"Unsupported operating system: {platform.system()}")
