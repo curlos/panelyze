@@ -30,13 +30,24 @@ class MangaDexDownloaderView(ft.Container):
         )
 
         self.terminal_output_list_view = ft.ListView(expand=True, auto_scroll=True)
+        self.terminal_arrow_icon = ft.IconButton(
+            ft.Icons.KEYBOARD_ARROW_DOWN,
+            on_click=self.toggle_terminal_visibility,
+            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=4), padding=1),
+        )
 
-        terminal_output_list_view_wrapper = ft.Container(
+        self.terminal_output_list_view_wrapper = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Text(value="Terminal Output", color="#8fbcbb"),
+                    ft.Row(
+                        controls=[
+                            ft.Text(value="Terminal Output", color="#8fbcbb"),
+                            self.terminal_arrow_icon,
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    ),
                     self.terminal_output_list_view,
-                ]
+                ],
             ),
             bgcolor="#3b4252",
             padding=10,
@@ -65,7 +76,7 @@ class MangaDexDownloaderView(ft.Container):
             controls=[
                 top_container,
                 ft.Container(
-                    content=terminal_output_list_view_wrapper,
+                    content=self.terminal_output_list_view_wrapper,
                     expand=True,
                     alignment=ft.alignment.bottom_left,
                 ),
@@ -108,6 +119,24 @@ class MangaDexDownloaderView(ft.Container):
             output_directory,
             self.terminal_output_list_view,
         )
+
+    # Define a function to toggle visibility
+    def toggle_terminal_visibility(self, e):
+        self.terminal_output_list_view.visible = (
+            not self.terminal_output_list_view.visible
+        )
+
+        # Check if height is currently fixed (200)
+        if self.terminal_output_list_view_wrapper.height == 200:
+            # Set to auto height by removing fixed height
+            self.terminal_output_list_view_wrapper.height = 60
+            self.terminal_arrow_icon.icon = ft.Icons.KEYBOARD_ARROW_UP
+        else:
+            # Reset to fixed height
+            self.terminal_output_list_view_wrapper.height = 200
+            self.terminal_arrow_icon.icon = ft.Icons.KEYBOARD_ARROW_DOWN
+
+        self.page.update()  # Refresh the UI to reflect changes
 
 
 def main(page: ft.Page):
