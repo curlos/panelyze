@@ -1,4 +1,6 @@
 import flet as ft
+import sys
+from utils import monitor_terminal_output
 
 
 class AppBarButton(ft.TextButton):
@@ -44,13 +46,17 @@ class AppBar(ft.Container):
         self.padding = 0
         self.margin = 0
 
-        print(
-            f'use_chapter_title value: {self.page.client_storage.get("use_chapter_title")}'
-        )
+        self.create()
 
-        print(
-            f'self.page.client_storage value: {self.page.client_storage.get_keys("key-prefix.")}'
-        )
+    def create(self):
+        all_mangadex_languages = self.get_all_mangadex_languages()
+        mangadex_languages = all_mangadex_languages["mangadex_languages"]
+        mangadex_languages_by_name = all_mangadex_languages[
+            "mangadex_languages_by_name"
+        ]
+
+        print(mangadex_languages)
+        print("MangaDex Languages")
 
         drawer = ft.NavigationDrawer(
             bgcolor="#3b4252",
@@ -80,17 +86,20 @@ class AppBar(ft.Container):
                             ),
                             ft.Dropdown(
                                 options=[
-                                    ft.dropdown.Option("Red"),
-                                    ft.dropdown.Option("Green"),
-                                    ft.dropdown.Option("Blue"),
+                                    ft.dropdown.Option(language["name"])
+                                    for language in mangadex_languages
                                 ],
-                                value="Red",
+                                value="English",
                                 text_style=ft.TextStyle(
                                     color="white",  # Text color of the selected item
                                     size=14,  # Font size
                                 ),
                                 fill_color="#3b4252",  # Background color of the dropdown
                                 border_color="#5e81ac",
+                                max_menu_height=300,
+                                on_change=lambda e: self.handle_dropdown_change(
+                                    e.data, mangadex_languages_by_name
+                                ),
                             ),
                         ]
                     ),
@@ -146,3 +155,34 @@ class AppBar(ft.Container):
         print(boolean_setting_value)
 
         self.page.client_storage.set(setting_key, boolean_setting_value)
+
+    def get_all_mangadex_languages(self):
+        terminal_command = [
+            sys.executable,
+            "-m",
+            "mangadex_downloader",
+            "--list-language",
+            "-ll",
+        ]
+
+        all_lines = monitor_terminal_output(terminal_command)
+
+        # Filter languages based on the pattern "name / code"
+        filtered_languages = [line.strip() for line in all_lines if " / " in line]
+
+        mangadex_languages = [
+            {"name": lang.split(" / ")[0], "code": lang.split(" / ")[1]}
+            for lang in filtered_languages
+        ]
+
+        mangadex_languages_by_name = {lang["name"]: lang for lang in mangadex_languages}
+
+        return {
+            "mangadex_languages": mangadex_languages,
+            "mangadex_languages_by_name": mangadex_languages_by_name,
+        }
+
+    def handle_dropdown_change(self, chosen_language_name, mangadex_languages_by_name):
+        print(chosen_language_name)
+        print(mangadex_languages_by_name)
+        print(mangadex_languages_by_name[chosen_language_name])

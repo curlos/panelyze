@@ -226,6 +226,8 @@ def monitor_terminal_output(
     terminal_output_list_view: ft.ListView = None,
     output_directory: str = "",
 ):
+    lines = []
+
     # Make a shallow copy of the OS environment variables.
     env = os.environ.copy()
 
@@ -266,6 +268,8 @@ def monitor_terminal_output(
                             add_line_to_terminal_output_list_view(
                                 terminal_output_list_view, line.strip()
                             )
+
+                            lines.append(line)
                     elif stream_id == stderr_stream_id:
                         line = process.stderr.readline()
 
@@ -274,6 +278,7 @@ def monitor_terminal_output(
                             add_line_to_terminal_output_list_view(
                                 terminal_output_list_view, line.strip()
                             )
+                            lines.append(line)
 
                 subprocess_has_finished = process.poll() is not None
 
@@ -303,3 +308,5 @@ def monitor_terminal_output(
                     terminal_output_list_view,
                     f"Command failed with return code {process.returncode}",
                 )
+
+    return lines

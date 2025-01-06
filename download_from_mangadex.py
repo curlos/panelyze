@@ -51,7 +51,6 @@ def download_from_mangadex(
         flet_page_client_storage
     )
 
-    # TODO: I've added some default commands here that I personally like however, later on as I develop the GUI, I should make this more flexible and dynamic so that it corresponds to the options from the GUI.
     terminal_command = [
         sys.executable,
         "-m",
