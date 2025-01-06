@@ -4,6 +4,7 @@ import subprocess
 import sys
 import os
 import platform
+import flet as ft
 
 
 def select_folder():
@@ -208,3 +209,12 @@ def open_directory(path):
         subprocess.run(["xdg-open", path])
     else:
         raise OSError(f"Unsupported operating system: {platform.system()}")
+
+
+def add_line_to_terminal_output_list_view(
+    terminal_output_list_view, text, color="white"
+):
+    if terminal_output_list_view:
+        # Add the line to the Flet ListView
+        terminal_output_list_view.controls.append(ft.Text(text, color=color))
+        terminal_output_list_view.update()  # Update the Flet UI

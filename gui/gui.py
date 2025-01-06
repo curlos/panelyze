@@ -29,13 +29,13 @@ class MangaDexDownloaderView(ft.Container):
             border_color="#5e81ac",
         )
 
-        self.output_list = ft.ListView(expand=True, auto_scroll=True)
+        self.terminal_output_list_view = ft.ListView(expand=True, auto_scroll=True)
 
-        output_list_wrapper = ft.Container(
+        terminal_output_list_view_wrapper = ft.Container(
             content=ft.Column(
                 controls=[
                     ft.Text(value="Terminal Output", color="#8fbcbb"),
-                    self.output_list,
+                    self.terminal_output_list_view,
                 ]
             ),
             bgcolor="#3b4252",
@@ -65,7 +65,7 @@ class MangaDexDownloaderView(ft.Container):
             controls=[
                 top_container,
                 ft.Container(
-                    content=output_list_wrapper,
+                    content=terminal_output_list_view_wrapper,
                     expand=True,
                     alignment=ft.alignment.bottom_left,
                 ),
@@ -90,12 +90,12 @@ class MangaDexDownloaderView(ft.Container):
         print(is_empty_url)
 
         if is_empty_url:
-            self.output_list.controls.append(
+            self.terminal_output_list_view.controls.append(
                 ft.Text(
                     "ERROR: MangaDex Page URL must not be empty.", color=ft.Colors.RED
                 )
             )
-            self.output_list.update()
+            self.terminal_output_list_view.update()
         else:
             self.pick_files_dialog.get_directory_path()
 
@@ -104,7 +104,9 @@ class MangaDexDownloaderView(ft.Container):
         output_directory = e.path
 
         download_from_mangadex(
-            mangadex_url_to_download_from, output_directory, self.output_list
+            mangadex_url_to_download_from,
+            output_directory,
+            self.terminal_output_list_view,
         )
 
 
