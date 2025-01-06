@@ -114,10 +114,15 @@ class MangaDexDownloaderView(ft.Container):
         mangadex_url_to_download_from = self.mangadex_url_text_field.value
         output_directory = e.path
 
+        print(self.page.client_storage)
+        print(self.page.client_storage.get("use_chapter_title"))
+        print("AHHHH")
+
         download_from_mangadex(
             mangadex_url_to_download_from,
             output_directory,
             self.terminal_output_list_view,
+            self.page.client_storage,
         )
 
     # Define a function to toggle visibility
