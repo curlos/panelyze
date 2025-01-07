@@ -26,15 +26,22 @@ def get_additional_terminal_options(flet_page_client_storage):
 
     for key, terminal_command in all_options_with_terminal_command.items():
         storage_value = flet_page_client_storage.get(key)
+        use_start_and_end_pages = flet_page_client_storage.get(
+            "use_start_and_end_pages"
+        )
 
         print(f"{key}: {storage_value}")
+
+        pdb.set_trace()
 
         if key is "language":
             additional_terminal_options.extend(["--language", storage_value["code"]])
         elif key is "start_page" and storage_value:
-            additional_terminal_options.extend(["--start-page", storage_value])
+            if use_start_and_end_pages:
+                additional_terminal_options.extend(["--start-page", storage_value])
         elif key is "end_page" and storage_value:
-            additional_terminal_options.extend(["--end-page", storage_value])
+            if use_start_and_end_pages:
+                additional_terminal_options.extend(["--end-page", storage_value])
         elif storage_value:
             additional_terminal_options.append(terminal_command)
 
