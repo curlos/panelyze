@@ -111,9 +111,6 @@ class AppBar(ft.Container):
                                         ),
                                     ],
                                 ),
-                                border=ft.border.only(
-                                    bottom=ft.border.BorderSide(1, "#5e81ac")
-                                ),
                                 expand=True,
                                 padding=ft.padding.only(bottom=5),
                             ),
@@ -218,8 +215,7 @@ class AppBar(ft.Container):
                 ft.Row(
                     controls=[
                         self.mangadex_button,
-                        # TODO: Bring back after I start working on the "Panel-By-Panel" view.
-                        # self.panel_button,
+                        self.panel_button,
                     ]
                 ),
                 ft.IconButton(
