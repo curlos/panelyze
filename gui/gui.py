@@ -9,20 +9,23 @@ from classes.AppBar import AppBar
 from classes.MangaDexDownloaderView import MangaDexDownloaderView
 
 
-def main(page: ft.Page):
-    page.theme_mode = "dark"
-    page.theme = ft.Theme(color_scheme_seed="#5e81ac")
-    page.dark_theme = ft.Theme(color_scheme_seed="#5e81ac")
-    page.padding = 0
+class GUI(ft.Page):
+    def __init__(self, page: ft.Page):
+        self.page = page
 
-    page.title = "Manga Panel Splitter"
-    page.bgcolor = "#3b4252"
+        self.page.theme_mode = "dark"
+        self.page.theme = ft.Theme(color_scheme_seed="#5e81ac")
+        self.page.dark_theme = ft.Theme(color_scheme_seed="#5e81ac")
+        self.page.padding = 0
 
-    app_bar = AppBar(page)
-    mangadex_downloader_view = MangaDexDownloaderView(page)
+        self.page.title = "Manga Panel Splitter"
+        self.page.bgcolor = "#3b4252"
 
-    page.add(app_bar)
-    page.add(mangadex_downloader_view)
+        app_bar = AppBar(page)
+        mangadex_downloader_view = MangaDexDownloaderView(page)
+
+        self.page.add(app_bar)
+        self.page.add(mangadex_downloader_view)
 
 
-ft.app(target=main)
+ft.app(target=GUI)
