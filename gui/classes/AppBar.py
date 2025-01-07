@@ -61,10 +61,6 @@ class AppBar(ft.Container):
 
         default_language = self.page.client_storage.get("language")
 
-        print(
-            f'use_start_and_end_pages: {self.page.client_storage.get("use_start_and_end_pages")}'
-        )
-
         self.start_page_textfield = self.get_number_textfield(
             "Start Page", "start_page"
         )
@@ -133,6 +129,16 @@ class AppBar(ft.Container):
                                 value=self.page.client_storage.get("no_group_name"),
                                 on_change=lambda e: self.change_mangadex_downloader_setting(
                                     "no_group_name", e.data
+                                ),
+                            ),
+                            ft.Checkbox(
+                                # Replace existing manga, chapter, or list.
+                                label="Replace Existing Manga/Chapter",
+                                value=self.page.client_storage.get(
+                                    "replace_existing_manga"
+                                ),
+                                on_change=lambda e: self.change_mangadex_downloader_setting(
+                                    "replace_existing_manga", e.data
                                 ),
                             ),
                             # Languages only works for a whole manga - not individual chapters. If I pass in the URL for the One Piece Manga with all of the chapters, it will download it in the specified language. But if I pass in a specific URL of Chapter. 567 in English, it will download in English and not the passed in language.

@@ -17,6 +17,7 @@ all_options_with_terminal_command = {
     "end_page": 9999,  # Random max value just to show what the values could look like.
     "start_chapter": 1,
     "end_chapter": 9999,
+    "replace_existing_manga": ["--replace", "-r"],
 }
 
 
@@ -53,7 +54,10 @@ def get_additional_terminal_options(flet_page_client_storage):
             if use_start_and_end_chapters:
                 additional_terminal_options.extend(["--end-chapter", storage_value])
         elif storage_value:
-            additional_terminal_options.append(terminal_command)
+            if isinstance(terminal_command, list):
+                additional_terminal_options.extend(terminal_command)
+            else:
+                additional_terminal_options.append(terminal_command)
 
     print(additional_terminal_options)
 
