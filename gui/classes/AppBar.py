@@ -55,8 +55,10 @@ class AppBar(ft.Container):
             "mangadex_languages_by_name"
         ]
 
-        print(mangadex_languages)
-        print("MangaDex Languages")
+        if not self.page.client_storage.get("language"):
+            self.page.client_storage.set("language", {"name": "English", "code": "en"})
+
+        default_language = self.page.client_storage.get("language")
 
         drawer = ft.NavigationDrawer(
             bgcolor="#3b4252",
@@ -89,7 +91,7 @@ class AppBar(ft.Container):
                                     ft.dropdown.Option(language["name"])
                                     for language in mangadex_languages
                                 ],
-                                value="English",
+                                value=default_language["name"],
                                 text_style=ft.TextStyle(
                                     color="white",  # Text color of the selected item
                                     size=14,  # Font size
@@ -97,7 +99,7 @@ class AppBar(ft.Container):
                                 fill_color="#3b4252",  # Background color of the dropdown
                                 border_color="#5e81ac",
                                 max_menu_height=300,
-                                on_change=lambda e: self.handle_dropdown_change(
+                                on_change=lambda e: self.handle_language_dropdown_change(
                                     e.data, mangadex_languages_by_name
                                 ),
                             ),
@@ -182,7 +184,8 @@ class AppBar(ft.Container):
             "mangadex_languages_by_name": mangadex_languages_by_name,
         }
 
-    def handle_dropdown_change(self, chosen_language_name, mangadex_languages_by_name):
-        print(chosen_language_name)
-        print(mangadex_languages_by_name)
-        print(mangadex_languages_by_name[chosen_language_name])
+    def handle_language_dropdown_change(
+        self, chosen_language_name, mangadex_languages_by_name
+    ):
+        language_obj = mangadex_languages_by_name[chosen_language_name]
+        self.page.client_storage.set("language", language_obj)
