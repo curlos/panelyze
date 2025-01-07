@@ -87,5 +87,4 @@ class AppBar(ft.Container):
         )
 
         self.parent_gui.render_page_based_on_current_view()
-
-        self.parent_gui.page.update()  # Refresh the UI
+        self.parent_gui.page.update()

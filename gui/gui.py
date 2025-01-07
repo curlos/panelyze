@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import flet as ft
 from classes.AppBar import AppBar
 from classes.MangaDexDownloaderView import MangaDexDownloaderView
+from classes.TerminalOutput import TerminalOutput
 
 
 class GUI(ft.Page):
@@ -22,19 +23,37 @@ class GUI(ft.Page):
         self.page.bgcolor = "#3b4252"
 
         self.current_view = "MangaDex Downloader"
+        self.terminal_output = TerminalOutput(self.page)
+
         self.render_page_based_on_current_view()
 
     def render_page_based_on_current_view(self):
+        print(f"Changed view to: {self.current_view}")
+
         self.page.controls.clear()
 
         self.app_bar = AppBar(self)
         self.view_element = self.get_view_element()
+
         self.page.add(self.app_bar)
-        self.page.add(self.view_element)
+
+        view_element_with_terminal = ft.Column(
+            controls=[
+                self.view_element,
+                ft.Container(
+                    content=self.terminal_output,
+                    expand=True,
+                    alignment=ft.alignment.bottom_left,
+                ),
+            ],
+            expand=True,
+        )
+
+        self.page.add(view_element_with_terminal)
 
     def get_view_element(self):
         if self.current_view == "MangaDex Downloader":
-            return MangaDexDownloaderView(self.page)
+            return MangaDexDownloaderView(self)
         elif self.current_view == "Panel-By-Panel":
             return ft.Text("Hello World! Panel-By-Panel.")
 
