@@ -7,28 +7,29 @@ from utils import (
     monitor_terminal_output,
 )
 import flet as ft
+import pdb
 
 all_options_with_terminal_command = {
     "use_chapter_title": "--use-chapter-title",
     "no_group_name": "--no-group-name",
+    "language": ["--language", "en"],
 }
 
 
 def get_additional_terminal_options(flet_page_client_storage):
     if not flet_page_client_storage:
-        return [
-            "--use-chapter-title",
-            "--no-group-name",
-        ]
+        return ["--use-chapter-title", "--no-group-name", ""]
 
     additional_terminal_options = []
 
     for key, terminal_command in all_options_with_terminal_command.items():
-        is_checked = flet_page_client_storage.get(key)
+        storage_value = flet_page_client_storage.get(key)
 
-        print(f"{key}: {is_checked}")
+        print(f"{key}: {storage_value}")
 
-        if is_checked:
+        if key is "language":
+            additional_terminal_options.extend(["--language", storage_value["code"]])
+        elif storage_value:
             additional_terminal_options.append(terminal_command)
 
     print(additional_terminal_options)

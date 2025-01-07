@@ -86,7 +86,9 @@ class AppBar(ft.Container):
                                     "no_group_name", e.data
                                 ),
                             ),
+                            # Languages only works for a whole manga - not individual chapters. If I pass in the URL for the One Piece Manga with all of the chapters, it will download it in the specified language. But if I pass in a specific URL of Chapter. 567 in English, it will download in English and not the passed in language.
                             ft.Dropdown(
+                                label="Languages",
                                 options=[
                                     ft.dropdown.Option(language["name"])
                                     for language in mangadex_languages
@@ -171,6 +173,11 @@ class AppBar(ft.Container):
 
         # Filter languages based on the pattern "name / code"
         filtered_languages = [line.strip() for line in all_lines if " / " in line]
+
+        # If "MangaDex Downloader" somehow can't fetch the languages the first time around, then keep trying until we get the languages
+        while len(filtered_languages) == 0:
+            all_lines = monitor_terminal_output(terminal_command)
+            filtered_languages = [line.strip() for line in all_lines if " / " in line]
 
         mangadex_languages = [
             {"name": lang.split(" / ")[0], "code": lang.split(" / ")[1]}
