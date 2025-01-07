@@ -65,28 +65,10 @@ class AppBar(ft.Container):
             f'use_start_and_end_pages: {self.page.client_storage.get("use_start_and_end_pages")}'
         )
 
-        self.start_page_textfield = ft.TextField(
-            label="Start Page",
-            expand=True,
-            border_color="#5e81ac",
-            keyboard_type=ft.KeyboardType.NUMBER,
-            value=self.page.client_storage.get("start_page"),
-            on_change=lambda e: self.change_mangadex_downloader_setting(
-                "start_page", e.data
-            ),
+        self.start_page_textfield = self.get_number_textfield(
+            "Start Page", "start_page"
         )
-
-        self.end_page_textfield = ft.TextField(
-            label="End Page",
-            expand=True,
-            border_color="#5e81ac",
-            keyboard_type=ft.KeyboardType.NUMBER,
-            value=self.page.client_storage.get("end_page"),
-            on_change=lambda e: self.change_mangadex_downloader_setting(
-                "end_page", e.data
-            ),
-        )
-
+        self.end_page_textfield = self.get_number_textfield("End Page", "end_page")
         self.start_and_end_page_col = ft.Column(
             controls=[
                 self.start_page_textfield,
@@ -94,6 +76,27 @@ class AppBar(ft.Container):
             ],
             visible=bool(self.page.client_storage.get("use_start_and_end_pages")),
         )
+
+        self.start_chapter_textfield = self.get_number_textfield(
+            "Start Chapter", "start_chapter"
+        )
+        self.end_chapter_textfield = self.get_number_textfield(
+            "End Chapter", "end_chapter"
+        )
+        self.start_and_end_chapter_col = ft.Column(
+            controls=[
+                self.start_chapter_textfield,
+                self.end_chapter_textfield,
+            ],
+            visible=bool(self.page.client_storage.get("use_start_and_end_chapters")),
+        )
+
+        self.page_num_textfield_dict = {
+            "start_page": self.start_page_textfield,
+            "end_page": self.end_page_textfield,
+            "start_chapter": self.start_chapter_textfield,
+            "end_chapter": self.end_chapter_textfield,
+        }
 
         drawer = ft.NavigationDrawer(
             bgcolor="#3b4252",
@@ -161,6 +164,16 @@ class AppBar(ft.Container):
                                 ),
                             ),
                             self.start_and_end_page_col,
+                            ft.Checkbox(
+                                label="Use Start and End Chapters",
+                                value=self.page.client_storage.get(
+                                    "use_start_and_end_chapters"
+                                ),
+                                on_change=lambda e: self.toggle_start_and_end_chapter_col_visibility(
+                                    e
+                                ),
+                            ),
+                            self.start_and_end_chapter_col,
                         ],
                         expand=True,
                     ),
@@ -216,13 +229,8 @@ class AppBar(ft.Container):
 
         # pdb.set_trace()
 
-        if setting_key == "start_page" or setting_key == "end_page":
-            page_num_textfield_dict = {
-                "start_page": self.start_page_textfield,
-                "end_page": self.end_page_textfield,
-            }
-
-            page_num_textfield = page_num_textfield_dict[setting_key]
+        if setting_key in self.page_num_textfield_dict:
+            page_num_textfield = self.page_num_textfield_dict[setting_key]
 
             if setting_value and not setting_value.isdigit():
                 page_num_textfield.error_text = "Please enter a valid page number."
@@ -273,7 +281,24 @@ class AppBar(ft.Container):
 
     def toggle_start_and_end_page_col_visibility(self, e):
         self.start_and_end_page_col.visible = not self.start_and_end_page_col.visible
-
         self.change_mangadex_downloader_setting("use_start_and_end_pages", e.data)
+        self.page.update()
 
-        self.page.update()  # Refresh the UI to reflect changes
+    def toggle_start_and_end_chapter_col_visibility(self, e):
+        self.start_and_end_chapter_col.visible = (
+            not self.start_and_end_chapter_col.visible
+        )
+        self.change_mangadex_downloader_setting("use_start_and_end_chapters", e.data)
+        self.page.update()
+
+    def get_number_textfield(self, label, client_storage_key):
+        return ft.TextField(
+            label=label,
+            expand=True,
+            border_color="#5e81ac",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            value=self.page.client_storage.get(client_storage_key),
+            on_change=lambda e: self.change_mangadex_downloader_setting(
+                client_storage_key, e.data
+            ),
+        )
