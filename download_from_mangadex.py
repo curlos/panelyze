@@ -4,7 +4,7 @@ from utils import (
     select_folder,
     is_tool_installed,
     pip_install_or_uninstall_tool,
-    monitor_terminal_output,
+    ProcessManager,
 )
 import flet as ft
 import pdb
@@ -36,20 +36,20 @@ def get_additional_terminal_options(flet_page_client_storage):
 
         print(f"{key}: {storage_value}")
 
-        pdb.set_trace()
+        # pdb.set_trace()
 
-        if key is "language":
+        if key == "language":
             additional_terminal_options.extend(["--language", storage_value["code"]])
-        elif key is "start_page" and storage_value:
+        elif key == "start_page" and storage_value:
             if use_start_and_end_pages:
                 additional_terminal_options.extend(["--start-page", storage_value])
-        elif key is "end_page" and storage_value:
+        elif key == "end_page" and storage_value:
             if use_start_and_end_pages:
                 additional_terminal_options.extend(["--end-page", storage_value])
-        elif key is "start_chapter" and storage_value:
+        elif key == "start_chapter" and storage_value:
             if use_start_and_end_chapters:
                 additional_terminal_options.extend(["--start-chapter", storage_value])
-        elif key is "end_chapter" and storage_value:
+        elif key == "end_chapter" and storage_value:
             if use_start_and_end_chapters:
                 additional_terminal_options.extend(["--end-chapter", storage_value])
         elif storage_value:
@@ -65,6 +65,7 @@ def download_from_mangadex(
     output_directory: str = "",
     terminal_output_list_view: ft.ListView = None,
     flet_page_client_storage=None,
+    cancel_process_button=None,
 ) -> None:
     """
     @description Use the third-party "mangadex_downloader" command line tool to download manga from the given URL. URL must be a valid MangaDex URL.
@@ -85,7 +86,13 @@ def download_from_mangadex(
     ]
 
     terminal_command.extend(additional_terminal_options)
-    monitor_terminal_output(
+
+    process_manager = ProcessManager()
+
+    if cancel_process_button:
+        cancel_process_button.on_click = lambda _: process_manager.cancel_process()
+
+    process_manager.monitor_terminal_output(
         terminal_command, terminal_output_list_view, output_directory
     )
 

@@ -1,6 +1,6 @@
 import flet as ft
 import sys
-from utils import monitor_terminal_output
+from utils import ProcessManager
 import pdb
 
 
@@ -251,14 +251,16 @@ class AppBar(ft.Container):
             "-ll",
         ]
 
-        all_lines = monitor_terminal_output(terminal_command)
+        process_manager = ProcessManager()
+        all_lines = process_manager.monitor_terminal_output(terminal_command)
 
         # Filter languages based on the pattern "name / code"
         filtered_languages = [line.strip() for line in all_lines if " / " in line]
 
         # If "MangaDex Downloader" somehow can't fetch the languages the first time around, then keep trying until we get the languages
         while len(filtered_languages) == 0:
-            all_lines = monitor_terminal_output(terminal_command)
+            process_manager = ProcessManager()
+            all_lines = process_manager.monitor_terminal_output(terminal_command)
             filtered_languages = [line.strip() for line in all_lines if " / " in line]
 
         mangadex_languages = [

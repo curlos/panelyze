@@ -55,16 +55,27 @@ class MangaDexDownloaderView(ft.Container):
 
         self.expand = True
 
+        self.download_button = ft.FilledTonalButton(
+            text="Download",
+            color="white",
+            bgcolor="#5e81ac",
+            on_click=self.open_file_picker_dialog,
+        )
+
+        self.cancel_button = ft.FilledTonalButton(
+            text="Cancel",
+            color="white",
+            bgcolor="red",
+            on_click=self.open_file_picker_dialog,
+            visible=False,
+        )
+
         top_container = ft.Container(
             content=ft.Column(
                 controls=[
                     ft.Row(controls=[self.mangadex_url_text_field]),
-                    ft.FilledTonalButton(
-                        text="Download",
-                        color="white",
-                        bgcolor="#5e81ac",
-                        on_click=self.open_file_picker_dialog,
-                    ),
+                    self.download_button,
+                    self.cancel_button,
                 ],
             ),
             padding=15,
@@ -92,8 +103,6 @@ class MangaDexDownloaderView(ft.Container):
     def open_file_picker_dialog(self, e):
         is_empty_url = not self.mangadex_url_text_field.value
 
-        print(is_empty_url)
-
         if is_empty_url:
             self.terminal_output_list_view.controls.append(
                 ft.Text(
@@ -108,12 +117,24 @@ class MangaDexDownloaderView(ft.Container):
         mangadex_url_to_download_from = self.mangadex_url_text_field.value
         output_directory = e.path
 
-        download_from_mangadex(
-            mangadex_url_to_download_from,
-            output_directory,
-            self.terminal_output_list_view,
-            self.page.client_storage,
-        )
+        self.download_button.visible = False
+        self.cancel_button.visible = True
+        self.download_button.update()
+        self.cancel_button.update()
+
+        try:
+            download_from_mangadex(
+                mangadex_url_to_download_from,
+                output_directory,
+                self.terminal_output_list_view,
+                self.page.client_storage,
+                self.cancel_button,
+            )
+        finally:
+            self.download_button.visible = True
+            self.cancel_button.visible = False
+            self.download_button.update()
+            self.cancel_button.update()
 
     # Define a function to toggle visibility
     def toggle_terminal_visibility(self, e):

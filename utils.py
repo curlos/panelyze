@@ -221,34 +221,40 @@ def add_line_to_terminal_output_list_view(
         terminal_output_list_view.update()  # Update the Flet UI
 
 
-def monitor_terminal_output(
-    terminal_command: list[str],
-    terminal_output_list_view: ft.ListView = None,
-    output_directory: str = "",
-):
-    lines = []
+class ProcessManager:
+    def __init__(self):
+        self.process = None  # To store the running process
 
-    # Make a shallow copy of the OS environment variables.
-    env = os.environ.copy()
+    def monitor_terminal_output(
+        self,
+        terminal_command: list[str],
+        terminal_output_list_view: ft.ListView = None,
+        output_directory: str = "",
+    ):
+        lines = []
 
-    # Ensures that the subprocess writes output immediately to stdout/stderr without buffering so we data can be processed line-by-line in real-time programatically.
-    # We need to take of the two running process with BOTH "PYTHONUNBUFFERED" (parent process - the running "download_from_mangadex.py" file) and bufsize=1 (subprocess) below.
-    env["PYTHONUNBUFFERED"] = "1"
+        # Make a shallow copy of the OS environment variables.
+        env = os.environ.copy()
 
-    # Open a child "process" (it's a child because it's opened within the parent process, the process that executes the "download_from_mangadex.py" file)
-    with subprocess.Popen(
-        terminal_command,
-        stdout=subprocess.PIPE,  # Redirected to a PIPE so that the parent process (this python file) can manipulate the output and error lines in the code below instead of in the terminal.
-        stderr=subprocess.PIPE,
-        text=True,  # Return the output and errors as strings (text mode) instead of in binary data (bytes). If this was not done, then I would have to decode the binary data myself below.
-        bufsize=1,  # Ensures that Python itself reads the output line-by-line from the pipe rather than waiting for the entire buffer to fill up. Only works in text mode (text = True)
-        env=env,  # Use the modified "env" variable so that it takes "PYTHONUNBUFFERED" which will give us access to each line output immediately instead of after the program is done executing.
-    ) as process:
+        # Ensures that the subprocess writes output immediately to stdout/stderr without buffering so we data can be processed line-by-line in real-time programatically.
+        # We need to take of the two running process with BOTH "PYTHONUNBUFFERED" (parent process - the running "download_from_mangadex.py" file) and bufsize=1 (subprocess) below.
+        env["PYTHONUNBUFFERED"] = "1"
+
+        # Open a child "process" (it's a child because it's opened within the parent process, the process that executes the "download_from_mangadex.py" file)
+        self.process = subprocess.Popen(
+            terminal_command,
+            stdout=subprocess.PIPE,  # Redirected to a PIPE so that the parent process (this python file) can manipulate the output and error lines in the code below instead of in the terminal.
+            stderr=subprocess.PIPE,
+            text=True,  # Return the output and errors as strings (text mode) instead of in binary data (bytes). If this was not done, then I would have to decode the binary data myself below.
+            bufsize=1,  # Ensures that Python itself reads the output line-by-line from the pipe rather than waiting for the entire buffer to fill up. Only works in text mode (text = True)
+            env=env,  # Use the modified "env" variable so that it takes "PYTHONUNBUFFERED" which will give us access to each line output immediately instead of after the program is done executing.
+        )
+
         try:
             # Use `select` to monitor stdout and stderr
             while True:
-                stdout_stream_id = process.stdout.fileno()
-                stderr_stream_id = process.stderr.fileno()
+                stdout_stream_id = self.process.stdout.fileno()
+                stderr_stream_id = self.process.stderr.fileno()
 
                 reads = [stdout_stream_id, stderr_stream_id]
 
@@ -258,7 +264,7 @@ def monitor_terminal_output(
 
                 for stream_id in ready_to_read_stream_ids[0]:
                     if stream_id == stdout_stream_id:
-                        line = process.stdout.readline()
+                        line = self.process.stdout.readline()
 
                         if line:
                             # end="" - Removes the new line at the end of the print statement.
@@ -271,7 +277,7 @@ def monitor_terminal_output(
 
                             lines.append(line)
                     elif stream_id == stderr_stream_id:
-                        line = process.stderr.readline()
+                        line = self.process.stderr.readline()
 
                         if line:
                             print(line, end="", flush=True)
@@ -280,7 +286,7 @@ def monitor_terminal_output(
                             )
                             lines.append(line)
 
-                subprocess_has_finished = process.poll() is not None
+                subprocess_has_finished = self.process.poll() is not None
 
                 if subprocess_has_finished:
                     break  # Exit loop when process finishes
@@ -292,7 +298,7 @@ def monitor_terminal_output(
                 terminal_output_list_view, exception_str
             )
         finally:
-            if process.returncode == 0:
+            if self.process.returncode == 0:
                 print("Command executed successfully!")
                 add_line_to_terminal_output_list_view(
                     terminal_output_list_view, "Command executed successfully!"
@@ -303,10 +309,16 @@ def monitor_terminal_output(
                     open_directory(output_directory)
 
             else:
-                print(f"Command failed with return code {process.returncode}")
+                print(f"Command failed with return code {self.process.returncode}")
                 add_line_to_terminal_output_list_view(
                     terminal_output_list_view,
-                    f"Command failed with return code {process.returncode}",
+                    f"Command failed with return code {self.process.returncode}",
                 )
 
-    return lines
+        return lines
+
+    def cancel_process(self):
+
+        if self.process:
+            self.process.terminate()  # Gracefully terminate the process
+            print("Process terminated by user.")
