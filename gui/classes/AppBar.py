@@ -61,26 +61,36 @@ class AppBar(ft.Container):
 
         default_language = self.page.client_storage.get("language")
 
-        self.start_and_end_page_row = ft.Row(
+        print(
+            f'use_start_and_end_pages: {self.page.client_storage.get("use_start_and_end_pages")}'
+        )
+
+        self.start_page_textfield = ft.TextField(
+            label="Start Page",
+            expand=True,
+            border_color="#5e81ac",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            value=self.page.client_storage.get("start_page"),
+            on_change=lambda e: self.change_mangadex_downloader_setting(
+                "start_page", e.data
+            ),
+        )
+
+        self.end_page_textfield = ft.TextField(
+            label="End Page",
+            expand=True,
+            border_color="#5e81ac",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            value=self.page.client_storage.get("end_page"),
+            on_change=lambda e: self.change_mangadex_downloader_setting(
+                "end_page", e.data
+            ),
+        )
+
+        self.start_and_end_page_col = ft.Column(
             controls=[
-                ft.TextField(
-                    label="Start Page",
-                    expand=True,
-                    border_color="#5e81ac",
-                    keyboard_type=ft.KeyboardType.NUMBER,
-                    on_change=lambda e: self.change_mangadex_downloader_setting(
-                        "start_page", e.data
-                    ),
-                ),
-                ft.TextField(
-                    label="End Page",
-                    expand=True,
-                    border_color="#5e81ac",
-                    keyboard_type=ft.KeyboardType.NUMBER,
-                    on_change=lambda e: self.change_mangadex_downloader_setting(
-                        "end_page", e.data
-                    ),
-                ),
+                self.start_page_textfield,
+                self.end_page_textfield,
             ],
             visible=bool(self.page.client_storage.get("use_start_and_end_pages")),
         )
@@ -146,11 +156,11 @@ class AppBar(ft.Container):
                                 value=self.page.client_storage.get(
                                     "use_start_and_end_pages"
                                 ),
-                                on_change=lambda e: self.toggle_start_and_end_page_row_visibility(
+                                on_change=lambda e: self.toggle_start_and_end_page_col_visibility(
                                     e
                                 ),
                             ),
-                            self.start_and_end_page_row,
+                            self.start_and_end_page_col,
                         ],
                         expand=True,
                     ),
@@ -204,7 +214,25 @@ class AppBar(ft.Container):
                 setting_value.lower(), False
             )
 
-        self.page.client_storage.set(setting_key, final_setting_value)
+        # pdb.set_trace()
+
+        if setting_key == "start_page" or setting_key == "end_page":
+            page_num_textfield_dict = {
+                "start_page": self.start_page_textfield,
+                "end_page": self.end_page_textfield,
+            }
+
+            page_num_textfield = page_num_textfield_dict[setting_key]
+
+            if setting_value and not setting_value.isdigit():
+                page_num_textfield.error_text = "Please enter a valid page number."
+            else:
+                page_num_textfield.error_text = ""
+                self.page.client_storage.set(setting_key, final_setting_value)
+
+            page_num_textfield.update()
+        else:
+            self.page.client_storage.set(setting_key, final_setting_value)
 
     def get_all_mangadex_languages(self):
         terminal_command = [
@@ -243,8 +271,8 @@ class AppBar(ft.Container):
         language_obj = mangadex_languages_by_name[chosen_language_name]
         self.page.client_storage.set("language", language_obj)
 
-    def toggle_start_and_end_page_row_visibility(self, e):
-        self.start_and_end_page_row.visible = not self.start_and_end_page_row.visible
+    def toggle_start_and_end_page_col_visibility(self, e):
+        self.start_and_end_page_col.visible = not self.start_and_end_page_col.visible
 
         self.change_mangadex_downloader_setting("use_start_and_end_pages", e.data)
 

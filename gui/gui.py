@@ -15,8 +15,6 @@ class MangaDexDownloaderView(ft.Container):
         super().__init__()
         self.bgcolor = "#3b4252"
 
-        print("Calling install function now!")
-
         self.install_mangadex_downloader()
 
         self.page = page
@@ -87,10 +85,6 @@ class MangaDexDownloaderView(ft.Container):
     def install_mangadex_downloader(self):
         mangadex_downloader_module_name = "mangadex_downloader"
 
-        print(
-            f"Checking if installed: {is_tool_installed(mangadex_downloader_module_name)}"
-        )
-
         if not is_tool_installed(mangadex_downloader_module_name):
             print(f"Error: {mangadex_downloader_module_name} is not installed.")
             pip_install_or_uninstall_tool(mangadex_downloader_module_name, "install")
@@ -113,10 +107,6 @@ class MangaDexDownloaderView(ft.Container):
     def pick_files_result(self, e):
         mangadex_url_to_download_from = self.mangadex_url_text_field.value
         output_directory = e.path
-
-        print(self.page.client_storage)
-        print(self.page.client_storage.get("use_chapter_title"))
-        print("AHHHH")
 
         download_from_mangadex(
             mangadex_url_to_download_from,

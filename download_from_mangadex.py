@@ -13,6 +13,8 @@ all_options_with_terminal_command = {
     "use_chapter_title": "--use-chapter-title",
     "no_group_name": "--no-group-name",
     "language": ["--language", "en"],
+    "start_page": 1,
+    "end_page": 9999,  # Random max value just to show what the values could look like.
 }
 
 
@@ -29,6 +31,10 @@ def get_additional_terminal_options(flet_page_client_storage):
 
         if key is "language":
             additional_terminal_options.extend(["--language", storage_value["code"]])
+        elif key is "start_page" and storage_value:
+            additional_terminal_options.extend(["--start-page", storage_value])
+        elif key is "end_page" and storage_value:
+            additional_terminal_options.extend(["--end-page", storage_value])
         elif storage_value:
             additional_terminal_options.append(terminal_command)
 
