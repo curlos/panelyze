@@ -15,6 +15,8 @@ all_options_with_terminal_command = {
     "language": ["--language", "en"],
     "start_page": 1,
     "end_page": 9999,  # Random max value just to show what the values could look like.
+    "start_chapter": 1,
+    "end_chapter": 9999,
 }
 
 
@@ -24,11 +26,13 @@ def get_additional_terminal_options(flet_page_client_storage):
 
     additional_terminal_options = []
 
+    use_start_and_end_pages = flet_page_client_storage.get("use_start_and_end_pages")
+    use_start_and_end_chapters = flet_page_client_storage.get(
+        "use_start_and_end_chapters"
+    )
+
     for key, terminal_command in all_options_with_terminal_command.items():
         storage_value = flet_page_client_storage.get(key)
-        use_start_and_end_pages = flet_page_client_storage.get(
-            "use_start_and_end_pages"
-        )
 
         print(f"{key}: {storage_value}")
 
@@ -42,6 +46,12 @@ def get_additional_terminal_options(flet_page_client_storage):
         elif key is "end_page" and storage_value:
             if use_start_and_end_pages:
                 additional_terminal_options.extend(["--end-page", storage_value])
+        elif key is "start_chapter" and storage_value:
+            if use_start_and_end_chapters:
+                additional_terminal_options.extend(["--start-chapter", storage_value])
+        elif key is "end_chapter" and storage_value:
+            if use_start_and_end_chapters:
+                additional_terminal_options.extend(["--end-chapter", storage_value])
         elif storage_value:
             additional_terminal_options.append(terminal_command)
 
