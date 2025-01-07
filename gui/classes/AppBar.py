@@ -23,21 +23,21 @@ class AppBarButton(ft.TextButton):
 
 
 class AppBar(ft.Container):
-    def __init__(self, page):
+    def __init__(self, parent_gui):
         super().__init__()
-        self.page = page
-        self.current_view = "MangaDex Downloader"
+        self.parent_gui = parent_gui
+        self.page = self.parent_gui.page
 
         # Define the buttons
         self.mangadex_button = AppBarButton(
             text="MangaDex Downloader",
-            current_view=self.current_view,
+            current_view=self.parent_gui.current_view,
             change_view=self.change_view,
         )
 
         self.panel_button = AppBarButton(
             text="Panel-By-Panel",
-            current_view=self.current_view,
+            current_view=self.parent_gui.current_view,
             change_view=self.change_view,
         )
 
@@ -72,15 +72,20 @@ class AppBar(ft.Container):
 
     # Function to change the view and update the button styles
     def change_view(self, view_name):
-        self.current_view = view_name
+        if view_name == self.parent_gui.current_view:
+            return
+
+        self.parent_gui.current_view = view_name
 
         # Update button styles dynamically
         self.mangadex_button.style = self.mangadex_button.get_button_style_by_view(
-            self.current_view
+            self.parent_gui.current_view
         )
 
         self.panel_button.style = self.panel_button.get_button_style_by_view(
-            self.current_view
+            self.parent_gui.current_view
         )
 
-        self.page.update()  # Refresh the UI
+        self.parent_gui.render_page_based_on_current_view()
+
+        self.parent_gui.page.update()  # Refresh the UI

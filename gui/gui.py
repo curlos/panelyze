@@ -21,11 +21,22 @@ class GUI(ft.Page):
         self.page.title = "Manga Panel Splitter"
         self.page.bgcolor = "#3b4252"
 
-        app_bar = AppBar(page)
-        mangadex_downloader_view = MangaDexDownloaderView(page)
+        self.current_view = "MangaDex Downloader"
+        self.render_page_based_on_current_view()
 
-        self.page.add(app_bar)
-        self.page.add(mangadex_downloader_view)
+    def render_page_based_on_current_view(self):
+        self.page.controls.clear()
+
+        self.app_bar = AppBar(self)
+        self.view_element = self.get_view_element()
+        self.page.add(self.app_bar)
+        self.page.add(self.view_element)
+
+    def get_view_element(self):
+        if self.current_view == "MangaDex Downloader":
+            return MangaDexDownloaderView(self.page)
+        elif self.current_view == "Panel-By-Panel":
+            return ft.Text("Hello World! Panel-By-Panel.")
 
 
 ft.app(target=GUI)
