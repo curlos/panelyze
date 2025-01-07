@@ -141,6 +141,16 @@ class AppBar(ft.Container):
                                     "replace_existing_manga", e.data
                                 ),
                             ),
+                            ft.Checkbox(
+                                # Replace existing manga, chapter, or list.
+                                label="No Oneshot Chapters",
+                                value=self.page.client_storage.get(
+                                    "no_oneshot_chapters"
+                                ),
+                                on_change=lambda e: self.change_mangadex_downloader_setting(
+                                    "no_oneshot_chapters", e.data
+                                ),
+                            ),
                             # Languages only works for a whole manga - not individual chapters. If I pass in the URL for the One Piece Manga with all of the chapters, it will download it in the specified language. But if I pass in a specific URL of Chapter. 567 in English, it will download in English and not the passed in language.
                             ft.Dropdown(
                                 label="Languages",

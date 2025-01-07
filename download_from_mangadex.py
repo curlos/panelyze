@@ -18,6 +18,7 @@ all_options_with_terminal_command = {
     "start_chapter": 1,
     "end_chapter": 9999,
     "replace_existing_manga": ["--replace", "-r"],
+    "no_oneshot_chapters": "--no-oneshot-chapter",
 }
 
 
