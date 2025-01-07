@@ -117,43 +117,9 @@ class AppBar(ft.Container):
                                 expand=True,
                                 padding=ft.padding.only(bottom=5),
                             ),
-                            ft.Checkbox(
-                                label="Use Chapter Title",
-                                value=self.page.client_storage.get("use_chapter_title"),
-                                on_change=lambda e: self.change_mangadex_downloader_setting(
-                                    "use_chapter_title", e.data
-                                ),
-                            ),
-                            ft.Checkbox(
-                                label="No Group Name",
-                                value=self.page.client_storage.get("no_group_name"),
-                                on_change=lambda e: self.change_mangadex_downloader_setting(
-                                    "no_group_name", e.data
-                                ),
-                            ),
-                            ft.Checkbox(
-                                # Replace existing manga, chapter, or list.
-                                label="Replace Existing Manga/Chapter",
-                                value=self.page.client_storage.get(
-                                    "replace_existing_manga"
-                                ),
-                                on_change=lambda e: self.change_mangadex_downloader_setting(
-                                    "replace_existing_manga", e.data
-                                ),
-                            ),
-                            ft.Checkbox(
-                                # Replace existing manga, chapter, or list.
-                                label="No Oneshot Chapters",
-                                value=self.page.client_storage.get(
-                                    "no_oneshot_chapters"
-                                ),
-                                on_change=lambda e: self.change_mangadex_downloader_setting(
-                                    "no_oneshot_chapters", e.data
-                                ),
-                            ),
                             # Languages only works for a whole manga - not individual chapters. If I pass in the URL for the One Piece Manga with all of the chapters, it will download it in the specified language. But if I pass in a specific URL of Chapter. 567 in English, it will download in English and not the passed in language.
                             ft.Dropdown(
-                                label="Languages",
+                                label="Language",
                                 options=[
                                     ft.dropdown.Option(language["name"])
                                     for language in mangadex_languages
@@ -190,6 +156,54 @@ class AppBar(ft.Container):
                                 ),
                             ),
                             self.start_and_end_chapter_col,
+                            ft.Checkbox(
+                                label="Use Chapter Title",
+                                value=self.page.client_storage.get("use_chapter_title"),
+                                on_change=lambda e: self.change_mangadex_downloader_setting(
+                                    "use_chapter_title", e.data
+                                ),
+                            ),
+                            ft.Checkbox(
+                                label="No Group Name",
+                                value=self.page.client_storage.get("no_group_name"),
+                                on_change=lambda e: self.change_mangadex_downloader_setting(
+                                    "no_group_name", e.data
+                                ),
+                            ),
+                            ft.Checkbox(
+                                # Replace existing manga, chapter, or list.
+                                label="Replace Existing Manga/Chapter",
+                                value=self.page.client_storage.get(
+                                    "replace_existing_manga"
+                                ),
+                                on_change=lambda e: self.change_mangadex_downloader_setting(
+                                    "replace_existing_manga", e.data
+                                ),
+                            ),
+                            ft.Checkbox(
+                                # Replace existing manga, chapter, or list.
+                                label="No Oneshot Chapters",
+                                value=self.page.client_storage.get(
+                                    "no_oneshot_chapters"
+                                ),
+                                on_change=lambda e: self.change_mangadex_downloader_setting(
+                                    "no_oneshot_chapters", e.data
+                                ),
+                            ),
+                            ft.Checkbox(
+                                label="Use Chapter Cover",
+                                value=self.page.client_storage.get("use_chapter_cover"),
+                                on_change=lambda e: self.change_mangadex_downloader_setting(
+                                    "use_chapter_cover", e.data
+                                ),
+                            ),
+                            ft.Checkbox(
+                                label="Use Volume Cover",
+                                value=self.page.client_storage.get("use_volume_cover"),
+                                on_change=lambda e: self.change_mangadex_downloader_setting(
+                                    "use_volume_cover", e.data
+                                ),
+                            ),
                         ],
                         expand=True,
                     ),
