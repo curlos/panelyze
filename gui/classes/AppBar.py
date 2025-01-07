@@ -1,6 +1,7 @@
 import flet as ft
 import sys
 from utils import monitor_terminal_output
+import pdb
 
 
 class AppBarButton(ft.TextButton):
@@ -60,6 +61,22 @@ class AppBar(ft.Container):
 
         default_language = self.page.client_storage.get("language")
 
+        self.start_and_end_page_row = ft.Row(
+            controls=[
+                ft.TextField(
+                    label="Start Page",
+                    expand=True,
+                    border_color="#5e81ac",
+                ),
+                ft.TextField(
+                    label="End Page",
+                    expand=True,
+                    border_color="#5e81ac",
+                ),
+            ],
+            visible=bool(self.page.client_storage.get("use_start_and_end_pages")),
+        )
+
         drawer = ft.NavigationDrawer(
             bgcolor="#3b4252",
             position=ft.NavigationDrawerPosition.END,
@@ -67,10 +84,21 @@ class AppBar(ft.Container):
                 ft.Container(
                     content=ft.Column(
                         controls=[
-                            ft.Text(
-                                "Settings - MangaDex Downloader",
-                                size=14,
-                                weight=ft.FontWeight.W_700,
+                            ft.Container(
+                                content=ft.Row(
+                                    controls=[
+                                        ft.Text(
+                                            "Settings - MangaDex Downloader",
+                                            size=14,
+                                            weight=ft.FontWeight.W_700,
+                                        ),
+                                    ],
+                                ),
+                                border=ft.border.only(
+                                    bottom=ft.border.BorderSide(1, "#5e81ac")
+                                ),
+                                expand=True,
+                                padding=ft.padding.only(bottom=5),
                             ),
                             ft.Checkbox(
                                 label="Use Chapter Title",
@@ -105,9 +133,21 @@ class AppBar(ft.Container):
                                     e.data, mangadex_languages_by_name
                                 ),
                             ),
-                        ]
+                            ft.Checkbox(
+                                label="Use Start and End Pages",
+                                value=self.page.client_storage.get(
+                                    "use_start_and_end_pages"
+                                ),
+                                on_change=lambda e: self.toggle_start_and_end_page_row_visibility(
+                                    e
+                                ),
+                            ),
+                            self.start_and_end_page_row,
+                        ],
+                        expand=True,
                     ),
                     padding=15,
+                    expand=True,
                 )
             ],
         )
@@ -122,7 +162,7 @@ class AppBar(ft.Container):
                     ]
                 ),
                 ft.IconButton(
-                    ft.icons.MENU,
+                    ft.Icons.SETTINGS,
                     on_click=lambda e: self.page.open(drawer),
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=4), padding=1
@@ -149,14 +189,9 @@ class AppBar(ft.Container):
         self.page.update()  # Refresh the UI
 
     def change_mangadex_downloader_setting(self, setting_key, setting_value):
-        print(setting_key)
-        print(setting_value)
-
         boolean_setting_value = {"true": True, "false": False}.get(
             setting_value.lower(), False
         )
-
-        print(boolean_setting_value)
 
         self.page.client_storage.set(setting_key, boolean_setting_value)
 
@@ -196,3 +231,10 @@ class AppBar(ft.Container):
     ):
         language_obj = mangadex_languages_by_name[chosen_language_name]
         self.page.client_storage.set("language", language_obj)
+
+    def toggle_start_and_end_page_row_visibility(self, e):
+        self.start_and_end_page_row.visible = not self.start_and_end_page_row.visible
+
+        self.change_mangadex_downloader_setting("use_start_and_end_pages", e.data)
+
+        self.page.update()  # Refresh the UI to reflect changes
