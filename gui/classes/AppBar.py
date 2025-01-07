@@ -67,11 +67,19 @@ class AppBar(ft.Container):
                     label="Start Page",
                     expand=True,
                     border_color="#5e81ac",
+                    keyboard_type=ft.KeyboardType.NUMBER,
+                    on_change=lambda e: self.change_mangadex_downloader_setting(
+                        "start_page", e.data
+                    ),
                 ),
                 ft.TextField(
                     label="End Page",
                     expand=True,
                     border_color="#5e81ac",
+                    keyboard_type=ft.KeyboardType.NUMBER,
+                    on_change=lambda e: self.change_mangadex_downloader_setting(
+                        "end_page", e.data
+                    ),
                 ),
             ],
             visible=bool(self.page.client_storage.get("use_start_and_end_pages")),
@@ -189,11 +197,14 @@ class AppBar(ft.Container):
         self.page.update()  # Refresh the UI
 
     def change_mangadex_downloader_setting(self, setting_key, setting_value):
-        boolean_setting_value = {"true": True, "false": False}.get(
-            setting_value.lower(), False
-        )
+        final_setting_value = setting_value
 
-        self.page.client_storage.set(setting_key, boolean_setting_value)
+        if setting_value == "true" or setting_value == "false":
+            final_setting_value = {"true": True, "false": False}.get(
+                setting_value.lower(), False
+            )
+
+        self.page.client_storage.set(setting_key, final_setting_value)
 
     def get_all_mangadex_languages(self):
         terminal_command = [
