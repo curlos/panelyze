@@ -25,17 +25,15 @@ class GUI(ft.Page):
 
         self.current_view = "Panel-By-Panel"
         self.terminal_output = TerminalOutput(self.page)
+        self.MangaDexDownloaderView = MangaDexDownloaderView(self)
+        self.MagiPanelByPanelView = MagiPanelByPanelView(self)
 
         self.render_page_based_on_current_view()
 
     def render_page_based_on_current_view(self):
-        print(f"Changed view to: {self.current_view}")
-
         self.page.controls.clear()
-
         self.app_bar = AppBar(self)
         self.view_element = self.get_view_element()
-
         self.page.add(self.app_bar)
 
         view_element_with_terminal = ft.Column(
@@ -54,9 +52,9 @@ class GUI(ft.Page):
 
     def get_view_element(self):
         if self.current_view == "MangaDex Downloader":
-            return MangaDexDownloaderView(self)
+            return self.MangaDexDownloaderView
         elif self.current_view == "Panel-By-Panel":
-            return MagiPanelByPanelView(self)
+            return self.MagiPanelByPanelView
 
 
 ft.app(target=GUI)
