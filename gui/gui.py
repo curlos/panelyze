@@ -36,15 +36,17 @@ class GUI(ft.Page):
         self.view_element = self.get_view_element()
         self.page.add(self.app_bar)
 
-        view_element_with_terminal = ft.Column(
-            controls=[
-                self.view_element,
-                ft.Container(
-                    content=self.terminal_output,
-                    expand=True,
-                    alignment=ft.alignment.bottom_left,
-                ),
-            ],
+        view_element_with_terminal = ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Container(content=self.view_element, expand=True),
+                    ft.Container(
+                        content=self.terminal_output,
+                        alignment=ft.alignment.bottom_left,
+                    ),
+                ],
+                expand=True,
+            ),
             expand=True,
         )
 

@@ -50,28 +50,28 @@ class MagiPanelByPanelView(ft.Container):
                 padding=ft.padding.only(left=15, top=7, right=7, bottom=7),
             )
 
-        expansion_panel = ft.ExpansionPanel(
-            bgcolor="#444c5e",
-            expanded=False,
-            header=ft.Container(
-                content=ft.Text(
-                    "Dragon Ball (Official Colored)/Vol. 19 Ch. 220 - A Faint Light"
+        def get_expansion_panel():
+            return ft.ExpansionPanel(
+                bgcolor="#444c5e",
+                expanded=False,
+                header=ft.Container(
+                    content=ft.Text(
+                        "Dragon Ball (Official Colored)/Vol. 19 Ch. 220 - A Faint Light"
+                    ),
+                    padding=4,
+                    alignment=ft.alignment.center_left,
                 ),
-                padding=4,
-                alignment=ft.alignment.center_left,
-            ),
-            can_tap_header=True,
-            content=ft.Container(
-                height=300,  # Specify a fixed height for the scrollable area
-                content=ft.ListView(
-                    controls=[
-                        get_file_row(i)
-                        for i in range(24)  # Dynamically create the rows
-                    ],
-                    auto_scroll=False,
+                can_tap_header=True,
+                content=ft.Container(
+                    content=ft.ListView(
+                        controls=[
+                            get_file_row(i)
+                            for i in range(24)  # Dynamically create the rows
+                        ],
+                        auto_scroll=False,
+                    ),
                 ),
-            ),
-        )
+            )
 
         files_directory_panel_list = ft.ExpansionPanelList(
             expand_icon_color=ft.Colors.AMBER,
@@ -79,7 +79,11 @@ class MagiPanelByPanelView(ft.Container):
             expanded_header_padding=0,
             divider_color=ft.Colors.AMBER,
             on_change=handle_change,
-            controls=[expansion_panel, expansion_panel, expansion_panel],
+            controls=[
+                get_expansion_panel(),
+                get_expansion_panel(),
+                get_expansion_panel(),
+            ],
             expand=True,
         )
 
