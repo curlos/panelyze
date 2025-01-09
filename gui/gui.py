@@ -8,6 +8,7 @@ import flet as ft
 from classes.AppBar import AppBar
 from classes.MangaDexDownloaderView import MangaDexDownloaderView
 from classes.TerminalOutput import TerminalOutput
+from classes.MagiPanelByPanelView import MagiPanelByPanelView
 
 
 class GUI(ft.Page):
@@ -22,7 +23,7 @@ class GUI(ft.Page):
         self.page.title = "Manga Panel Splitter"
         self.page.bgcolor = "#3b4252"
 
-        self.current_view = "MangaDex Downloader"
+        self.current_view = "Panel-By-Panel"
         self.terminal_output = TerminalOutput(self.page)
 
         self.render_page_based_on_current_view()
@@ -55,7 +56,7 @@ class GUI(ft.Page):
         if self.current_view == "MangaDex Downloader":
             return MangaDexDownloaderView(self)
         elif self.current_view == "Panel-By-Panel":
-            return ft.Text("Hello World! Panel-By-Panel.")
+            return MagiPanelByPanelView(self)
 
 
 ft.app(target=GUI)
