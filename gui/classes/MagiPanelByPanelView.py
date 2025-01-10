@@ -41,36 +41,7 @@ class MagiPanelByPanelView(ft.Container):
             alignment=ft.alignment.center,
         )
 
-        def handle_change(e: ft.ControlEvent):
-            print(f"change on panel with index {e.data}")
-
-        self.files_directory_panel_list = ft.ExpansionPanelList(
-            expand_icon_color=ft.Colors.AMBER,
-            elevation=2,
-            expanded_header_padding=0,
-            divider_color=ft.Colors.AMBER,
-            on_change=handle_change,
-            expand=True,
-            controls=[
-                # ft.ExpansionPanelList(
-                #     expand_icon_color=ft.Colors.AMBER,
-                #     elevation=2,
-                #     expanded_header_padding=0,
-                #     divider_color=ft.Colors.AMBER,
-                #     on_change=handle_change,
-                #     expand=True,
-                #     controls=[
-                #         self.get_expansion_panel(
-                #             "Ch. 220 - A Faint Light", ["0.jpg", "1.jpg"]
-                #         )
-                #     ],
-                # )
-                self.get_expansion_panel("Ch. 220 - A Faint Light", ["0.jpg", "1.jpg"])
-            ],
-        )
-
-        # terminal_output_list_view.controls.append(ft.Text(text, color=color))
-        # terminal_output_list_view.update()  # Update the Flet UI
+        self.files_directory_panel_list = self.get_default_files_directory_panel_list()
 
         self.files_list_container = ft.Container(
             content=ft.Container(
@@ -123,6 +94,41 @@ class MagiPanelByPanelView(ft.Container):
             margin=ft.margin.symmetric(horizontal=10),
         )
 
+    def get_default_files_directory_panel_list(self):
+        return ft.Column(
+            controls=[
+                ft.ExpansionTile(
+                    title=ft.Text("Dragon Ball (Official Colored)"),
+                    maintain_state=True,
+                    text_color="white",
+                    tile_padding=ft.padding.only(left=0, top=0, right=0, bottom=0),
+                    controls_padding=ft.padding.only(left=0, top=0, right=0, bottom=0),
+                    controls=[
+                        ft.ExpansionTile(
+                            title=ft.Text("Vol. 19 Ch. 220 - A Faint Light"),
+                            maintain_state=True,
+                            text_color="white",
+                            controls=[
+                                ft.ListTile(
+                                    title=ft.Text(f"{i}.jpg", size=14),
+                                    dense=True,
+                                    content_padding=ft.padding.only(
+                                        left=20, top=0, right=0, bottom=0
+                                    ),
+                                    bgcolor="#444c5e",
+                                )
+                                for i in range(4)
+                            ],
+                            tile_padding=ft.padding.only(
+                                left=20, top=0, right=0, bottom=0
+                            ),
+                        )
+                        for _ in range(5)
+                    ],
+                )
+            ]
+        )
+
     def get_file_row(self, name, size):
         return ft.Container(
             content=ft.Row(
@@ -133,27 +139,6 @@ class MagiPanelByPanelView(ft.Container):
             padding=ft.padding.only(left=15, top=7, right=7, bottom=7),
         )
 
-    def get_expansion_panel(self, directory_name, image_file_names):
-        return ft.ExpansionPanel(
-            bgcolor="#444c5e",
-            expanded=False,
-            header=ft.Container(
-                content=ft.Text(directory_name),
-                padding=4,
-                alignment=ft.alignment.center_left,
-            ),
-            can_tap_header=True,
-            content=ft.Container(
-                content=ft.ListView(
-                    controls=[
-                        self.get_file_row(image_file_name, image_file_name)
-                        for image_file_name in image_file_names  # Dynamically create the rows
-                    ],
-                    auto_scroll=False,
-                ),
-            ),
-        )
-
     def open_file_picker_dialog(self, e):
         self.pick_files_dialog.get_directory_path()
 
@@ -162,48 +147,48 @@ class MagiPanelByPanelView(ft.Container):
         relative_path = get_last_directory(e.path)
 
         directory_structure = construct_directory_structure(absolute_path)
-        expansion_panels = self.build_expansion_panels(directory_structure)
 
-        self.files_directory_panel_list.controls = expansion_panels
+        pprint(directory_structure)
+        # pdb.set_trace()
+
+        expansion_tiles = self.build_expansion_tiles(directory_structure)
+
+        self.files_directory_panel_list.controls = expansion_tiles
         self.files_directory_panel_list.update()
 
-    def build_expansion_panels(self, structure):
-        def create_panels(level):
-            panels = []
+    def build_expansion_tiles(self, structure):
+        def create_tiles(level, i):
+            tiles = []
             for key, value in level.items():
                 if key == "__images__":
-                    # Create a panel for images
-                    image_controls = [ft.Text(img) for img in value]
-                    panels.extend(image_controls)
+                    # Create ListTiles for images
+                    tiles.extend(
+                        [
+                            ft.ListTile(
+                                title=ft.Text(img, size=14),
+                                dense=True,
+                                content_padding=ft.padding.only(
+                                    left=i * 10, top=0, right=0, bottom=0
+                                ),
+                                bgcolor="#444c5e",
+                            )
+                            for img in value
+                        ]
+                    )
                 else:
-                    # Create a nested panel for subdirectories
-                    nested_panels = create_panels(value)
-                    panels.append(
-                        ft.ExpansionPanel(
-                            header=ft.Text(key),
-                            content=ft.Column(
-                                nested_panels, scroll=ft.ScrollMode.ADAPTIVE
+                    # Recursively create nested tiles for directories
+                    nested_tiles = create_tiles(value, i + 1)
+                    tiles.append(
+                        ft.ExpansionTile(
+                            title=ft.Text(key),
+                            maintain_state=True,
+                            text_color="white",
+                            controls=nested_tiles,  # Add children here
+                            tile_padding=ft.padding.only(
+                                left=i * 10, top=0, right=0, bottom=0
                             ),
                         )
                     )
-            return panels
+            return tiles
 
-        return create_panels(structure)
-
-    # def add_expansion_panels_for_directory(self, base_path, files_structure):
-    #     # TODO: Recursively go through the files_structure object and add the elements to the UI and update the list.
-
-    #     for key, val in files_structure.items():
-    #         if key == "__images__":
-    #             image_file_names = val
-
-    #             expansion_panel = self.get_expansion_panel(base_path, image_file_names)
-    #             self.files_directory_panel_list.controls.append(expansion_panel)
-    #             self.files_directory_panel_list.update()
-    #         else:
-    #             expansion_panel = self.get_expansion_panel(key, [])
-    #             self.files_directory_panel_list.controls.append(expansion_panel)
-    #             self.files_directory_panel_list.update()
-
-    #             self.add_expansion_panels_for_directory(key, val)
-    #             print("Hello World")
+        return create_tiles(structure, 1)

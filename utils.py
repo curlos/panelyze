@@ -233,35 +233,34 @@ def is_image_file(file_name):
 
 
 def construct_directory_structure(path):
-    directory_structure = {}
+    def traverse_directory(current_path):
+        directory_content = {}
 
-    for root, directories, files in os.walk(path):
-        # Get the relative path of the current directory
-        relative_root = os.path.relpath(root, path)
-        if relative_root == ".":
-            relative_root = os.path.basename(path)  # Use the root directory name
+        # List all entries in the current directory
+        try:
+            entries = os.listdir(current_path)
+        except PermissionError:
+            return {}  # Skip directories without permissions
 
-        # Filter images from the current directory's files
-        images = [f for f in files if is_image_file(f)]
+        images = []
+        for entry in entries:
+            entry_path = os.path.join(current_path, entry)
 
-        # Traverse and create the nested dictionary structure
-        current_level = directory_structure
+            if os.path.isdir(entry_path):
+                # Recursively traverse subdirectories
+                directory_content[entry] = traverse_directory(entry_path)
+            elif is_image_file(entry):
+                # Add image files to the list
+                images.append(entry)
 
-        for part in relative_root.split(os.sep):
-            if part not in current_level:
-                current_level[part] = {}
-            # Ensure current_level remains a dictionary
-            if isinstance(current_level, list):
-                raise TypeError(
-                    "Unexpected list encountered when processing directories."
-                )
-            current_level = current_level[part]
-
-        # Add images if they exist in the current directory
         if images:
-            current_level["__images__"] = images
+            directory_content["__images__"] = images
 
-    return directory_structure
+        return directory_content
+
+    # Start traversal from the given path
+    root_name = os.path.basename(path)
+    return {root_name: traverse_directory(path)}
 
 
 class ProcessManager:
