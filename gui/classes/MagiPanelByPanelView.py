@@ -41,7 +41,7 @@ class MagiPanelByPanelView(ft.Container):
             alignment=ft.alignment.center,
         )
 
-        self.files_directory_panel_list = self.get_default_files_directory_panel_list()
+        self.files_directory_panel_list = ft.Column(controls=[])
 
         self.files_list_container = ft.Container(
             content=ft.Container(
@@ -94,63 +94,12 @@ class MagiPanelByPanelView(ft.Container):
             margin=ft.margin.symmetric(horizontal=10),
         )
 
-    def get_default_files_directory_panel_list(self):
-        return ft.Column(
-            controls=[
-                ft.ExpansionTile(
-                    title=ft.Text("Dragon Ball (Official Colored)"),
-                    maintain_state=True,
-                    text_color="white",
-                    tile_padding=ft.padding.only(left=0, top=0, right=0, bottom=0),
-                    controls_padding=ft.padding.only(left=0, top=0, right=0, bottom=0),
-                    controls=[
-                        ft.ExpansionTile(
-                            title=ft.Text("Vol. 19 Ch. 220 - A Faint Light"),
-                            maintain_state=True,
-                            text_color="white",
-                            controls=[
-                                ft.ListTile(
-                                    title=ft.Text(f"{i}.jpg", size=14),
-                                    dense=True,
-                                    content_padding=ft.padding.only(
-                                        left=20, top=0, right=0, bottom=0
-                                    ),
-                                    bgcolor="#444c5e",
-                                )
-                                for i in range(4)
-                            ],
-                            tile_padding=ft.padding.only(
-                                left=20, top=0, right=0, bottom=0
-                            ),
-                        )
-                        for _ in range(5)
-                    ],
-                )
-            ]
-        )
-
-    def get_file_row(self, name, size):
-        return ft.Container(
-            content=ft.Row(
-                controls=[ft.Text(name), ft.Text(size)],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            ),
-            bgcolor="#444c5e",
-            padding=ft.padding.only(left=15, top=7, right=7, bottom=7),
-        )
-
     def open_file_picker_dialog(self, e):
         self.pick_files_dialog.get_directory_path()
 
     def pick_files_result(self, e):
         absolute_path = e.path
-        relative_path = get_last_directory(e.path)
-
         directory_structure = construct_directory_structure(absolute_path)
-
-        pprint(directory_structure)
-        # pdb.set_trace()
-
         expansion_tiles = self.build_expansion_tiles(directory_structure)
 
         self.files_directory_panel_list.controls = expansion_tiles

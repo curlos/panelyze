@@ -254,9 +254,13 @@ def construct_directory_structure(path):
                 images.append(entry)
 
         if images:
+            # Sort images by their filenames
+            images.sort(key=lambda x: int("".join(filter(str.isdigit, x)) or 0))
             directory_content["__images__"] = images
 
-        return directory_content
+        # Sort the keys of the current directory level
+        sorted_directory_content = dict(sorted(directory_content.items()))
+        return sorted_directory_content
 
     # Start traversal from the given path
     root_name = os.path.basename(path)
