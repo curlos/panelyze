@@ -7,6 +7,7 @@ import platform
 import flet as ft
 import select
 import pdb
+import math
 
 
 def select_folder():
@@ -232,6 +233,16 @@ def is_image_file(file_name):
     return file_name.lower().endswith(image_extensions)
 
 
+def format_size(size_bytes):
+    if size_bytes == 0:
+        return "0 B"
+    size_units = ["B", "KB", "MB", "GB", "TB", "PB"]
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return f"{s} {size_units[i]}"
+
+
 def construct_directory_structure(path):
     def traverse_directory(current_path):
         directory_content = {}
@@ -250,12 +261,13 @@ def construct_directory_structure(path):
                 # Recursively traverse subdirectories
                 directory_content[entry] = traverse_directory(entry_path)
             elif is_image_file(entry):
-                # Add image files to the list
-                images.append(entry)
+                # Add image files and their sizes to the list
+                image_size = os.path.getsize(entry_path)
+                images.append({"name": entry, "size": image_size})
 
         if images:
             # Sort images by their filenames
-            images.sort(key=lambda x: int("".join(filter(str.isdigit, x)) or 0))
+            images.sort(key=lambda x: int("".join(filter(str.isdigit, x["name"])) or 0))
             directory_content["__images__"] = images
 
         # Sort the keys of the current directory level

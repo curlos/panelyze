@@ -1,6 +1,6 @@
 import flet as ft
 import pdb
-from utils import construct_directory_structure, get_last_directory, is_image_file
+from utils import construct_directory_structure, format_size
 import os
 from pprint import pprint
 
@@ -114,10 +114,16 @@ class MagiPanelByPanelView(ft.Container):
                     tiles.extend(
                         [
                             ft.ListTile(
-                                title=ft.Text(img, size=14),
+                                title=ft.Row(
+                                    controls=[
+                                        ft.Text(img["name"], size=14),
+                                        ft.Text(format_size(img["size"]), size=14),
+                                    ],
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                ),
                                 dense=True,
                                 content_padding=ft.padding.only(
-                                    left=i * 10, top=0, right=0, bottom=0
+                                    left=i * 10, top=0, right=10, bottom=0
                                 ),
                                 bgcolor="#444c5e",
                             )
