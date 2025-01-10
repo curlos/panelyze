@@ -16,77 +16,126 @@ class MagiPanelByPanelView(ft.Container):
         self.page.overlay.append(self.pick_files_dialog)
         self.expand = True
 
-        self.pick_directory_container = ft.Container(
-            content=ft.Container(
-                content=ft.Row(
-                    controls=[
-                        ft.Icon(
-                            ft.Icons.UPLOAD,
-                            color="white",
+        self.pick_directory_column = ft.Column(
+            controls=[
+                ft.Container(
+                    content=ft.Container(
+                        content=ft.Row(
+                            controls=[
+                                ft.Icon(
+                                    ft.Icons.UPLOAD,
+                                    color="white",
+                                ),
+                                ft.Text("Pick Directory", color="white", size=14),
+                            ],
+                            alignment=ft.MainAxisAlignment.CENTER,
                         ),
-                        ft.Text("Pick Directory", color="white", size=14),
-                    ],
-                    alignment=ft.MainAxisAlignment.CENTER,
-                ),
-                bgcolor="#3b4252",
-                border=ft.border.all(1, "#5e81ac"),
-                border_radius=ft.border_radius.all(10),
-                alignment=ft.alignment.center,
-            ),
-            bgcolor="#444c5e",
-            on_click=self.open_file_picker_dialog,
-            padding=5,
-            border_radius=ft.border_radius.all(10),
-            height=150,
-            alignment=ft.alignment.center,
+                        bgcolor="#3b4252",
+                        border=ft.border.all(1, "#5e81ac"),
+                        border_radius=ft.border_radius.all(10),
+                        alignment=ft.alignment.center,
+                    ),
+                    bgcolor="#444c5e",
+                    on_click=self.open_file_picker_dialog,
+                    padding=5,
+                    border_radius=ft.border_radius.all(10),
+                    height=150,
+                    alignment=ft.alignment.center,
+                )
+            ],
+            expand=True,
         )
 
         self.files_directory_panel_list = ft.Column(controls=[])
 
-        self.files_list_container = ft.Container(
-            content=ft.Container(
-                content=ft.Container(
-                    content=ft.Column(
-                        controls=[
-                            ft.Row(
+        self.files_list_column = ft.Column(
+            controls=[
+                ft.Container(
+                    content=ft.Container(
+                        content=ft.Container(
+                            content=ft.Column(
                                 controls=[
-                                    ft.Text("Files List", color="white", size=14),
-                                    ft.IconButton(
-                                        ft.Icons.CLOSE,
-                                        icon_color="white",
-                                        icon_size=16,
+                                    ft.Row(
+                                        controls=[
+                                            ft.Text(
+                                                "Files List", color="white", size=14
+                                            ),
+                                            ft.IconButton(
+                                                ft.Icons.CLOSE,
+                                                icon_color="white",
+                                                icon_size=16,
+                                                on_click=self.hide_files_list_col,
+                                            ),
+                                        ],
+                                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                                     ),
-                                ],
-                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    ft.ListView(
+                                        controls=[
+                                            self.files_directory_panel_list,
+                                        ],
+                                        expand=True,
+                                    ),
+                                ]
                             ),
-                            ft.ListView(
-                                controls=[
-                                    self.files_directory_panel_list,
-                                ],
-                                expand=True,
-                            ),
-                        ]
+                            alignment=ft.alignment.top_left,
+                        ),
+                        bgcolor="#3b4252",
+                        border=ft.border.all(1, "#5e81ac"),
+                        border_radius=ft.border_radius.all(10),
+                        alignment=ft.alignment.center,
+                        padding=10,
                     ),
+                    bgcolor="#444c5e",
+                    padding=5,
+                    border_radius=ft.border_radius.all(10),
+                    expand=True,
                     alignment=ft.alignment.top_left,
-                ),
-                bgcolor="#3b4252",
-                border=ft.border.all(1, "#5e81ac"),
-                border_radius=ft.border_radius.all(10),
-                alignment=ft.alignment.center,
-                padding=10,
-            ),
-            bgcolor="#444c5e",
-            padding=5,
-            border_radius=ft.border_radius.all(10),
+                )
+            ],
             expand=True,
-            alignment=ft.alignment.top_left,
+            visible=False,
+        )
+
+        self.output_images_column = ft.Column(
+            controls=[
+                ft.Container(
+                    content=ft.Container(
+                        content=ft.Container(
+                            content=ft.Column(
+                                controls=[
+                                    ft.Row(
+                                        controls=[
+                                            ft.Text(
+                                                "Output Images", color="white", size=14
+                                            ),
+                                        ],
+                                    ),
+                                ]
+                            ),
+                            alignment=ft.alignment.top_left,
+                        ),
+                        bgcolor="#3b4252",
+                        border=ft.border.all(1, "#5e81ac"),
+                        border_radius=ft.border_radius.all(10),
+                        alignment=ft.alignment.center,
+                        padding=10,
+                    ),
+                    bgcolor="#444c5e",
+                    padding=5,
+                    border_radius=ft.border_radius.all(10),
+                    expand=True,
+                    alignment=ft.alignment.top_left,
+                )
+            ],
+            expand=True,
         )
 
         self.content = ft.Container(
             content=ft.Row(
                 controls=[
-                    ft.Column(controls=[self.pick_directory_container], expand=True),
-                    ft.Column(controls=[self.files_list_container], expand=True),
+                    self.pick_directory_column,
+                    self.files_list_column,
+                    self.output_images_column,
                 ],
                 expand=True,
                 spacing=5,
@@ -103,7 +152,13 @@ class MagiPanelByPanelView(ft.Container):
         expansion_tiles = self.build_expansion_tiles(directory_structure)
 
         self.files_directory_panel_list.controls = expansion_tiles
+        self.files_list_column.visible = True
+
+        self.files_list_column.update()
         self.files_directory_panel_list.update()
+
+        self.pick_directory_column.visible = False
+        self.pick_directory_column.update()
 
     def build_expansion_tiles(self, structure):
         def create_tiles(level, i):
@@ -147,3 +202,10 @@ class MagiPanelByPanelView(ft.Container):
             return tiles
 
         return create_tiles(structure, 1)
+
+    def hide_files_list_col(self, e):
+        self.files_list_column.visible = False
+        self.pick_directory_column.visible = True
+
+        self.files_list_column.update()
+        self.pick_directory_column.update()
