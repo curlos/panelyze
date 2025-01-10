@@ -16,7 +16,7 @@ class MagiPanelByPanelView(ft.Container):
         self.page.overlay.append(self.pick_files_dialog)
         self.expand = True
 
-        self.pick_directory_column = ft.Column(
+        self.pick_input_directory_column = ft.Column(
             controls=[
                 ft.Container(
                     content=ft.Container(
@@ -26,7 +26,39 @@ class MagiPanelByPanelView(ft.Container):
                                     ft.Icons.UPLOAD,
                                     color="white",
                                 ),
-                                ft.Text("Pick Directory", color="white", size=14),
+                                ft.Text("Pick Input Directory", color="white", size=14),
+                            ],
+                            alignment=ft.MainAxisAlignment.CENTER,
+                        ),
+                        bgcolor="#3b4252",
+                        border=ft.border.all(1, "#5e81ac"),
+                        border_radius=ft.border_radius.all(10),
+                        alignment=ft.alignment.center,
+                    ),
+                    bgcolor="#444c5e",
+                    on_click=self.open_file_picker_dialog,
+                    padding=5,
+                    border_radius=ft.border_radius.all(10),
+                    height=150,
+                    alignment=ft.alignment.center,
+                )
+            ],
+            expand=True,
+        )
+
+        self.pick_output_directory_column = ft.Column(
+            controls=[
+                ft.Container(
+                    content=ft.Container(
+                        content=ft.Row(
+                            controls=[
+                                ft.Icon(
+                                    ft.Icons.UPLOAD,
+                                    color="white",
+                                ),
+                                ft.Text(
+                                    "Pick Output Directory", color="white", size=14
+                                ),
                             ],
                             alignment=ft.MainAxisAlignment.CENTER,
                         ),
@@ -133,7 +165,13 @@ class MagiPanelByPanelView(ft.Container):
         self.content = ft.Container(
             content=ft.Row(
                 controls=[
-                    self.pick_directory_column,
+                    ft.Column(
+                        controls=[
+                            self.pick_input_directory_column,
+                            self.pick_output_directory_column,
+                        ],
+                        expand=True,
+                    ),
                     self.files_list_column,
                     self.output_images_column,
                 ],
@@ -157,8 +195,8 @@ class MagiPanelByPanelView(ft.Container):
         self.files_list_column.update()
         self.files_directory_panel_list.update()
 
-        self.pick_directory_column.visible = False
-        self.pick_directory_column.update()
+        self.pick_input_directory_column.visible = False
+        self.pick_input_directory_column.update()
 
     def build_expansion_tiles(self, structure):
         def create_tiles(level, i):
@@ -205,7 +243,7 @@ class MagiPanelByPanelView(ft.Container):
 
     def hide_files_list_col(self, e):
         self.files_list_column.visible = False
-        self.pick_directory_column.visible = True
+        self.pick_input_directory_column.visible = True
 
         self.files_list_column.update()
-        self.pick_directory_column.update()
+        self.pick_input_directory_column.update()
