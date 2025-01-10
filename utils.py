@@ -6,6 +6,7 @@ import os
 import platform
 import flet as ft
 import select
+import pdb
 
 
 def select_folder():
@@ -219,6 +220,48 @@ def add_line_to_terminal_output_list_view(
         # Add the line to the Flet ListView
         terminal_output_list_view.controls.append(ft.Text(text, color=color))
         terminal_output_list_view.update()  # Update the Flet UI
+
+
+def get_last_directory(directory_path):
+    return os.path.basename(directory_path.rstrip("/\\"))
+
+
+def is_image_file(file_name):
+    # Add more extensions if needed
+    image_extensions = (".png", ".jpg", ".jpeg", ".webp")
+    return file_name.lower().endswith(image_extensions)
+
+
+def construct_directory_structure(path):
+    directory_structure = {}
+
+    for root, directories, files in os.walk(path):
+        # Get the relative path of the current directory
+        relative_root = os.path.relpath(root, path)
+        if relative_root == ".":
+            relative_root = os.path.basename(path)  # Use the root directory name
+
+        # Filter images from the current directory's files
+        images = [f for f in files if is_image_file(f)]
+
+        # Traverse and create the nested dictionary structure
+        current_level = directory_structure
+
+        for part in relative_root.split(os.sep):
+            if part not in current_level:
+                current_level[part] = {}
+            # Ensure current_level remains a dictionary
+            if isinstance(current_level, list):
+                raise TypeError(
+                    "Unexpected list encountered when processing directories."
+                )
+            current_level = current_level[part]
+
+        # Add images if they exist in the current directory
+        if images:
+            current_level["__images__"] = images
+
+    return directory_structure
 
 
 class ProcessManager:
