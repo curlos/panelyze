@@ -169,8 +169,25 @@ class MagiPanelByPanelView(ft.Container):
                         controls=[
                             self.pick_input_directory_column,
                             self.pick_output_directory_column,
+                            ft.Row(
+                                controls=[
+                                    ft.FilledTonalButton(
+                                        text="Clear",
+                                        color="white",
+                                        bgcolor="#444c5e",
+                                        expand=True,
+                                    ),
+                                    ft.FilledTonalButton(
+                                        text="Submit",
+                                        color="white",
+                                        bgcolor="#5e81ac",
+                                        expand=True,
+                                    ),
+                                ]
+                            ),
                         ],
                         expand=True,
+                        spacing=0,
                     ),
                     self.files_list_column,
                     self.output_images_column,
