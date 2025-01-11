@@ -1,19 +1,23 @@
+import pdb
+import sys
 from PIL import Image
 from transformers import AutoModel
 import torch
 import numpy
 import os
-from utils import select_folder, get_last_two_directories
+from utils import StreamInterceptor, select_folder, get_last_two_directories
 import requests
 import time
 import base64
 import json
+import flet as ft
 
 
 class Magi:
-    def __init__(self):
+    def __init__(self, terminal_output_list_view=None):
         self.using_google_colab = False
         self.magi_model = None
+        self.terminal_output_list_view = terminal_output_list_view
 
         if not self.using_google_colab:
             self.magi_model = AutoModel.from_pretrained(
@@ -62,6 +66,35 @@ class Magi:
         return character_bank
 
     def get_per_page_results(self, chapter_pages, character_bank):
+        # TODO: Look at this later to output lines from the terminal. Need to output tqdm lines through stderr.
+        # # Save the original stdout and stderr
+        # original_stdout = sys.stdout
+        # original_stderr = sys.stderr
+
+        # # Create StreamInterceptors for both stdout and stderr
+        # stdout_interceptor = StreamInterceptor(
+        #     original_stdout, self.real_time_output_callback
+        # )
+        # stderr_interceptor = StreamInterceptor(
+        #     original_stderr, self.real_time_output_callback
+        # )
+
+        # try:
+        #     # Redirect both stdout and stderr
+        #     # sys.stdout = stdout_interceptor
+        #     # sys.stderr = stderr_interceptor
+
+        #     # Perform the task while redirecting both streams
+        #     # Set to "no_grad()" so that there's inference without tracking gradients. Basically, this saves memory and computational resources by turning off gradient tracking.
+        #     with torch.no_grad():
+        #         per_page_results = self.magi_model.do_chapter_wide_prediction(
+        #             chapter_pages, character_bank, use_tqdm=True, do_ocr=True
+        #         )
+        # finally:
+        #     # Restore stdout and stderr to their original states
+        #     sys.stdout = original_stdout
+        #     sys.stderr = original_stderr
+
         # Set to "no_grad()" so that there's inference without tracking gradients. Basically, this saves memory and computational resources by turning off gradient tracking.
         with torch.no_grad():
             per_page_results = self.magi_model.do_chapter_wide_prediction(
@@ -69,6 +102,16 @@ class Magi:
             )
 
         return per_page_results
+
+    # Example usage of the real-time output callback
+    def real_time_output_callback(self, message):
+        if self.terminal_output_list_view:
+            self.terminal_output_list_view.controls.append(
+                ft.Text(message, color="white")
+            )
+
+        sys.__stdout__.write(f"Captured: {message}")
+        sys.__stdout__.flush()
 
     def save_cropped_panels(self, image_as_np_array, predictions, output_folder):
         # Ensure the output directory exists

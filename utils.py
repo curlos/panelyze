@@ -380,3 +380,21 @@ class ProcessManager:
         if self.process:
             self.process.terminate()  # Gracefully terminate the process
             print("Process terminated by user.")
+
+
+class StreamInterceptor:
+    def __init__(self, original_stdout, callback):
+        self.original_stdout = original_stdout
+        self.callback = callback
+
+    def write(self, message):
+        # Write to the original stdout
+        self.original_stdout.write(message)
+        self.original_stdout.flush()  # Ensure immediate flushing
+
+        # Call the callback with the message
+        if self.callback:
+            self.callback(message)
+
+    def flush(self):
+        self.original_stdout.flush()
