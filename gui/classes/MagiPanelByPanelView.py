@@ -27,34 +27,15 @@ class MagiPanelByPanelView(ft.Container):
         self.output_directory = ""
         self.magi = None
 
-        self.pick_input_directory_column = ft.Column(
-            controls=[
-                ft.Container(
-                    content=ft.Container(
-                        content=ft.Row(
-                            controls=[
-                                ft.Icon(
-                                    ft.Icons.UPLOAD,
-                                    color="white",
-                                ),
-                                ft.Text("Pick Input Directory", color="white", size=14),
-                            ],
-                            alignment=ft.MainAxisAlignment.CENTER,
-                        ),
-                        bgcolor="#3b4252",
-                        border=ft.border.all(1, "#5e81ac"),
-                        border_radius=ft.border_radius.all(10),
-                        alignment=ft.alignment.center,
-                    ),
-                    bgcolor="#444c5e",
-                    on_click=self.open_input_files_picker_dialog,
-                    padding=5,
-                    border_radius=ft.border_radius.all(10),
-                    height=150,
-                    alignment=ft.alignment.center,
-                )
+        self.pick_input_directory_column = self.get_pick_directory_container(
+            [
+                ft.Icon(
+                    ft.Icons.UPLOAD,
+                    color="white",
+                ),
+                ft.Text("Pick Input Directory", color="white", size=14),
             ],
-            expand=True,
+            self.open_input_files_picker_dialog,
         )
 
         self.pick_output_directory_row = ft.Row(
@@ -108,32 +89,12 @@ class MagiPanelByPanelView(ft.Container):
             wrap=True,
         )
 
-        self.pick_output_directory_column = ft.Column(
-            controls=[
-                ft.Container(
-                    content=ft.Container(
-                        content=ft.Column(
-                            controls=[
-                                self.pick_output_directory_row,
-                                self.selected_output_directory_row,
-                            ],
-                            expand=True,
-                            alignment=ft.alignment.center,
-                        ),
-                        bgcolor="#3b4252",
-                        border=ft.border.all(1, "#5e81ac"),
-                        border_radius=ft.border_radius.all(10),
-                        alignment=ft.alignment.center,
-                        padding=10,
-                    ),
-                    bgcolor="#444c5e",
-                    on_click=self.open_output_files_picker_dialog,
-                    padding=5,
-                    border_radius=ft.border_radius.all(10),
-                    alignment=ft.alignment.center,
-                )
+        self.pick_output_directory_column = self.get_pick_directory_container(
+            [
+                self.pick_output_directory_row,
+                self.selected_output_directory_row,
             ],
-            expand=True,
+            self.open_output_files_picker_dialog,
         )
 
         self.files_directory_panel_list = ft.Column(controls=[])
@@ -189,51 +150,19 @@ class MagiPanelByPanelView(ft.Container):
             visible=False,
         )
 
-        self.output_images_column = ft.Column(
-            controls=[
-                ft.Container(
-                    content=ft.Container(
-                        content=ft.Container(
-                            content=ft.Column(
-                                controls=[
-                                    ft.Row(
-                                        controls=[
-                                            ft.Text(
-                                                "Output Images",
-                                                color="white",
-                                                size=14,
-                                                weight=ft.FontWeight.W_700,
-                                            ),
-                                        ],
-                                    ),
-                                ]
-                            ),
-                            alignment=ft.alignment.top_left,
-                        ),
-                        bgcolor="#3b4252",
-                        border=ft.border.all(1, "#5e81ac"),
-                        border_radius=ft.border_radius.all(10),
-                        alignment=ft.alignment.center,
-                        padding=10,
-                    ),
-                    bgcolor="#444c5e",
-                    padding=5,
-                    border_radius=ft.border_radius.all(10),
-                    expand=True,
-                    alignment=ft.alignment.top_left,
-                )
-            ],
-            expand=True,
-        )
-
         self.content = ft.Container(
             content=ft.Row(
                 controls=[
                     ft.Column(
                         controls=[
-                            self.pick_input_directory_column,
-                            self.files_list_column,
-                            self.pick_output_directory_column,
+                            ft.Row(
+                                controls=[
+                                    self.pick_input_directory_column,
+                                    self.files_list_column,
+                                    self.pick_output_directory_column,
+                                ],
+                                expand=True,
+                            ),
                             ft.Row(
                                 controls=[
                                     ft.FilledTonalButton(
@@ -257,7 +186,6 @@ class MagiPanelByPanelView(ft.Container):
                         spacing=10,
                         alignment=ft.MainAxisAlignment.START,
                     ),
-                    self.output_images_column,
                 ],
                 expand=True,
                 spacing=5,
@@ -388,3 +316,25 @@ class MagiPanelByPanelView(ft.Container):
             self.magi = Magi()
 
         self.magi.get_panels_for_chapter(self.input_directory, self.output_directory)
+
+    def get_pick_directory_container(self, controls, on_click):
+        return ft.Container(
+            content=ft.Container(
+                content=ft.Row(
+                    controls=controls,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                ),
+                bgcolor="#3b4252",
+                border=ft.border.all(1, "#5e81ac"),
+                border_radius=ft.border_radius.all(10),
+                alignment=ft.alignment.center,
+                expand=True,
+                padding=10,
+            ),
+            bgcolor="#444c5e",
+            on_click=on_click,
+            padding=5,
+            border_radius=ft.border_radius.all(10),
+            alignment=ft.alignment.center,
+            expand=True,
+        )
