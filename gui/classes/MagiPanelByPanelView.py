@@ -1,6 +1,6 @@
 import flet as ft
 import pdb
-from utils import construct_directory_structure, format_size
+from utils import construct_directory_structure, format_size, get_last_directory
 import os
 from pprint import pprint
 
@@ -12,9 +12,17 @@ class MagiPanelByPanelView(ft.Container):
 
         self.parent_gui = parent_gui
         self.page = self.parent_gui.page
-        self.pick_files_dialog = ft.FilePicker(on_result=self.pick_files_result)
-        self.page.overlay.append(self.pick_files_dialog)
+        self.pick_input_files_dialog = ft.FilePicker(
+            on_result=self.pick_input_files_result
+        )
+        self.pick_output_files_dialog = ft.FilePicker(
+            on_result=self.pick_output_files_result
+        )
+        self.page.overlay.append(self.pick_input_files_dialog)
+        self.page.overlay.append(self.pick_output_files_dialog)
         self.expand = True
+
+        self.output_directory = ""
 
         self.pick_input_directory_column = ft.Column(
             controls=[
@@ -36,7 +44,7 @@ class MagiPanelByPanelView(ft.Container):
                         alignment=ft.alignment.center,
                     ),
                     bgcolor="#444c5e",
-                    on_click=self.open_file_picker_dialog,
+                    on_click=self.open_input_files_picker_dialog,
                     padding=5,
                     border_radius=ft.border_radius.all(10),
                     height=150,
@@ -46,32 +54,79 @@ class MagiPanelByPanelView(ft.Container):
             expand=True,
         )
 
+        self.pick_output_directory_row = ft.Row(
+            controls=[
+                ft.Icon(
+                    ft.Icons.UPLOAD,
+                    color="white",
+                ),
+                ft.Text(
+                    "Pick Output Directory",
+                    color="white",
+                    size=14,
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            expand=True,
+        )
+
+        self.output_directory_row_text = ft.Text(
+            self.output_directory,
+            color="white",
+            size=14,
+        )
+
+        self.selected_output_directory_row = ft.Row(
+            controls=[
+                ft.Row(
+                    controls=[
+                        ft.Icon(
+                            ft.Icons.FILE_OPEN,
+                            color="white",
+                        ),
+                        ft.Text("Output Directory", weight=ft.FontWeight.W_700),
+                    ]
+                ),
+                ft.Row(
+                    controls=[
+                        self.output_directory_row_text,
+                        ft.IconButton(
+                            ft.Icons.CLOSE,
+                            icon_color="white",
+                            on_click=self.handle_clear_output_directory,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.START,
+            expand=True,
+            visible=False,
+            wrap=True,
+        )
+
         self.pick_output_directory_column = ft.Column(
             controls=[
                 ft.Container(
                     content=ft.Container(
-                        content=ft.Row(
+                        content=ft.Column(
                             controls=[
-                                ft.Icon(
-                                    ft.Icons.UPLOAD,
-                                    color="white",
-                                ),
-                                ft.Text(
-                                    "Pick Output Directory", color="white", size=14
-                                ),
+                                self.pick_output_directory_row,
+                                self.selected_output_directory_row,
                             ],
-                            alignment=ft.MainAxisAlignment.CENTER,
+                            expand=True,
+                            alignment=ft.alignment.center,
                         ),
                         bgcolor="#3b4252",
                         border=ft.border.all(1, "#5e81ac"),
                         border_radius=ft.border_radius.all(10),
                         alignment=ft.alignment.center,
+                        padding=10,
                     ),
                     bgcolor="#444c5e",
-                    on_click=self.open_file_picker_dialog,
+                    on_click=self.open_output_files_picker_dialog,
                     padding=5,
                     border_radius=ft.border_radius.all(10),
-                    height=150,
                     alignment=ft.alignment.center,
                 )
             ],
@@ -90,13 +145,16 @@ class MagiPanelByPanelView(ft.Container):
                                     ft.Row(
                                         controls=[
                                             ft.Text(
-                                                "Files List", color="white", size=14
+                                                "Files List",
+                                                color="white",
+                                                size=14,
+                                                weight=ft.FontWeight.W_700,
                                             ),
                                             ft.IconButton(
                                                 ft.Icons.CLOSE,
                                                 icon_color="white",
                                                 icon_size=16,
-                                                on_click=self.hide_files_list_col,
+                                                on_click=self.handle_clear_input_directory,
                                             ),
                                         ],
                                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -138,7 +196,10 @@ class MagiPanelByPanelView(ft.Container):
                                     ft.Row(
                                         controls=[
                                             ft.Text(
-                                                "Output Images", color="white", size=14
+                                                "Output Images",
+                                                color="white",
+                                                size=14,
+                                                weight=ft.FontWeight.W_700,
                                             ),
                                         ],
                                     ),
@@ -168,6 +229,7 @@ class MagiPanelByPanelView(ft.Container):
                     ft.Column(
                         controls=[
                             self.pick_input_directory_column,
+                            self.files_list_column,
                             self.pick_output_directory_column,
                             ft.Row(
                                 controls=[
@@ -176,6 +238,7 @@ class MagiPanelByPanelView(ft.Container):
                                         color="white",
                                         bgcolor="#444c5e",
                                         expand=True,
+                                        on_click=self.handle_clear_all_directories,
                                     ),
                                     ft.FilledTonalButton(
                                         text="Submit",
@@ -187,9 +250,9 @@ class MagiPanelByPanelView(ft.Container):
                             ),
                         ],
                         expand=True,
-                        spacing=0,
+                        spacing=10,
+                        alignment=ft.MainAxisAlignment.START,
                     ),
-                    self.files_list_column,
                     self.output_images_column,
                 ],
                 expand=True,
@@ -198,10 +261,13 @@ class MagiPanelByPanelView(ft.Container):
             margin=ft.margin.symmetric(horizontal=10),
         )
 
-    def open_file_picker_dialog(self, e):
-        self.pick_files_dialog.get_directory_path()
+    def open_input_files_picker_dialog(self, e):
+        self.pick_input_files_dialog.get_directory_path()
 
-    def pick_files_result(self, e):
+    def open_output_files_picker_dialog(self, e):
+        self.pick_output_files_dialog.get_directory_path()
+
+    def pick_input_files_result(self, e):
         absolute_path = e.path
         directory_structure = construct_directory_structure(absolute_path)
         expansion_tiles = self.build_expansion_tiles(directory_structure)
@@ -214,6 +280,18 @@ class MagiPanelByPanelView(ft.Container):
 
         self.pick_input_directory_column.visible = False
         self.pick_input_directory_column.update()
+
+    def pick_output_files_result(self, e):
+        self.output_directory = e.path
+        print(self.output_directory)
+
+        self.pick_output_directory_row.visible = False
+        self.selected_output_directory_row.visible = True
+        self.output_directory_row_text.value = get_last_directory(self.output_directory)
+
+        self.pick_output_directory_row.update()
+        self.selected_output_directory_row.update()
+        self.output_directory_row_text.update()
 
     def build_expansion_tiles(self, structure):
         def create_tiles(level, i):
@@ -258,9 +336,24 @@ class MagiPanelByPanelView(ft.Container):
 
         return create_tiles(structure, 1)
 
-    def hide_files_list_col(self, e):
+    def handle_clear_input_directory(self, e):
         self.files_list_column.visible = False
         self.pick_input_directory_column.visible = True
 
         self.files_list_column.update()
         self.pick_input_directory_column.update()
+
+    def handle_clear_output_directory(self, e):
+        self.output_directory = ""
+
+        self.pick_output_directory_row.visible = True
+        self.selected_output_directory_row.visible = False
+        self.output_directory_row_text.value = ""
+
+        self.pick_output_directory_row.update()
+        self.selected_output_directory_row.update()
+        self.output_directory_row_text.update()
+
+    def handle_clear_all_directories(self, e):
+        self.handle_clear_input_directory(e)
+        self.handle_clear_output_directory(e)
