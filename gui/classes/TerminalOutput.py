@@ -46,3 +46,9 @@ class TerminalOutput(ft.Container):
             self.terminal_arrow_icon.icon = ft.Icons.KEYBOARD_ARROW_DOWN
 
         self.page.update()  # Refresh the UI to reflect changes
+
+    def update_terminal_with_error_message(self, error_message):
+        self.terminal_output_list_view.controls.append(
+            ft.Text(error_message, color=ft.Colors.RED)
+        )
+        self.terminal_output_list_view.update()

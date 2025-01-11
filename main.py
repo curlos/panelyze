@@ -9,7 +9,7 @@ import time
 import base64
 import json
 
-using_google_colab = True
+using_google_colab = False
 
 
 def get_image_as_numpy_array(image_path: str) -> numpy.ndarray:

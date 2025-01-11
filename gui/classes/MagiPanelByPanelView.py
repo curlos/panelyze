@@ -22,6 +22,7 @@ class MagiPanelByPanelView(ft.Container):
         self.page.overlay.append(self.pick_output_files_dialog)
         self.expand = True
 
+        self.input_directory = ""
         self.output_directory = ""
 
         self.pick_input_directory_column = ft.Column(
@@ -245,6 +246,7 @@ class MagiPanelByPanelView(ft.Container):
                                         color="white",
                                         bgcolor="#5e81ac",
                                         expand=True,
+                                        on_click=self.handle_convert_to_panel_by_panel,
                                     ),
                                 ]
                             ),
@@ -269,21 +271,21 @@ class MagiPanelByPanelView(ft.Container):
 
     def pick_input_files_result(self, e):
         absolute_path = e.path
+        self.input_directory = absolute_path
+
         directory_structure = construct_directory_structure(absolute_path)
         expansion_tiles = self.build_expansion_tiles(directory_structure)
 
         self.files_directory_panel_list.controls = expansion_tiles
         self.files_list_column.visible = True
+        self.pick_input_directory_column.visible = False
 
         self.files_list_column.update()
         self.files_directory_panel_list.update()
-
-        self.pick_input_directory_column.visible = False
         self.pick_input_directory_column.update()
 
     def pick_output_files_result(self, e):
         self.output_directory = e.path
-        print(self.output_directory)
 
         self.pick_output_directory_row.visible = False
         self.selected_output_directory_row.visible = True
@@ -337,6 +339,8 @@ class MagiPanelByPanelView(ft.Container):
         return create_tiles(structure, 1)
 
     def handle_clear_input_directory(self, e):
+        self.input_directory = ""
+
         self.files_list_column.visible = False
         self.pick_input_directory_column.visible = True
 
@@ -357,3 +361,20 @@ class MagiPanelByPanelView(ft.Container):
     def handle_clear_all_directories(self, e):
         self.handle_clear_input_directory(e)
         self.handle_clear_output_directory(e)
+
+    def handle_convert_to_panel_by_panel(self, e):
+        print(f"Input Directory: {self.input_directory}")
+        print(f"Output Directory: {self.output_directory}")
+
+        if not self.input_directory and not self.output_directory:
+            self.parent_gui.terminal_output.update_terminal_with_error_message(
+                "ERROR: Please enter valid input and output directories."
+            )
+        elif not self.input_directory:
+            self.parent_gui.terminal_output.update_terminal_with_error_message(
+                "ERROR: Please enter a valid input directory."
+            )
+        elif not self.output_directory:
+            self.parent_gui.terminal_output.update_terminal_with_error_message(
+                "ERROR: Please enter a valid output directory."
+            )

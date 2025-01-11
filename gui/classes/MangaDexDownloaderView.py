@@ -62,12 +62,9 @@ class MangaDexDownloaderView(ft.Container):
         is_empty_url = not self.mangadex_url_text_field.value
 
         if is_empty_url:
-            self.parent_gui.terminal_output.terminal_output_list_view.controls.append(
-                ft.Text(
-                    "ERROR: MangaDex Page URL must not be empty.", color=ft.Colors.RED
-                )
+            self.parent_gui.terminal_output.update_terminal_with_error_message(
+                "ERROR: MangaDex Page URL must not be empty."
             )
-            self.parent_gui.terminal_output.terminal_output_list_view.update()
         else:
             self.pick_files_dialog.get_directory_path()
 
