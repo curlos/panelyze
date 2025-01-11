@@ -101,15 +101,11 @@ class Magi:
             Image.fromarray(cropped_image).save(output_path)
             print(f"Saved: {output_path}")
 
-    def get_panels_for_chapter(self):
-        absolute_chapter_directory = select_folder()
-        series_and_chapter_name_directory = get_last_two_directories(
-            absolute_chapter_directory
-        )
-        panels_parent_directory = select_folder()
+    def get_panels_for_chapter(self, input_directory, output_directory):
+        series_and_chapter_name_directory = get_last_two_directories(input_directory)
 
         chapter_pages_image_numpy_array = self.get_chapter_pages_image_numpy_array(
-            absolute_chapter_directory
+            input_directory
         )
         character_bank = self.get_character_bank()
 
@@ -175,7 +171,7 @@ class Magi:
                     self.save_cropped_panels(
                         image_as_np_array,
                         page_result_predictions,
-                        f"{panels_parent_directory}/{series_and_chapter_name_directory}/page_{page_num + 1}",
+                        f"{output_directory}/{series_and_chapter_name_directory}/page_{page_num + 1}",
                     )
 
                     page_num += 1
@@ -194,7 +190,7 @@ class Magi:
                 self.save_cropped_panels(
                     image_as_np_array,
                     page_result_predictions,
-                    f"{panels_parent_directory}/{series_and_chapter_name_directory}/page_{i + 1}",
+                    f"{output_directory}/{series_and_chapter_name_directory}/page_{i + 1}",
                 )
 
         # Calculate and print the total time taken
@@ -209,4 +205,8 @@ is_running_as_main_program = __name__ == "__main__"
 
 if is_running_as_main_program:
     magi = Magi()
-    magi.get_panels_for_chapter()
+
+    input_directory = select_folder()
+    output_directory = select_folder()
+
+    magi.get_panels_for_chapter(input_directory, output_directory)

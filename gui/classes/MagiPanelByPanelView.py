@@ -3,6 +3,7 @@ import pdb
 from utils import construct_directory_structure, format_size, get_last_directory
 import os
 from pprint import pprint
+from magi import Magi
 
 
 class MagiPanelByPanelView(ft.Container):
@@ -24,6 +25,7 @@ class MagiPanelByPanelView(ft.Container):
 
         self.input_directory = ""
         self.output_directory = ""
+        self.magi = None
 
         self.pick_input_directory_column = ft.Column(
             controls=[
@@ -370,11 +372,19 @@ class MagiPanelByPanelView(ft.Container):
             self.parent_gui.terminal_output.update_terminal_with_error_message(
                 "ERROR: Please enter valid input and output directories."
             )
+            return
         elif not self.input_directory:
             self.parent_gui.terminal_output.update_terminal_with_error_message(
                 "ERROR: Please enter a valid input directory."
             )
+            return
         elif not self.output_directory:
             self.parent_gui.terminal_output.update_terminal_with_error_message(
                 "ERROR: Please enter a valid output directory."
             )
+            return
+
+        if not self.magi:
+            self.magi = Magi()
+
+        self.magi.get_panels_for_chapter(self.input_directory, self.output_directory)
