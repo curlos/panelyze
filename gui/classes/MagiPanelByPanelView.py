@@ -1,6 +1,12 @@
 import flet as ft
 import pdb
-from utils import construct_directory_structure, format_size, get_last_directory
+from utils import (
+    construct_directory_structure,
+    format_size,
+    get_last_directory,
+    open_directory,
+    remove_last_directory,
+)
 import os
 from pprint import pprint
 from magi import Magi
@@ -203,8 +209,8 @@ class MagiPanelByPanelView(ft.Container):
         absolute_path = e.path
         self.input_directory = absolute_path
 
-        directory_structure = construct_directory_structure(absolute_path)
-        expansion_tiles = self.build_expansion_tiles(directory_structure)
+        self.files_directory_structure = construct_directory_structure(absolute_path)
+        expansion_tiles = self.build_expansion_tiles(self.files_directory_structure)
 
         self.files_directory_panel_list.controls = expansion_tiles
         self.files_list_column.visible = True
@@ -312,10 +318,14 @@ class MagiPanelByPanelView(ft.Container):
             )
             return
 
+        # TODO: Bring back in a moment.
         if not self.magi:
             self.magi = Magi()
 
-        self.magi.get_panels_for_chapter(self.input_directory, self.output_directory)
+        self.process_images_in_structure(
+            self.files_directory_structure, remove_last_directory(self.input_directory)
+        )
+        open_directory(self.output_directory)
 
     def get_pick_directory_container(self, controls, on_click):
         return ft.Container(
@@ -338,3 +348,26 @@ class MagiPanelByPanelView(ft.Container):
             alignment=ft.alignment.center,
             expand=True,
         )
+
+    def process_images_in_structure(self, structure, base_path=""):
+        def traverse_and_process(level, current_path):
+            for key, value in level.items():
+                if key == "__images__":
+                    print("\n")
+                    print(self.input_directory)
+                    # Current path is a directory containing images
+                    input_directory = os.path.join(base_path, current_path)
+                    print(f"Processing: {input_directory} -> {self.output_directory}")
+                    print("\n")
+
+                    # Call the processing function
+                    self.magi.get_panels_for_chapter(
+                        input_directory, self.output_directory
+                    )
+                else:
+                    # Traverse nested directories
+                    next_path = os.path.join(current_path, key) if current_path else key
+                    traverse_and_process(value, next_path)
+
+        # Start the traversal from the root of the structure
+        traverse_and_process(structure, base_path)

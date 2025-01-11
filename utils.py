@@ -398,3 +398,8 @@ class StreamInterceptor:
 
     def flush(self):
         self.original_stdout.flush()
+
+
+def remove_last_directory(path):
+    # Use os.path.dirname to remove the last directory
+    return os.path.dirname(path)

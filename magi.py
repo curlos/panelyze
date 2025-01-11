@@ -11,6 +11,7 @@ import time
 import base64
 import json
 import flet as ft
+from copy_panels_to_one_level_directory import copy_panels_to_one_level_directory
 
 
 class Magi:
@@ -235,6 +236,17 @@ class Magi:
                     page_result_predictions,
                     f"{output_directory}/{series_and_chapter_name_directory}/page_{i + 1}",
                 )
+
+            panel_by_panel_input_dir = (
+                f"{output_directory}/{series_and_chapter_name_directory}"
+            )
+            panel_by_panel_output_dir = (
+                f"{output_directory}/panel-by-panel/{series_and_chapter_name_directory}"
+            )
+
+            copy_panels_to_one_level_directory(
+                panel_by_panel_input_dir, panel_by_panel_output_dir
+            )
 
         # Calculate and print the total time taken
         end_time = time.time()
