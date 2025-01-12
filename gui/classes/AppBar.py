@@ -36,7 +36,7 @@ class AppBar(ft.Container):
         )
 
         self.images_to_video_button = AppBarButton(
-            text="Images To Video",
+            text="Images To Video Creator",
             current_view=self.parent_gui.current_view,
             change_view=self.change_view,
         )
