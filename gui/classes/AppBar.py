@@ -29,14 +29,14 @@ class AppBar(ft.Container):
         self.page = self.parent_gui.page
 
         # Define the buttons
-        self.mangadex_button = AppBarButton(
-            text="MangaDex Downloader",
+        self.panel_by_panel_button = AppBarButton(
+            text="Panel-By-Panel",
             current_view=self.parent_gui.current_view,
             change_view=self.change_view,
         )
 
-        self.panel_button = AppBarButton(
-            text="Panel-By-Panel",
+        self.mangadex_downloader_button = AppBarButton(
+            text="MangaDex Downloader",
             current_view=self.parent_gui.current_view,
             change_view=self.change_view,
         )
@@ -56,8 +56,8 @@ class AppBar(ft.Container):
             controls=[
                 ft.Row(
                     controls=[
-                        self.mangadex_button,
-                        self.panel_button,
+                        self.panel_by_panel_button,
+                        self.mangadex_downloader_button,
                     ]
                 ),
                 ft.IconButton(
@@ -80,12 +80,16 @@ class AppBar(ft.Container):
         self.parent_gui.current_view = view_name
 
         # Update button styles dynamically
-        self.mangadex_button.style = self.mangadex_button.get_button_style_by_view(
-            self.parent_gui.current_view
+        self.mangadex_downloader_button.style = (
+            self.mangadex_downloader_button.get_button_style_by_view(
+                self.parent_gui.current_view
+            )
         )
 
-        self.panel_button.style = self.panel_button.get_button_style_by_view(
-            self.parent_gui.current_view
+        self.panel_by_panel_button.style = (
+            self.panel_by_panel_button.get_button_style_by_view(
+                self.parent_gui.current_view
+            )
         )
 
         self.parent_gui.render_page_based_on_current_view()
