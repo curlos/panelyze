@@ -203,6 +203,19 @@ def get_last_two_directories(path):
     return os.path.join(*last_two)
 
 
+def get_last_two_directories_obj(path):
+    # Normalize the path to handle different OS path separators
+    normalized_path = os.path.normpath(path)
+
+    # Split the path into components
+    path_parts = normalized_path.split(os.sep)
+
+    # Extract the last two directories
+    last_two = path_parts[-2:]
+
+    return last_two
+
+
 def open_directory(path):
     if platform.system() == "Darwin":  # macOS
         subprocess.run(["open", path])

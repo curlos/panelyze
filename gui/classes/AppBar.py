@@ -35,6 +35,12 @@ class AppBar(ft.Container):
             change_view=self.change_view,
         )
 
+        self.images_to_video_button = AppBarButton(
+            text="Images To Video",
+            current_view=self.parent_gui.current_view,
+            change_view=self.change_view,
+        )
+
         self.mangadex_downloader_button = AppBarButton(
             text="MangaDex Downloader",
             current_view=self.parent_gui.current_view,
@@ -56,8 +62,9 @@ class AppBar(ft.Container):
             controls=[
                 ft.Row(
                     controls=[
-                        self.panel_by_panel_button,
                         self.mangadex_downloader_button,
+                        self.panel_by_panel_button,
+                        self.images_to_video_button,
                     ]
                 ),
                 ft.IconButton(

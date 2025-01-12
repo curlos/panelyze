@@ -8,7 +8,6 @@ from utils import (
     remove_last_directory,
 )
 import os
-from pprint import pprint
 from magi import Magi
 
 
@@ -337,7 +336,6 @@ class MagiPanelByPanelView(ft.Container):
             )
             return
 
-        # TODO: Bring back in a moment.
         if not self.magi:
             self.magi = Magi()
 
