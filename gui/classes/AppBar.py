@@ -1,5 +1,6 @@
 import flet as ft
 from classes.SettingsMangaDexDownloader import SettingsMangaDexDownloader
+from classes.SettingsPanelByPanel import SettingsPanelByPanel
 
 
 class AppBarButton(ft.TextButton):
@@ -26,6 +27,7 @@ class AppBar(ft.Container):
     def __init__(self, parent_gui):
         super().__init__()
         self.parent_gui = parent_gui
+        self.current_view = self.parent_gui.current_view
         self.page = self.parent_gui.page
 
         # Define the buttons
@@ -51,12 +53,10 @@ class AppBar(ft.Container):
         self.padding = 0
         self.margin = 0
 
-        self.create()
-
-    def create(self):
-        mangadex_drawer = SettingsMangaDexDownloader(
+        self.drawer_mangadex_downloader = SettingsMangaDexDownloader(
             self.page, self.parent_gui.all_mangadex_languages
         )
+        self.drawer_panel_by_panel = SettingsPanelByPanel(self.page)
 
         self.content = ft.Row(
             controls=[
@@ -69,7 +69,7 @@ class AppBar(ft.Container):
                 ),
                 ft.IconButton(
                     ft.Icons.SETTINGS,
-                    on_click=lambda e: self.page.open(mangadex_drawer),
+                    on_click=self.open_drawer,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=4), padding=1
                     ),
@@ -78,6 +78,10 @@ class AppBar(ft.Container):
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             expand=True,
         )
+
+    def open_drawer(self, e):
+        drawer_for_current_view = self.get_drawer_for_current_view()
+        self.page.open(drawer_for_current_view)
 
     # Function to change the view and update the button styles
     def change_view(self, view_name):
@@ -101,3 +105,9 @@ class AppBar(ft.Container):
 
         self.parent_gui.render_page_based_on_current_view()
         self.parent_gui.page.update()
+
+    def get_drawer_for_current_view(self):
+        if self.parent_gui.current_view == "MangaDex Downloader":
+            return self.drawer_mangadex_downloader
+        elif self.parent_gui.current_view == "Panel-By-Panel":
+            return self.drawer_panel_by_panel
