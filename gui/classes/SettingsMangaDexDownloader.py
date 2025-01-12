@@ -1,9 +1,7 @@
 import flet as ft
-import sys
-from utils import ProcessManager
 
 
-class NavDrawerMangaDexDownloader(ft.NavigationDrawer):
+class SettingsMangaDexDownloader(ft.NavigationDrawer):
     def __init__(self, page, all_mangadex_languages):
         super().__init__()
         self.page = page

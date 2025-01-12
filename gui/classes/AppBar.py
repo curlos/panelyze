@@ -1,5 +1,5 @@
 import flet as ft
-from classes.NavDrawerMangaDexDownloader import NavDrawerMangaDexDownloader
+from classes.SettingsMangaDexDownloader import SettingsMangaDexDownloader
 
 
 class AppBarButton(ft.TextButton):
@@ -54,7 +54,7 @@ class AppBar(ft.Container):
         self.create()
 
     def create(self):
-        mangadex_drawer = NavDrawerMangaDexDownloader(
+        mangadex_drawer = SettingsMangaDexDownloader(
             self.page, self.parent_gui.all_mangadex_languages
         )
 
