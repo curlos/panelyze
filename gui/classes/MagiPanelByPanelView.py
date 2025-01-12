@@ -66,39 +66,60 @@ class MagiPanelByPanelView(ft.Container):
             size=14,
         )
 
-        self.selected_output_directory_row = ft.Row(
+        self.selected_output_directory_row = ft.Column(
             controls=[
-                ft.Row(
-                    controls=[
-                        ft.Icon(
-                            ft.Icons.FILE_OPEN,
-                            color="white",
+                ft.Container(
+                    content=ft.Container(
+                        content=ft.Container(
+                            content=ft.Column(
+                                controls=[
+                                    ft.Row(
+                                        controls=[
+                                            ft.Icon(
+                                                ft.Icons.FILE_OPEN,
+                                                color="white",
+                                            ),
+                                            ft.Text(
+                                                "Output Directory",
+                                                weight=ft.FontWeight.W_700,
+                                            ),
+                                        ]
+                                    ),
+                                    ft.Row(
+                                        controls=[
+                                            self.output_directory_row_text,
+                                            ft.IconButton(
+                                                ft.Icons.CLOSE,
+                                                icon_color="white",
+                                                on_click=self.handle_clear_output_directory,
+                                            ),
+                                        ],
+                                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    ),
+                                ]
+                            ),
+                            alignment=ft.alignment.top_left,
                         ),
-                        ft.Text("Output Directory", weight=ft.FontWeight.W_700),
-                    ]
-                ),
-                ft.Row(
-                    controls=[
-                        self.output_directory_row_text,
-                        ft.IconButton(
-                            ft.Icons.CLOSE,
-                            icon_color="white",
-                            on_click=self.handle_clear_output_directory,
-                        ),
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                ),
+                        bgcolor="#3b4252",
+                        border=ft.border.all(1, "#5e81ac"),
+                        border_radius=ft.border_radius.all(10),
+                        alignment=ft.alignment.center,
+                        padding=10,
+                    ),
+                    bgcolor="#444c5e",
+                    padding=5,
+                    border_radius=ft.border_radius.all(10),
+                    expand=True,
+                    alignment=ft.alignment.top_left,
+                )
             ],
-            alignment=ft.MainAxisAlignment.START,
             expand=True,
             visible=False,
-            wrap=True,
         )
 
         self.pick_output_directory_column = self.get_pick_directory_container(
             [
                 self.pick_output_directory_row,
-                self.selected_output_directory_row,
             ],
             self.open_output_files_picker_dialog,
         )
@@ -166,6 +187,7 @@ class MagiPanelByPanelView(ft.Container):
                                     self.pick_input_directory_column,
                                     self.files_list_column,
                                     self.pick_output_directory_column,
+                                    self.selected_output_directory_row,
                                 ],
                                 expand=True,
                             ),
@@ -223,11 +245,11 @@ class MagiPanelByPanelView(ft.Container):
     def pick_output_files_result(self, e):
         self.output_directory = e.path
 
-        self.pick_output_directory_row.visible = False
+        self.pick_output_directory_column.visible = False
         self.selected_output_directory_row.visible = True
         self.output_directory_row_text.value = get_last_directory(self.output_directory)
 
-        self.pick_output_directory_row.update()
+        self.pick_output_directory_column.update()
         self.selected_output_directory_row.update()
         self.output_directory_row_text.update()
 
@@ -286,11 +308,11 @@ class MagiPanelByPanelView(ft.Container):
     def handle_clear_output_directory(self, e):
         self.output_directory = ""
 
-        self.pick_output_directory_row.visible = True
+        self.pick_output_directory_column.visible = True
         self.selected_output_directory_row.visible = False
         self.output_directory_row_text.value = ""
 
-        self.pick_output_directory_row.update()
+        self.pick_output_directory_column.update()
         self.selected_output_directory_row.update()
         self.output_directory_row_text.update()
 
@@ -299,9 +321,6 @@ class MagiPanelByPanelView(ft.Container):
         self.handle_clear_output_directory(e)
 
     def handle_convert_to_panel_by_panel(self, e):
-        print(f"Input Directory: {self.input_directory}")
-        print(f"Output Directory: {self.output_directory}")
-
         if not self.input_directory and not self.output_directory:
             self.parent_gui.terminal_output.update_terminal_with_error_message(
                 "ERROR: Please enter valid input and output directories."
