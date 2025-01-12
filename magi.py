@@ -27,11 +27,18 @@ class Magi:
 
     def get_image_as_numpy_array(self, image_path: str) -> numpy.ndarray:
         """
-        Read an image path and convert it to a numpy array.
+        Read an image path, convert it to a numpy array, and ensure it has 3 dimensions (RGB format).
         """
         with open(image_path, "rb") as file:
             pillow_image = Image.open(file)
+
+            # Ensure the image is in RGB mode
+            if pillow_image.mode != "RGB":
+                pillow_image = pillow_image.convert("RGB")
+
+            # Convert to numpy array
             image_numpy_array = numpy.array(pillow_image)
+
         return image_numpy_array
 
     def get_chapter_pages_image_numpy_array(self, chapter_directory):
@@ -215,7 +222,7 @@ class Magi:
                     self.save_cropped_panels(
                         image_as_np_array,
                         page_result_predictions,
-                        f"{output_directory}/{series_and_chapter_name_directory}/page_{page_num + 1}",
+                        f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}/page_{page_num + 1}",
                     )
 
                     page_num += 1
@@ -234,15 +241,11 @@ class Magi:
                 self.save_cropped_panels(
                     image_as_np_array,
                     page_result_predictions,
-                    f"{output_directory}/{series_and_chapter_name_directory}/page_{i + 1}",
+                    f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}/page_{i + 1}",
                 )
 
-            panel_by_panel_input_dir = (
-                f"{output_directory}/{series_and_chapter_name_directory}"
-            )
-            panel_by_panel_output_dir = (
-                f"{output_directory}/panel-by-panel/{series_and_chapter_name_directory}"
-            )
+            panel_by_panel_input_dir = f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}"
+            panel_by_panel_output_dir = f"{output_directory}/panel-by-panel/not-grouped/{series_and_chapter_name_directory}"
 
             copy_panels_to_one_level_directory(
                 panel_by_panel_input_dir, panel_by_panel_output_dir
