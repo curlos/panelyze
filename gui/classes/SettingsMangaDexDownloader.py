@@ -1,9 +1,11 @@
 import flet as ft
+from classes.SettingsBase import SettingsBase
 
 
 class SettingsMangaDexDownloader(ft.NavigationDrawer):
     def __init__(self, page, all_mangadex_languages):
         super().__init__()
+
         self.page = page
 
         mangadex_languages = all_mangadex_languages["mangadex_languages"]
@@ -48,6 +50,9 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer):
             "start_chapter": self.start_chapter_textfield,
             "end_chapter": self.end_chapter_textfield,
         }
+
+        self.settings_base = SettingsBase(self.page, self.page_num_textfield_dict)
+        self.change_setting = self.settings_base.change_setting
 
         self.bgcolor = "#3b4252"
         self.position = ft.NavigationDrawerPosition.END
@@ -110,14 +115,14 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer):
                         ft.Checkbox(
                             label="Use Chapter Title",
                             value=self.page.client_storage.get("use_chapter_title"),
-                            on_change=lambda e: self.change_mangadex_downloader_setting(
+                            on_change=lambda e: self.change_setting(
                                 "use_chapter_title", e.data
                             ),
                         ),
                         ft.Checkbox(
                             label="No Group Name",
                             value=self.page.client_storage.get("no_group_name"),
-                            on_change=lambda e: self.change_mangadex_downloader_setting(
+                            on_change=lambda e: self.change_setting(
                                 "no_group_name", e.data
                             ),
                         ),
@@ -127,7 +132,7 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer):
                             value=self.page.client_storage.get(
                                 "replace_existing_manga"
                             ),
-                            on_change=lambda e: self.change_mangadex_downloader_setting(
+                            on_change=lambda e: self.change_setting(
                                 "replace_existing_manga", e.data
                             ),
                         ),
@@ -135,21 +140,21 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer):
                             # Replace existing manga, chapter, or list.
                             label="No Oneshot Chapters",
                             value=self.page.client_storage.get("no_oneshot_chapters"),
-                            on_change=lambda e: self.change_mangadex_downloader_setting(
+                            on_change=lambda e: self.change_setting(
                                 "no_oneshot_chapters", e.data
                             ),
                         ),
                         ft.Checkbox(
                             label="Use Chapter Cover",
                             value=self.page.client_storage.get("use_chapter_cover"),
-                            on_change=lambda e: self.change_mangadex_downloader_setting(
+                            on_change=lambda e: self.change_setting(
                                 "use_chapter_cover", e.data
                             ),
                         ),
                         ft.Checkbox(
                             label="Use Volume Cover",
                             value=self.page.client_storage.get("use_volume_cover"),
-                            on_change=lambda e: self.change_mangadex_downloader_setting(
+                            on_change=lambda e: self.change_setting(
                                 "use_volume_cover", e.data
                             ),
                         ),
@@ -161,27 +166,6 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer):
             )
         ]
 
-    def change_mangadex_downloader_setting(self, setting_key, setting_value):
-        final_setting_value = setting_value
-
-        if setting_value == "true" or setting_value == "false":
-            final_setting_value = {"true": True, "false": False}.get(
-                setting_value.lower(), False
-            )
-
-        if setting_key in self.page_num_textfield_dict:
-            page_num_textfield = self.page_num_textfield_dict[setting_key]
-
-            if setting_value and not setting_value.isdigit():
-                page_num_textfield.error_text = "Please enter a valid page number."
-            else:
-                page_num_textfield.error_text = ""
-                self.page.client_storage.set(setting_key, final_setting_value)
-
-            page_num_textfield.update()
-        else:
-            self.page.client_storage.set(setting_key, final_setting_value)
-
     def handle_language_dropdown_change(
         self, chosen_language_name, mangadex_languages_by_name
     ):
@@ -190,14 +174,14 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer):
 
     def toggle_start_and_end_page_col_visibility(self, e):
         self.start_and_end_page_col.visible = not self.start_and_end_page_col.visible
-        self.change_mangadex_downloader_setting("use_start_and_end_pages", e.data)
+        self.change_setting("use_start_and_end_pages", e.data)
         self.page.update()
 
     def toggle_start_and_end_chapter_col_visibility(self, e):
         self.start_and_end_chapter_col.visible = (
             not self.start_and_end_chapter_col.visible
         )
-        self.change_mangadex_downloader_setting("use_start_and_end_chapters", e.data)
+        self.change_setting("use_start_and_end_chapters", e.data)
         self.page.update()
 
     def get_number_textfield(self, label, client_storage_key):
@@ -207,7 +191,5 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer):
             border_color="#5e81ac",
             keyboard_type=ft.KeyboardType.NUMBER,
             value=self.page.client_storage.get(client_storage_key),
-            on_change=lambda e: self.change_mangadex_downloader_setting(
-                client_storage_key, e.data
-            ),
+            on_change=lambda e: self.change_setting(client_storage_key, e.data),
         )
