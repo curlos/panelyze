@@ -48,7 +48,9 @@ class AppBar(ft.Container):
         self.create()
 
     def create(self):
-        mangadex_drawer = NavDrawerMangaDexDownloader(self.page)
+        mangadex_drawer = NavDrawerMangaDexDownloader(
+            self.page, self.parent_gui.all_mangadex_languages
+        )
 
         self.content = ft.Row(
             controls=[

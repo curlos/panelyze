@@ -403,3 +403,37 @@ class StreamInterceptor:
 def remove_last_directory(path):
     # Use os.path.dirname to remove the last directory
     return os.path.dirname(path)
+
+
+def get_all_mangadex_languages():
+    terminal_command = [
+        sys.executable,
+        "-m",
+        "mangadex_downloader",
+        "--list-language",
+        "-ll",
+    ]
+
+    process_manager = ProcessManager()
+    all_lines = process_manager.monitor_terminal_output(terminal_command)
+
+    # Filter languages based on the pattern "name / code"
+    filtered_languages = [line.strip() for line in all_lines if " / " in line]
+
+    # If "MangaDex Downloader" somehow can't fetch the languages the first time around, then keep trying until we get the languages
+    while len(filtered_languages) == 0:
+        process_manager = ProcessManager()
+        all_lines = process_manager.monitor_terminal_output(terminal_command)
+        filtered_languages = [line.strip() for line in all_lines if " / " in line]
+
+    mangadex_languages = [
+        {"name": lang.split(" / ")[0], "code": lang.split(" / ")[1]}
+        for lang in filtered_languages
+    ]
+
+    mangadex_languages_by_name = {lang["name"]: lang for lang in mangadex_languages}
+
+    return {
+        "mangadex_languages": mangadex_languages,
+        "mangadex_languages_by_name": mangadex_languages_by_name,
+    }

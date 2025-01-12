@@ -9,6 +9,7 @@ from classes.AppBar import AppBar
 from classes.MangaDexDownloaderView import MangaDexDownloaderView
 from classes.TerminalOutput import TerminalOutput
 from classes.MagiPanelByPanelView import MagiPanelByPanelView
+from utils import get_all_mangadex_languages
 
 
 class GUI(ft.Page):
@@ -27,6 +28,8 @@ class GUI(ft.Page):
         self.terminal_output = TerminalOutput(self.page)
         self.MangaDexDownloaderView = MangaDexDownloaderView(self)
         self.MagiPanelByPanelView = MagiPanelByPanelView(self)
+
+        self.all_mangadex_languages = get_all_mangadex_languages()
 
         self.render_page_based_on_current_view()
 

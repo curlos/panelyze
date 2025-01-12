@@ -4,11 +4,10 @@ from utils import ProcessManager
 
 
 class NavDrawerMangaDexDownloader(ft.NavigationDrawer):
-    def __init__(self, page):
+    def __init__(self, page, all_mangadex_languages):
         super().__init__()
         self.page = page
 
-        all_mangadex_languages = self.get_all_mangadex_languages()
         mangadex_languages = all_mangadex_languages["mangadex_languages"]
         mangadex_languages_by_name = all_mangadex_languages[
             "mangadex_languages_by_name"
@@ -184,39 +183,6 @@ class NavDrawerMangaDexDownloader(ft.NavigationDrawer):
             page_num_textfield.update()
         else:
             self.page.client_storage.set(setting_key, final_setting_value)
-
-    def get_all_mangadex_languages(self):
-        terminal_command = [
-            sys.executable,
-            "-m",
-            "mangadex_downloader",
-            "--list-language",
-            "-ll",
-        ]
-
-        process_manager = ProcessManager()
-        all_lines = process_manager.monitor_terminal_output(terminal_command)
-
-        # Filter languages based on the pattern "name / code"
-        filtered_languages = [line.strip() for line in all_lines if " / " in line]
-
-        # If "MangaDex Downloader" somehow can't fetch the languages the first time around, then keep trying until we get the languages
-        while len(filtered_languages) == 0:
-            process_manager = ProcessManager()
-            all_lines = process_manager.monitor_terminal_output(terminal_command)
-            filtered_languages = [line.strip() for line in all_lines if " / " in line]
-
-        mangadex_languages = [
-            {"name": lang.split(" / ")[0], "code": lang.split(" / ")[1]}
-            for lang in filtered_languages
-        ]
-
-        mangadex_languages_by_name = {lang["name"]: lang for lang in mangadex_languages}
-
-        return {
-            "mangadex_languages": mangadex_languages,
-            "mangadex_languages_by_name": mangadex_languages_by_name,
-        }
 
     def handle_language_dropdown_change(
         self, chosen_language_name, mangadex_languages_by_name
