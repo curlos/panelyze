@@ -164,6 +164,35 @@ class Magi:
         start_time = time.time()
         print("Starting timer...")
 
+        if self.using_google_colab:
+            self.get_panels_using_google_colab(
+                chapter_pages_image_numpy_array,
+                character_bank,
+                series_and_chapter_name_directory,
+                output_directory,
+            )
+        else:
+            self.get_panels_using_local_cpu(
+                chapter_pages_image_numpy_array,
+                character_bank,
+                series_and_chapter_name_directory,
+                output_directory,
+            )
+
+        # Calculate and print the total time taken
+        end_time = time.time()
+        total_time = end_time - start_time
+        print(
+            f"Magi AI Model Panel-by-Panel conversion time taken: {total_time:.2f} seconds"
+        )
+
+    def get_panels_using_google_colab(
+        self,
+        chapter_pages_image_numpy_array,
+        character_bank,
+        series_and_chapter_name_directory,
+        output_directory,
+    ):
         # Wasn't able to fully get this working but if Google Colab did work, then in theory send the request to Colab and it would use the Magi Model on there and do all the computationally expensive operations on the superior GPUs on Colab and give me the numpy array results here and do the rest of the operations on this local code.
         if self.using_google_colab:
             google_colab_ngrok_server_url_parts = {
@@ -228,34 +257,34 @@ class Magi:
                     page_num += 1
                 except Exception as e:
                     print(e)
-        else:
-            # If the Magi Model is being ran on the local machine (like a Macbook), then send all of the Chapter's images in a batch at once.
-            # We're not making a request to an external server so no limit on how big the numpy array is.
-            per_page_results = self.get_per_page_results(
-                chapter_pages_image_numpy_array, character_bank
+
+    def get_panels_using_local_cpu(
+        self,
+        chapter_pages_image_numpy_array,
+        character_bank,
+        series_and_chapter_name_directory,
+        output_directory,
+    ):
+        # If the Magi Model is being ran on the local machine (like a Macbook), then send all of the Chapter's images in a batch at once.
+        # We're not making a request to an external server so no limit on how big the numpy array is.
+        per_page_results = self.get_per_page_results(
+            chapter_pages_image_numpy_array, character_bank
+        )
+
+        for i, (image_as_np_array, page_result_predictions) in enumerate(
+            zip(chapter_pages_image_numpy_array, per_page_results)
+        ):
+            self.save_cropped_panels(
+                image_as_np_array,
+                page_result_predictions,
+                f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}/page_{i + 1}",
             )
 
-            for i, (image_as_np_array, page_result_predictions) in enumerate(
-                zip(chapter_pages_image_numpy_array, per_page_results)
-            ):
-                self.save_cropped_panels(
-                    image_as_np_array,
-                    page_result_predictions,
-                    f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}/page_{i + 1}",
-                )
+        panel_by_panel_input_dir = f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}"
+        panel_by_panel_output_dir = f"{output_directory}/panel-by-panel/not-grouped/{series_and_chapter_name_directory}"
 
-            panel_by_panel_input_dir = f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}"
-            panel_by_panel_output_dir = f"{output_directory}/panel-by-panel/not-grouped/{series_and_chapter_name_directory}"
-
-            copy_panels_to_one_level_directory(
-                panel_by_panel_input_dir, panel_by_panel_output_dir
-            )
-
-        # Calculate and print the total time taken
-        end_time = time.time()
-        total_time = end_time - start_time
-        print(
-            f"Magi AI Model Panel-by-Panel conversion time taken: {total_time:.2f} seconds"
+        copy_panels_to_one_level_directory(
+            panel_by_panel_input_dir, panel_by_panel_output_dir
         )
 
 
