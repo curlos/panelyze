@@ -2,10 +2,6 @@ import flet as ft
 
 
 class SettingsBase:
-    def __init__(self, page, page_num_textfield_dict):
-        self.page = page
-        self.page_num_textfield_dict = page_num_textfield_dict
-
     def change_setting(self, setting_key, setting_value):
         final_setting_value = setting_value
 
@@ -26,3 +22,13 @@ class SettingsBase:
             page_num_textfield.update()
         else:
             self.page.client_storage.set(setting_key, final_setting_value)
+
+    def get_number_textfield(self, label, client_storage_key):
+        return ft.TextField(
+            label=label,
+            expand=True,
+            border_color="#5e81ac",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            value=self.page.client_storage.get(client_storage_key),
+            on_change=lambda e: self.change_setting(client_storage_key, e.data),
+        )

@@ -1,15 +1,28 @@
 import flet as ft
+from classes.SettingsBase import SettingsBase
 
-# from classes.SettingsBase import SettingsBase
 
-
-class SettingsPanelByPanel(ft.NavigationDrawer):
+class SettingsPanelByPanel(ft.NavigationDrawer, SettingsBase):
     def __init__(self, page):
         super().__init__()
         self.page = page
 
         self.bgcolor = "#3b4252"
         self.position = ft.NavigationDrawerPosition.END
+
+        self.custom_panel_image_height_textfield = self.get_number_textfield(
+            "Panel Height", "custom_panel_image_height"
+        )
+        self.custom_panel_image_height_col = ft.Column(
+            controls=[
+                self.custom_panel_image_height_textfield,
+            ],
+            visible=bool(self.page.client_storage.get("use_custom_panel_image_height")),
+        )
+
+        self.page_num_textfield_dict = {
+            "custom_panel_image_height": self.custom_panel_image_height_textfield,
+        }
 
         self.controls = [
             ft.Container(
@@ -45,24 +58,3 @@ class SettingsPanelByPanel(ft.NavigationDrawer):
                 expand=True,
             )
         ]
-
-    # def change_panel_by_panel_setting(self, setting_key, setting_value):
-    #     final_setting_value = setting_value
-
-    #     if setting_value == "true" or setting_value == "false":
-    #         final_setting_value = {"true": True, "false": False}.get(
-    #             setting_value.lower(), False
-    #         )
-
-    #     if setting_key in self.page_num_textfield_dict:
-    #         page_num_textfield = self.page_num_textfield_dict[setting_key]
-
-    #         if setting_value and not setting_value.isdigit():
-    #             page_num_textfield.error_text = "Please enter a valid page number."
-    #         else:
-    #             page_num_textfield.error_text = ""
-    #             self.page.client_storage.set(setting_key, final_setting_value)
-
-    #         page_num_textfield.update()
-    #     else:
-    #         self.page.client_storage.set(setting_key, final_setting_value)

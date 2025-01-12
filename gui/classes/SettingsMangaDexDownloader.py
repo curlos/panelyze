@@ -2,7 +2,7 @@ import flet as ft
 from classes.SettingsBase import SettingsBase
 
 
-class SettingsMangaDexDownloader(ft.NavigationDrawer):
+class SettingsMangaDexDownloader(ft.NavigationDrawer, SettingsBase):
     def __init__(self, page, all_mangadex_languages):
         super().__init__()
 
@@ -50,9 +50,6 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer):
             "start_chapter": self.start_chapter_textfield,
             "end_chapter": self.end_chapter_textfield,
         }
-
-        self.settings_base = SettingsBase(self.page, self.page_num_textfield_dict)
-        self.change_setting = self.settings_base.change_setting
 
         self.bgcolor = "#3b4252"
         self.position = ft.NavigationDrawerPosition.END
@@ -183,13 +180,3 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer):
         )
         self.change_setting("use_start_and_end_chapters", e.data)
         self.page.update()
-
-    def get_number_textfield(self, label, client_storage_key):
-        return ft.TextField(
-            label=label,
-            expand=True,
-            border_color="#5e81ac",
-            keyboard_type=ft.KeyboardType.NUMBER,
-            value=self.page.client_storage.get(client_storage_key),
-            on_change=lambda e: self.change_setting(client_storage_key, e.data),
-        )
