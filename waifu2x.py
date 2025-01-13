@@ -1,7 +1,10 @@
 import subprocess
 
 
-def upscale_with_waifu2x(input_image, output_image, scale=4, noise_level=1):
+def upscale_with_waifu2x(input_image, output_image, upscale_ratio=4, noise_level=1):
+    print(f"\nupscale_ratio: {upscale_ratio}")
+    print(f"noise_level: {noise_level}\n")
+
     command = [
         "waifu2x-ncnn-vulkan",  # Path to the binary
         "-i",
@@ -9,7 +12,7 @@ def upscale_with_waifu2x(input_image, output_image, scale=4, noise_level=1):
         "-o",
         output_image,
         "-s",
-        str(scale),
+        str(upscale_ratio),
         "-n",
         str(noise_level),
     ]

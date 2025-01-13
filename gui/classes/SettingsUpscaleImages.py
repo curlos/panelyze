@@ -10,19 +10,11 @@ class SettingsUpscaleImages(ft.NavigationDrawer, SettingsBase):
         self.bgcolor = "#3b4252"
         self.position = ft.NavigationDrawerPosition.END
 
-        self.custom_panel_image_height_textfield = self.get_number_textfield(
-            "Panel Height (px)", "custom_panel_image_height"
-        )
-        self.custom_panel_image_height_col = ft.Column(
-            controls=[
-                self.custom_panel_image_height_textfield,
-            ],
-            visible=bool(self.page.client_storage.get("use_custom_panel_image_height")),
-        )
+        if not self.page.client_storage.get("upscale_ratio"):
+            self.page.client_storage.set("upscale_ratio", 2)
 
-        self.page_num_textfield_dict = {
-            "custom_panel_image_height": self.custom_panel_image_height_textfield,
-        }
+        self.upscale_ratios = [1, 2, 4, 8, 16, 32]
+        self.default_upscale_ratio = self.page.client_storage.get("upscale_ratio")
 
         self.controls = [
             ft.Container(
@@ -41,18 +33,24 @@ class SettingsUpscaleImages(ft.NavigationDrawer, SettingsBase):
                             expand=True,
                             padding=ft.padding.only(bottom=5),
                         ),
-                        ft.Checkbox(
-                            label="Use Custom Panel Image Height",
-                            value=self.page.client_storage.get(
-                                "use_custom_panel_image_height"
+                        ft.Dropdown(
+                            label="Upscale Ratio",
+                            options=[
+                                ft.dropdown.Option(upscale_ratio)
+                                for upscale_ratio in self.upscale_ratios
+                            ],
+                            value=self.default_upscale_ratio,
+                            text_style=ft.TextStyle(
+                                color="white",  # Text color of the selected item
+                                size=14,  # Font size
                             ),
-                            on_change=lambda e: self.toggle_setting_element_visibility(
-                                e,
-                                self.custom_panel_image_height_col,
-                                "use_custom_panel_image_height",
+                            fill_color="#3b4252",  # Background color of the dropdown
+                            border_color="#5e81ac",
+                            max_menu_height=300,
+                            on_change=lambda e: self.change_setting(
+                                "upscale_ratio", e.data
                             ),
                         ),
-                        self.custom_panel_image_height_col,
                     ],
                     expand=True,
                 ),

@@ -1,7 +1,6 @@
 import flet as ft
 from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
 import os
-
 from utils import get_last_two_directories, remove_last_directory
 from waifu2x import upscale_with_waifu2x
 
@@ -71,6 +70,7 @@ class UpscaleImagesView(ft.Container):
         input_directory = os.path.join(base_path, current_path)
         series_and_chapter_name_directory = get_last_two_directories(input_directory)
         replace_existing_image = False
+        upscale_ratio = self.page.client_storage.get("upscale_ratio")
 
         for img_obj in img_obj_list:
             file_name = img_obj["name"]
@@ -85,4 +85,8 @@ class UpscaleImagesView(ft.Container):
                 os.makedirs(full_image_output_directory, exist_ok=True)
                 output_image = f"{full_image_output_directory}/{file_name}"
 
-            upscale_with_waifu2x(input_image=input_image, output_image=output_image)
+            upscale_with_waifu2x(
+                input_image=input_image,
+                output_image=output_image,
+                upscale_ratio=upscale_ratio,
+            )

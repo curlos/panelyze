@@ -1,4 +1,5 @@
 import flet as ft
+import pdb
 
 
 class SettingsBase:
@@ -10,7 +11,10 @@ class SettingsBase:
                 setting_value.lower(), False
             )
 
-        if setting_key in self.page_num_textfield_dict:
+        if (
+            hasattr(self, "page_num_textfield_dict")
+            and setting_key in self.page_num_textfield_dict
+        ):
             page_num_textfield = self.page_num_textfield_dict[setting_key]
 
             if setting_value and not setting_value.isdigit():
