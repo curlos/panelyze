@@ -450,3 +450,22 @@ def get_all_mangadex_languages():
         "mangadex_languages": mangadex_languages,
         "mangadex_languages_by_name": mangadex_languages_by_name,
     }
+
+
+def replace_extension(file_name: str, new_extension: str) -> str:
+    """
+    Replace the extension of a given file name with a new extension.
+
+    Args:
+        file_name (str): The original file name.
+        new_extension (str): The new extension to replace with (e.g., "jpg" or ".jpg").
+
+    Returns:
+        str: The file name with the new extension.
+    """
+    # Ensure the new extension starts with a dot
+    formatted_extension = f".{new_extension.lstrip('.')}"
+
+    # Split the file name and replace the extension
+    base_name = os.path.splitext(file_name)[0]
+    return base_name + formatted_extension

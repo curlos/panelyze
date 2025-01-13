@@ -1,7 +1,12 @@
 import flet as ft
 from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
 import os
-from utils import get_last_two_directories, remove_last_directory
+from utils import (
+    ProcessManager,
+    get_last_two_directories,
+    remove_last_directory,
+    replace_extension,
+)
 from waifu2x import upscale_with_waifu2x
 from PIL import Image
 
@@ -9,6 +14,7 @@ from PIL import Image
 class UpscaleImagesView(ft.Container):
     def __init__(self, parent_gui):
         super().__init__()
+        self.parent_gui = parent_gui
         self.bgcolor = "#3b4252"
         self.expand = True
 
@@ -72,6 +78,8 @@ class UpscaleImagesView(ft.Container):
         series_and_chapter_name_directory = get_last_two_directories(input_directory)
         replace_existing_image = False
         upscale_ratio = self.page.client_storage.get("upscale_ratio")
+        noise_level = self.page.client_storage.get("noise_level")
+        image_format = self.page.client_storage.get("image_format")
 
         use_custom_panel_image_height = False
 
@@ -85,23 +93,34 @@ class UpscaleImagesView(ft.Container):
         if use_custom_panel_image_height and custom_panel_image_height:
             custom_panel_image_height = int(custom_panel_image_height)
 
+        process_manager = ProcessManager()
+
         for img_obj in img_obj_list:
             file_name = img_obj["name"]
 
             input_image = f"{input_directory}/{file_name}"
-            output_image = input_image
+
+            file_name_with_new_extension = replace_extension(file_name, image_format)
+
+            output_image = f"{input_directory}/{file_name_with_new_extension}"
 
             if not replace_existing_image:
                 full_image_output_directory = (
                     f"{output_directory}/{series_and_chapter_name_directory}"
                 )
                 os.makedirs(full_image_output_directory, exist_ok=True)
-                output_image = f"{full_image_output_directory}/{file_name}"
+                output_image = (
+                    f"{full_image_output_directory}/{file_name_with_new_extension}"
+                )
 
             upscale_with_waifu2x(
                 input_image=input_image,
                 output_image=output_image,
                 upscale_ratio=upscale_ratio,
+                noise_level=noise_level,
+                image_format=(f"ext/{image_format}"),
+                terminal_output_list_view=self.parent_gui.terminal_output.terminal_output_list_view,
+                process_manager=process_manager,
             )
 
             # Resize to custom height if specified
