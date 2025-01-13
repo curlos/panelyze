@@ -9,6 +9,7 @@ from classes.AppBar import AppBar
 from classes.MangaDexDownloaderView import MangaDexDownloaderView
 from classes.TerminalOutput import TerminalOutput
 from classes.MagiPanelByPanelView import MagiPanelByPanelView
+from classes.UpscaleImagesView import UpscaleImagesView
 from classes.ImagesToVideoCreatorView import ImagesToVideoCreatorView
 from utils import get_all_mangadex_languages
 
@@ -29,6 +30,7 @@ class GUI(ft.Page):
         self.terminal_output = TerminalOutput(self.page)
         self.MangaDexDownloaderView = MangaDexDownloaderView(self)
         self.MagiPanelByPanelView = MagiPanelByPanelView(self)
+        self.UpscaleImagesView = UpscaleImagesView(self)
         self.ImagesToVideoCreatorView = ImagesToVideoCreatorView(self)
 
         self.all_mangadex_languages = get_all_mangadex_languages()
@@ -62,6 +64,8 @@ class GUI(ft.Page):
             return self.MangaDexDownloaderView
         elif self.current_view == "Panel-By-Panel":
             return self.MagiPanelByPanelView
+        elif self.current_view == "Upscale Images":
+            return self.UpscaleImagesView
         elif self.current_view == "Images To Video Creator":
             return self.ImagesToVideoCreatorView
 
