@@ -32,3 +32,8 @@ class SettingsBase:
             value=self.page.client_storage.get(client_storage_key),
             on_change=lambda e: self.change_setting(client_storage_key, e.data),
         )
+
+    def toggle_setting_element_visibility(self, e, view_element, setting_key):
+        view_element.visible = not view_element.visible
+        self.change_setting(setting_key, e.data)
+        self.page.update()

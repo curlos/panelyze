@@ -41,16 +41,14 @@ class SettingsPanelByPanel(ft.NavigationDrawer, SettingsBase):
                             expand=True,
                             padding=ft.padding.only(bottom=5),
                         ),
-                        # ft.Checkbox(
-                        #     # Replace existing manga, chapter, or list.
-                        #     label="Replace Existing Manga/Chapter",
-                        #     value=self.page.client_storage.get(
-                        #         "replace_existing_manga"
-                        #     ),
-                        #     on_change=lambda e: self.change_mangadex_downloader_setting(
-                        #         "replace_existing_manga", e.data
-                        #     ),
-                        # ),
+                        ft.Checkbox(
+                            label="Use Custom Panel Image Height",
+                            value=self.page.client_storage.get(
+                                "use_custom_panel_image_height"
+                            ),
+                            on_change=self.test,
+                        ),
+                        self.custom_panel_image_height_col,
                     ],
                     expand=True,
                 ),
@@ -58,3 +56,6 @@ class SettingsPanelByPanel(ft.NavigationDrawer, SettingsBase):
                 expand=True,
             )
         ]
+
+    def test(self):
+        print("e")

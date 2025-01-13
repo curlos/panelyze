@@ -94,8 +94,10 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer, SettingsBase):
                             value=self.page.client_storage.get(
                                 "use_start_and_end_pages"
                             ),
-                            on_change=lambda e: self.toggle_start_and_end_page_col_visibility(
-                                e
+                            on_change=lambda e: self.toggle_setting_element_visibility(
+                                e,
+                                self.start_and_end_page_col,
+                                "use_start_and_end_pages",
                             ),
                         ),
                         self.start_and_end_page_col,
@@ -104,8 +106,10 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer, SettingsBase):
                             value=self.page.client_storage.get(
                                 "use_start_and_end_chapters"
                             ),
-                            on_change=lambda e: self.toggle_start_and_end_chapter_col_visibility(
-                                e
+                            on_change=lambda e: self.toggle_setting_element_visibility(
+                                e,
+                                self.start_and_end_chapter_col,
+                                "use_start_and_end_chapters",
                             ),
                         ),
                         self.start_and_end_chapter_col,
@@ -168,15 +172,3 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer, SettingsBase):
     ):
         language_obj = mangadex_languages_by_name[chosen_language_name]
         self.page.client_storage.set("language", language_obj)
-
-    def toggle_start_and_end_page_col_visibility(self, e):
-        self.start_and_end_page_col.visible = not self.start_and_end_page_col.visible
-        self.change_setting("use_start_and_end_pages", e.data)
-        self.page.update()
-
-    def toggle_start_and_end_chapter_col_visibility(self, e):
-        self.start_and_end_chapter_col.visible = (
-            not self.start_and_end_chapter_col.visible
-        )
-        self.change_setting("use_start_and_end_chapters", e.data)
-        self.page.update()
