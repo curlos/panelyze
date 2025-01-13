@@ -26,7 +26,7 @@ class GUI(ft.Page):
         self.page.title = "Manga Panel Splitter"
         self.page.bgcolor = "#3b4252"
 
-        self.current_view = "Panel-By-Panel"
+        self.current_view = "Upscale Images"
         self.terminal_output = TerminalOutput(self.page)
         self.MangaDexDownloaderView = MangaDexDownloaderView(self)
         self.MagiPanelByPanelView = MagiPanelByPanelView(self)
