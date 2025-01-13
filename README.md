@@ -40,12 +40,12 @@ Manga Panel Splitter is a desktop app that allows you to take a manga page and c
 
 - Manga Page Converted Into Separate Images For Each Panel:
 <div>
-  <img src="https://github.com/user-attachments/assets/c3342979-0341-4d6b-8914-76c7ebd8fcab" height="400" />
-  <img src="https://github.com/user-attachments/assets/0278adfd-1f28-4828-b873-d6ced1628864" height="200" />
-  <img src="https://github.com/user-attachments/assets/a664ff99-359e-459d-89d3-eea92033b091" height="200" />
-  <img src="https://github.com/user-attachments/assets/75d0357b-0258-45ff-ab25-d49154d9661e" height="200" />
-  <img src="https://github.com/user-attachments/assets/52b9ef3a-231a-4a1c-a8f9-9468bddfca19" height="200" />
-  <img src="https://github.com/user-attachments/assets/e5d4e2ab-9f6a-447e-8f15-33bff41206a9" height="200" />
+  <img src="https://github.com/user-attachments/assets/02b85b61-b373-4b4a-890f-e56d68ccca8e" height="300" />
+  <img src="https://github.com/user-attachments/assets/72885e7d-bffe-496e-96eb-d3ed7fe0607c" height="300" />
+  <img src="https://github.com/user-attachments/assets/76c9cda4-7c86-47b9-b617-84714c562526" height="300" />
+  <img src="https://github.com/user-attachments/assets/e0bb6609-3353-4754-b93d-34741bd3717d" height="300" />
+  <img src="https://github.com/user-attachments/assets/dc3a868c-1134-4e02-9c41-1f44e8fc0dd6" height="300" />
+  <img src="https://github.com/user-attachments/assets/dd88d0b1-151c-44a3-9a8e-21fc25635081" height="300" />
 </div>
 
 
