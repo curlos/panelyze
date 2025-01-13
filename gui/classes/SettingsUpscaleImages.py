@@ -16,6 +16,20 @@ class SettingsUpscaleImages(ft.NavigationDrawer, SettingsBase):
         self.upscale_ratios = [1, 2, 4, 8, 16, 32]
         self.default_upscale_ratio = self.page.client_storage.get("upscale_ratio")
 
+        self.custom_panel_image_height_textfield = self.get_number_textfield(
+            "Panel Height (px)", "custom_panel_image_height"
+        )
+        self.custom_panel_image_height_col = ft.Column(
+            controls=[
+                self.custom_panel_image_height_textfield,
+            ],
+            visible=bool(self.page.client_storage.get("use_custom_panel_image_height")),
+        )
+
+        self.page_num_textfield_dict = {
+            "custom_panel_image_height": self.custom_panel_image_height_textfield,
+        }
+
         self.controls = [
             ft.Container(
                 content=ft.Column(
@@ -51,6 +65,18 @@ class SettingsUpscaleImages(ft.NavigationDrawer, SettingsBase):
                                 "upscale_ratio", e.data
                             ),
                         ),
+                        ft.Checkbox(
+                            label="Use Custom Panel Image Height",
+                            value=self.page.client_storage.get(
+                                "use_custom_panel_image_height"
+                            ),
+                            on_change=lambda e: self.toggle_setting_element_visibility(
+                                e,
+                                self.custom_panel_image_height_col,
+                                "use_custom_panel_image_height",
+                            ),
+                        ),
+                        self.custom_panel_image_height_col,
                     ],
                     expand=True,
                 ),
