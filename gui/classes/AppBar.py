@@ -1,6 +1,7 @@
 import flet as ft
 from classes.SettingsMangaDexDownloader import SettingsMangaDexDownloader
 from classes.SettingsPanelByPanel import SettingsPanelByPanel
+from classes.SettingsUpscaleImages import SettingsUpscaleImages
 
 
 class AppBarButton(ft.TextButton):
@@ -63,6 +64,7 @@ class AppBar(ft.Container):
             self.page, self.parent_gui.all_mangadex_languages
         )
         self.drawer_panel_by_panel = SettingsPanelByPanel(self.page)
+        self.drawer_upscale_images = SettingsUpscaleImages(self.page)
 
         self.content = ft.Row(
             controls=[
@@ -118,3 +120,5 @@ class AppBar(ft.Container):
             return self.drawer_mangadex_downloader
         elif self.parent_gui.current_view == "Panel-By-Panel":
             return self.drawer_panel_by_panel
+        elif self.parent_gui.current_view == "Upscale Images":
+            return self.drawer_upscale_images
