@@ -17,7 +17,7 @@ class SettingsUpscaleImages(ft.NavigationDrawer, SettingsBase):
         self.default_upscale_ratio = self.page.client_storage.get("upscale_ratio")
 
         self.custom_panel_image_height_textfield = self.get_number_textfield(
-            "Panel Height (px)", "custom_panel_image_height"
+            "Image Height (px)", "custom_panel_image_height"
         )
         self.custom_panel_image_height_col = ft.Column(
             controls=[

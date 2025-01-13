@@ -1,4 +1,3 @@
-import pdb
 import sys
 from PIL import Image
 from transformers import AutoModel
@@ -153,42 +152,11 @@ class Magi:
             # Crop the image
             cropped_image = image_as_np_array[y_min:y_max, x_min:x_max]
 
-            use_custom_panel_image_height = False
-
-            if flet_page_client_storage:
-                use_custom_panel_image_height = flet_page_client_storage.get(
-                    "use_custom_panel_image_height"
-                )
-                custom_panel_image_height = flet_page_client_storage.get(
-                    "custom_panel_image_height"
-                )
-
-                if use_custom_panel_image_height and custom_panel_image_height:
-                    custom_panel_image_height = int(custom_panel_image_height)
-
-                    print(flet_page_client_storage.get("custom_panel_image_height"))
-
-                    print(custom_panel_image_height)
-
             # Save the cropped image
             output_path = os.path.join(output_folder, f"panel_{i + 1}.png")
 
             # Convert the cropped NumPy array to a PIL Image
             pil_image = Image.fromarray(cropped_image)
-
-            # Resize to custom height if specified
-            if use_custom_panel_image_height:
-                # Calculate the new width to maintain aspect ratio
-                original_width, original_height = pil_image.size
-                aspect_ratio = original_width / original_height
-                new_width = int(custom_panel_image_height * aspect_ratio)
-
-                # Resize the image
-                pil_image = pil_image.resize(
-                    (new_width, custom_panel_image_height), Image.LANCZOS
-                )
-
-            # Save the resized image
             pil_image.save(output_path)
             print(f"Saved: {output_path}")
 

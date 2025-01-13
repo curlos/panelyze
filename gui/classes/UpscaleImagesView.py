@@ -3,6 +3,7 @@ from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
 import os
 from utils import get_last_two_directories, remove_last_directory
 from waifu2x import upscale_with_waifu2x
+from PIL import Image
 
 
 class UpscaleImagesView(ft.Container):
@@ -72,6 +73,18 @@ class UpscaleImagesView(ft.Container):
         replace_existing_image = False
         upscale_ratio = self.page.client_storage.get("upscale_ratio")
 
+        use_custom_panel_image_height = False
+
+        use_custom_panel_image_height = self.page.client_storage.get(
+            "use_custom_panel_image_height"
+        )
+        custom_panel_image_height = self.page.client_storage.get(
+            "custom_panel_image_height"
+        )
+
+        if use_custom_panel_image_height and custom_panel_image_height:
+            custom_panel_image_height = int(custom_panel_image_height)
+
         for img_obj in img_obj_list:
             file_name = img_obj["name"]
 
@@ -90,3 +103,25 @@ class UpscaleImagesView(ft.Container):
                 output_image=output_image,
                 upscale_ratio=upscale_ratio,
             )
+
+            # Resize to custom height if specified
+            if use_custom_panel_image_height:
+                pil_image = Image.open(output_image)
+                # Calculate the new width to maintain aspect ratio
+                original_width, original_height = pil_image.size
+                aspect_ratio = original_width / original_height
+                new_width = int(custom_panel_image_height * aspect_ratio)
+
+                # Resize the image
+                pil_image = pil_image.resize(
+                    (new_width, custom_panel_image_height), Image.LANCZOS
+                )
+
+                pil_image.save(output_image)
+
+        print(
+            f"Waifu2X: Finished upscaling all images to {output_directory}/{series_and_chapter_name_directory}"
+        )
+        print(
+            f"PIL: Finished resizing images in {output_directory}/{series_and_chapter_name_directory}"
+        )
