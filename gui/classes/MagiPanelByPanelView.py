@@ -63,7 +63,9 @@ class MagiPanelByPanelView(ft.Container):
                     input_directory = os.path.join(base_path, current_path)
 
                     # Call the processing function
-                    self.magi.get_panels_for_chapter(input_directory, output_directory)
+                    self.magi.get_panels_for_chapter(
+                        input_directory, output_directory, self.page.client_storage
+                    )
                 else:
                     # Traverse nested directories
                     next_path = os.path.join(current_path, key) if current_path else key

@@ -121,7 +121,13 @@ class Magi:
         sys.__stdout__.write(f"Captured: {message}")
         sys.__stdout__.flush()
 
-    def save_cropped_panels(self, image_as_np_array, predictions, output_folder):
+    def save_cropped_panels(
+        self,
+        image_as_np_array,
+        predictions,
+        output_folder,
+        flet_page_client_storage=None,
+    ):
         # Ensure the output directory exists
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)  # Create the directory if it doesn't exist
@@ -147,12 +153,48 @@ class Magi:
             # Crop the image
             cropped_image = image_as_np_array[y_min:y_max, x_min:x_max]
 
+            use_custom_panel_image_height = False
+
+            if flet_page_client_storage:
+                use_custom_panel_image_height = flet_page_client_storage.get(
+                    "use_custom_panel_image_height"
+                )
+                custom_panel_image_height = flet_page_client_storage.get(
+                    "custom_panel_image_height"
+                )
+
+                if use_custom_panel_image_height and custom_panel_image_height:
+                    custom_panel_image_height = int(custom_panel_image_height)
+
+                    print(flet_page_client_storage.get("custom_panel_image_height"))
+
+                    print(custom_panel_image_height)
+
             # Save the cropped image
             output_path = os.path.join(output_folder, f"panel_{i + 1}.png")
-            Image.fromarray(cropped_image).save(output_path)
+
+            # Convert the cropped NumPy array to a PIL Image
+            pil_image = Image.fromarray(cropped_image)
+
+            # Resize to custom height if specified
+            if use_custom_panel_image_height:
+                # Calculate the new width to maintain aspect ratio
+                original_width, original_height = pil_image.size
+                aspect_ratio = original_width / original_height
+                new_width = int(custom_panel_image_height * aspect_ratio)
+
+                # Resize the image
+                pil_image = pil_image.resize(
+                    (new_width, custom_panel_image_height), Image.LANCZOS
+                )
+
+            # Save the resized image
+            pil_image.save(output_path)
             print(f"Saved: {output_path}")
 
-    def get_panels_for_chapter(self, input_directory, output_directory):
+    def get_panels_for_chapter(
+        self, input_directory, output_directory, flet_page_client_storage=None
+    ):
         series_and_chapter_name_directory = get_last_two_directories(input_directory)
 
         chapter_pages_image_numpy_array = self.get_chapter_pages_image_numpy_array(
@@ -177,6 +219,7 @@ class Magi:
                 character_bank,
                 series_and_chapter_name_directory,
                 output_directory,
+                flet_page_client_storage,
             )
 
         # Calculate and print the total time taken
@@ -193,6 +236,7 @@ class Magi:
         series_and_chapter_name_directory,
         output_directory,
     ):
+        # TODO: Note: I have not passed in "flet_page_client_storage" to the parameters here since I'm not currently testing Google Colab but just know that if I do want to test Google Colab with the Flet GUI in the future, there's some new code that has to be updated. All of the most recent updates are in the "get_panels_using_local_cpu" method below.
         # Wasn't able to fully get this working but if Google Colab did work, then in theory send the request to Colab and it would use the Magi Model on there and do all the computationally expensive operations on the superior GPUs on Colab and give me the numpy array results here and do the rest of the operations on this local code.
         if self.using_google_colab:
             google_colab_ngrok_server_url_parts = {
@@ -264,6 +308,7 @@ class Magi:
         character_bank,
         series_and_chapter_name_directory,
         output_directory,
+        flet_page_client_storage,
     ):
         # If the Magi Model is being ran on the local machine (like a Macbook), then send all of the Chapter's images in a batch at once.
         # We're not making a request to an external server so no limit on how big the numpy array is.
@@ -278,6 +323,7 @@ class Magi:
                 image_as_np_array,
                 page_result_predictions,
                 f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}/page_{i + 1}",
+                flet_page_client_storage,
             )
 
         panel_by_panel_input_dir = f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}"

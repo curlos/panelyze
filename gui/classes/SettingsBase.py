@@ -14,7 +14,7 @@ class SettingsBase:
             page_num_textfield = self.page_num_textfield_dict[setting_key]
 
             if setting_value and not setting_value.isdigit():
-                page_num_textfield.error_text = "Please enter a valid page number."
+                page_num_textfield.error_text = "Please enter a valid number."
             else:
                 page_num_textfield.error_text = ""
                 self.page.client_storage.set(setting_key, final_setting_value)

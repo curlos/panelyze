@@ -11,7 +11,7 @@ class SettingsPanelByPanel(ft.NavigationDrawer, SettingsBase):
         self.position = ft.NavigationDrawerPosition.END
 
         self.custom_panel_image_height_textfield = self.get_number_textfield(
-            "Panel Height", "custom_panel_image_height"
+            "Panel Height (px)", "custom_panel_image_height"
         )
         self.custom_panel_image_height_col = ft.Column(
             controls=[
@@ -46,7 +46,11 @@ class SettingsPanelByPanel(ft.NavigationDrawer, SettingsBase):
                             value=self.page.client_storage.get(
                                 "use_custom_panel_image_height"
                             ),
-                            on_change=self.test,
+                            on_change=lambda e: self.toggle_setting_element_visibility(
+                                e,
+                                self.custom_panel_image_height_col,
+                                "use_custom_panel_image_height",
+                            ),
                         ),
                         self.custom_panel_image_height_col,
                     ],
@@ -56,6 +60,3 @@ class SettingsPanelByPanel(ft.NavigationDrawer, SettingsBase):
                 expand=True,
             )
         ]
-
-    def test(self):
-        print("e")
