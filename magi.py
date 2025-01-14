@@ -73,35 +73,6 @@ class Magi:
         return character_bank
 
     def get_per_page_results(self, chapter_pages, character_bank):
-        # TODO: Look at this later to output lines from the terminal. Need to output tqdm lines through stderr.
-        # # Save the original stdout and stderr
-        # original_stdout = sys.stdout
-        # original_stderr = sys.stderr
-
-        # # Create StreamInterceptors for both stdout and stderr
-        # stdout_interceptor = StreamInterceptor(
-        #     original_stdout, self.real_time_output_callback
-        # )
-        # stderr_interceptor = StreamInterceptor(
-        #     original_stderr, self.real_time_output_callback
-        # )
-
-        # try:
-        #     # Redirect both stdout and stderr
-        #     # sys.stdout = stdout_interceptor
-        #     # sys.stderr = stderr_interceptor
-
-        #     # Perform the task while redirecting both streams
-        #     # Set to "no_grad()" so that there's inference without tracking gradients. Basically, this saves memory and computational resources by turning off gradient tracking.
-        #     with torch.no_grad():
-        #         per_page_results = self.magi_model.do_chapter_wide_prediction(
-        #             chapter_pages, character_bank, use_tqdm=True, do_ocr=True
-        #         )
-        # finally:
-        #     # Restore stdout and stderr to their original states
-        #     sys.stdout = original_stdout
-        #     sys.stderr = original_stderr
-
         # Set to "no_grad()" so that there's inference without tracking gradients. Basically, this saves memory and computational resources by turning off gradient tracking.
         with torch.no_grad():
             per_page_results = self.magi_model.do_chapter_wide_prediction(
@@ -159,6 +130,21 @@ class Magi:
             pil_image = Image.fromarray(cropped_image)
             pil_image.save(output_path)
             print(f"Saved: {output_path}")
+
+    def get_data_from_images(self, input_directory):
+        """
+        @description Useful for when only I need the data from the list of images and I don't need to interact with the file system.
+        """
+        chapter_pages_image_numpy_array = self.get_chapter_pages_image_numpy_array(
+            input_directory
+        )
+        character_bank = self.get_character_bank()
+
+        per_page_results = self.get_per_page_results(
+            chapter_pages_image_numpy_array, character_bank
+        )
+
+        return per_page_results
 
     def get_panels_for_chapter(
         self, input_directory, output_directory, flet_page_client_storage=None
@@ -277,6 +263,8 @@ class Magi:
             chapter_pages_image_numpy_array, character_bank
         )
 
+        breakpoint()
+
         for i, (image_as_np_array, page_result_predictions) in enumerate(
             zip(chapter_pages_image_numpy_array, per_page_results)
         ):
@@ -293,6 +281,8 @@ class Magi:
         copy_panels_to_one_level_directory(
             panel_by_panel_input_dir, panel_by_panel_output_dir
         )
+
+        return per_page_results
 
 
 is_running_as_main_program = __name__ == "__main__"
