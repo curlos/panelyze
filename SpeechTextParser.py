@@ -9,37 +9,30 @@ class SpeechTextParser:
     def __init__(self):
         self.magi = Magi()
 
-    def calculate_reading_time(self, text_list, wpm=250):
-        """Calculate the time required to read the text based on WPM."""
-        # Join the list of strings into a single text
-        full_text = " ".join(text_list)
+    def get_images_duration_based_on_wpm(self, images_directory, wpm):
+        images_duration_based_on_wpm = []
 
-        # Count the total number of words
-        word_count = len(full_text.split())
+        essential_text_list_in_image_list = self.get_essential_text_list_in_images(
+            images_directory
+        )
 
-        # Calculate reading time in seconds (WPM -> Words Per Second)
-        reading_time_seconds = word_count / (wpm / 60)
+        print(essential_text_list_in_image_list)
+        breakpoint()
 
-        return reading_time_seconds
+        for essential_text_list_in_image in essential_text_list_in_image_list:
+            duration_based_on_wpm = self.calculate_reading_time(
+                essential_text_list_in_image, wpm
+            )
+            print(f"Estimated reading time: {duration_based_on_wpm:.2f} seconds")
 
+            images_duration_based_on_wpm.append(duration_based_on_wpm)
 
-is_running_as_main_program = __name__ == "__main__"
-
-if is_running_as_main_program:
-    speech_text_parser = SpeechTextParser()
-
-    @time_it()
-    def extract_text_with_pytesseract():
-        # Load the image
-        image = Image.open("wpm-test/panel_40.png")
-
-        # Extract text
-        extracted_text = pytesseract.image_to_string(image)
-        print(extracted_text)
+        return images_duration_based_on_wpm
 
     @time_it()
-    def extract_text_with_magi():
-        magi_data_from_images = speech_text_parser.magi.get_data_from_images("wpm-test")
+    def get_essential_text_list_in_images(self, images_directory):
+        magi_data_from_images = self.magi.get_data_from_images(images_directory)
+        essential_text_list_in_images = []
 
         for magi_image_data in magi_data_from_images:
             # "is_essential_text" from what I've seen so far with one panel will tell you what the "essential" text on the page is. For example, in "panel_40.png", the essential text are the text bubbles with the conversation between Doflamingo and the World Govt. official. However, on the page, there is a "World Govt" label in the background NOT in a speech bubble. This was deemed as NOT essential by Magi. This is very useful as I only want to take into account speech or thought bubbles - not background text for both the WPM and Text-To-Speech calculations.
@@ -59,8 +52,28 @@ if is_running_as_main_program:
                     if is_essential_text_arr[i]
                 ]
 
-    # extract_text_with_pytesseract()
-    # extract_text_with_magi()
+            essential_text_list_in_images.append(ocr_essential_text_arr)
+
+        return essential_text_list_in_images
+
+    def calculate_reading_time(self, text_list, wpm=250):
+        """Calculate the time required to read the text based on WPM."""
+        # Join the list of strings into a single text
+        full_text = " ".join(text_list)
+
+        # Count the total number of words
+        word_count = len(full_text.split())
+
+        # Calculate reading time in seconds (WPM -> Words Per Second)
+        reading_time_seconds = word_count / (wpm / 60)
+
+        return reading_time_seconds
+
+
+is_running_as_main_program = __name__ == "__main__"
+
+if is_running_as_main_program:
+    speech_text_parser = SpeechTextParser()
 
     essential_text = [
         "Ahh, don't worry... he was half-dead already. There was no saving him, no matter where he went.",

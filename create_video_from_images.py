@@ -13,7 +13,18 @@ def natural_sort_key(filename):
     return [int(s) if s.isdigit() else s for s in re.split(r"(\d+)", filename)]
 
 
-def create_video_from_images(image_folder, output_file, duration=3, video_height=1080):
+def create_video_from_images(
+    image_folder, output_file, duration=3, video_height=1080, speech_text_parser=None
+):
+    use_wpm = True
+    wpm = 250
+    images_duration_based_on_wpm = []
+
+    if use_wpm and speech_text_parser:
+        images_duration_based_on_wpm = (
+            speech_text_parser.get_images_duration_based_on_wpm(image_folder, wpm)
+        )
+
     # Ensure the output directory exists
     output_directory = os.path.dirname(output_file)
     os.makedirs(output_directory, exist_ok=True)
@@ -29,8 +40,10 @@ def create_video_from_images(image_folder, output_file, duration=3, video_height
     clips = [
         ImageClip(img)
         .resized(height=int(video_height))  # Resize to fit the height of the video
-        .with_duration(int(duration))  # Set duration for each image
-        for img in images
+        .with_duration(
+            get_img_duration(int(duration), images_duration_based_on_wpm, index)
+        )  # Set duration for each image
+        for index, img in enumerate(images)
     ]
 
     # Concatenate all ImageClips into a single video
@@ -38,6 +51,13 @@ def create_video_from_images(image_folder, output_file, duration=3, video_height
 
     # "fps" is set to 1 as the images being saved are typically going to be Manga Panels and will have no smooth transitions between panels so no need to create extra frames for nothing. Just show the same frame for the specified duration.
     video.write_videofile(output_file, fps=1)
+
+
+def get_img_duration(duration, images_duration_based_on_wpm, index):
+    if images_duration_based_on_wpm and images_duration_based_on_wpm[index]:
+        return int(images_duration_based_on_wpm[index])
+
+    return duration
 
 
 is_running_as_main_program = __name__ == "__main__"

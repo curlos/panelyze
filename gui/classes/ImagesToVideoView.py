@@ -1,5 +1,6 @@
 import os
 import flet as ft
+from SpeechTextParser import SpeechTextParser
 from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
 from create_video_from_images import create_video_from_images
 from utils import (
@@ -15,6 +16,7 @@ class ImagesToVideoView(ft.Container):
         self.parent_gui = parent_gui
         self.bgcolor = "#3b4252"
         self.expand = True
+        self.speech_text_parser = SpeechTextParser()
 
         self.pick_input_output_directories_container = PickInputAndOutputDirectories(
             on_submit=self.handle_create_videos, parent_gui=parent_gui
@@ -61,12 +63,14 @@ class ImagesToVideoView(ft.Container):
             "image_displayed_duration"
         )
 
-        breakpoint()
-
         print(f'Creating video "{series_name}/{chapter_name}.mp4"')
 
         create_video_from_images(
-            input_directory, output_file, image_displayed_duration, video_height
+            input_directory,
+            output_file,
+            image_displayed_duration,
+            video_height,
+            speech_text_parser=self.speech_text_parser,
         )
 
         print(f"Images To Video: Finished creating video to {output_file}")
