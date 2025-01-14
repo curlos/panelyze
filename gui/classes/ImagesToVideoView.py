@@ -2,7 +2,7 @@ import flet as ft
 from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
 
 
-class ImagesToVideoCreatorView(ft.Container):
+class ImagesToVideoView(ft.Container):
     def __init__(self, parent_gui):
         super().__init__()
         self.bgcolor = "#3b4252"

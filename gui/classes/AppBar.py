@@ -2,6 +2,7 @@ import flet as ft
 from classes.SettingsMangaDexDownloader import SettingsMangaDexDownloader
 from classes.SettingsPanelByPanel import SettingsPanelByPanel
 from classes.SettingsUpscaleImages import SettingsUpscaleImages
+from classes.SettingsImagesToVideo import SettingsImagesToVideo
 
 
 class AppBarButton(ft.TextButton):
@@ -31,7 +32,13 @@ class AppBar(ft.Container):
         self.current_view = self.parent_gui.current_view
         self.page = self.parent_gui.page
 
-        # Define the buttons
+        # Buttons
+        self.mangadex_downloader_button = AppBarButton(
+            text="MangaDex Downloader",
+            current_view=self.parent_gui.current_view,
+            change_view=self.change_view,
+        )
+
         self.panel_by_panel_button = AppBarButton(
             text="Panel-By-Panel",
             current_view=self.parent_gui.current_view,
@@ -44,14 +51,8 @@ class AppBar(ft.Container):
             change_view=self.change_view,
         )
 
-        # self.images_to_video_button = AppBarButton(
-        #     text="Images To Video Creator",
-        #     current_view=self.parent_gui.current_view,
-        #     change_view=self.change_view,
-        # )
-
-        self.mangadex_downloader_button = AppBarButton(
-            text="MangaDex Downloader",
+        self.images_to_video_button = AppBarButton(
+            text="Images To Video",
             current_view=self.parent_gui.current_view,
             change_view=self.change_view,
         )
@@ -65,6 +66,7 @@ class AppBar(ft.Container):
         )
         self.drawer_panel_by_panel = SettingsPanelByPanel(self.page)
         self.drawer_upscale_images = SettingsUpscaleImages(self.page)
+        self.drawer_images_to_video = SettingsImagesToVideo(self.page)
 
         self.content = ft.Row(
             controls=[
@@ -73,7 +75,7 @@ class AppBar(ft.Container):
                         self.mangadex_downloader_button,
                         self.panel_by_panel_button,
                         self.upscale_images_button,
-                        # self.images_to_video_button,
+                        self.images_to_video_button,
                     ]
                 ),
                 ft.IconButton(
@@ -122,3 +124,5 @@ class AppBar(ft.Container):
             return self.drawer_panel_by_panel
         elif self.parent_gui.current_view == "Upscale Images":
             return self.drawer_upscale_images
+        elif self.parent_gui.current_view == "Images To Video":
+            return self.drawer_images_to_video
