@@ -17,8 +17,13 @@ class SettingsImagesToVideo(
             "Video Height (px)", "video_height"
         )
 
+        self.image_displayed_duration_textfield = self.get_number_textfield(
+            "Image Displayed Duration (seconds)", "image_displayed_duration"
+        )
+
         self.page_num_textfield_dict = {
             "video_height": self.video_height_textfield,
+            "image_displayed_duration": self.image_displayed_duration_textfield,
         }
 
         self.controls = [
@@ -39,6 +44,7 @@ class SettingsImagesToVideo(
                             padding=ft.padding.only(bottom=5),
                         ),
                         self.video_height_textfield,
+                        self.image_displayed_duration_textfield,
                     ],
                     expand=True,
                 ),

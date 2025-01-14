@@ -28,8 +28,8 @@ def create_video_from_images(image_folder, output_file, duration=3, video_height
     # Create a list of ImageClips, resizing them to fit the video height
     clips = [
         ImageClip(img)
-        .resized(height=video_height)  # Resize to fit the height of the video
-        .with_duration(duration)  # Set duration for each image
+        .resized(height=int(video_height))  # Resize to fit the height of the video
+        .with_duration(int(duration))  # Set duration for each image
         for img in images
     ]
 

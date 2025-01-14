@@ -37,9 +37,8 @@ class ImagesToVideoView(ft.Container):
         def traverse_and_process(level, current_path):
             for key, value in level.items():
                 if key == "__images__":
-                    img_obj_list = value
                     self.process_list_of_images_video_creator(
-                        base_path, current_path, output_directory, img_obj_list
+                        base_path, current_path, output_directory
                     )
                 else:
                     # Traverse nested directories
@@ -50,14 +49,24 @@ class ImagesToVideoView(ft.Container):
         traverse_and_process(files_directory_structure, base_path)
 
     def process_list_of_images_video_creator(
-        self, base_path, current_path, output_directory, img_obj_list
+        self, base_path, current_path, output_directory
     ):
         # Current path is a directory containing images
         input_directory = os.path.join(base_path, current_path)
         series_name, chapter_name = get_last_two_directories_obj(input_directory)
         output_file = f"{output_directory}/{series_name}/{chapter_name}.mp4"
 
+        video_height = self.page.client_storage.get("video_height")
+        image_displayed_duration = self.page.client_storage.get(
+            "image_displayed_duration"
+        )
+
+        breakpoint()
+
         print(f'Creating video "{series_name}/{chapter_name}.mp4"')
-        create_video_from_images(input_directory, output_file)
+
+        create_video_from_images(
+            input_directory, output_file, image_displayed_duration, video_height
+        )
 
         print(f"Images To Video: Finished creating video to {output_file}")

@@ -93,6 +93,7 @@ class GUI(ft.Page):
             "image_format": "png",
             # Images To Video
             "video_height": 1080,
+            "image_displayed_duration": 3,
         }
 
         return client_storage_default_values
