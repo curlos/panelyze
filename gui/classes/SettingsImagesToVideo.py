@@ -2,13 +2,24 @@ import flet as ft
 from classes.SettingsBase import SettingsBase
 
 
-class SettingsImagesToVideo(ft.NavigationDrawer, SettingsBase):
+class SettingsImagesToVideo(
+    ft.NavigationDrawer,
+    SettingsBase,
+):
     def __init__(self, page):
         super().__init__()
         self.page = page
 
         self.bgcolor = "#3b4252"
         self.position = ft.NavigationDrawerPosition.END
+
+        self.video_height_textfield = self.get_number_textfield(
+            "Video Height (px)", "video_height"
+        )
+
+        self.page_num_textfield_dict = {
+            "video_height": self.video_height_textfield,
+        }
 
         self.controls = [
             ft.Container(
@@ -27,6 +38,7 @@ class SettingsImagesToVideo(ft.NavigationDrawer, SettingsBase):
                             expand=True,
                             padding=ft.padding.only(bottom=5),
                         ),
+                        self.video_height_textfield,
                     ],
                     expand=True,
                 ),

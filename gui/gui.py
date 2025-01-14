@@ -26,6 +26,8 @@ class GUI(ft.Page):
         self.page.title = "Manga Panel Splitter"
         self.page.bgcolor = "#3b4252"
 
+        self.set_client_storage_default_values()
+
         self.current_view = "Images To Video"
         self.terminal_output = TerminalOutput(self.page)
         self.MangaDexDownloaderView = MangaDexDownloaderView(self)
@@ -68,6 +70,39 @@ class GUI(ft.Page):
             return self.UpscaleImagesView
         elif self.current_view == "Images To Video":
             return self.ImagesToVideoView
+
+    def get_client_storage_default_values(self):
+        client_storage_default_values = {
+            # MangaDex Downloader
+            "language": {"name": "English", "code": "en"},
+            "use_start_and_end_pages": False,
+            "use_start_and_end_chapters": False,
+            "use_chapter_title": False,
+            "no_group_name": False,
+            "replace_existing_manga": False,
+            "no_oneshot_chapters": False,
+            "use_chapter_cover": False,
+            "use_volume_cover": False,
+            "start_page": "",
+            "end_page": "",
+            "start_chapter": "",
+            "end_chapter": "",
+            # Upscale Images
+            "upscale_ratio": 2,
+            "noise_level": 0,
+            "image_format": "png",
+            # Images To Video
+            "video_height": 1080,
+        }
+
+        return client_storage_default_values
+
+    def set_client_storage_default_values(self):
+        client_storage_default_values = self.get_client_storage_default_values()
+
+        for setting_key, setting_value in client_storage_default_values.items():
+            if not self.page.client_storage.get(setting_key):
+                self.page.client_storage.set(setting_key, setting_value)
 
 
 ft.app(target=GUI)

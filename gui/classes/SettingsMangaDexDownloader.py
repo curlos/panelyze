@@ -13,9 +13,6 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer, SettingsBase):
             "mangadex_languages_by_name"
         ]
 
-        if not self.page.client_storage.get("language"):
-            self.page.client_storage.set("language", {"name": "English", "code": "en"})
-
         default_language = self.page.client_storage.get("language")
 
         self.start_page_textfield = self.get_number_textfield(
