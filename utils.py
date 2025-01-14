@@ -469,3 +469,26 @@ def replace_extension(file_name: str, new_extension: str) -> str:
     # Split the file name and replace the extension
     base_name = os.path.splitext(file_name)[0]
     return base_name + formatted_extension
+
+
+def input_and_output_dirs_are_valid(self):
+    input_directory = self.pick_input_output_directories_container.input_directory
+    output_directory = self.pick_input_output_directories_container.output_directory
+
+    if not input_directory and not output_directory:
+        self.parent_gui.terminal_output.update_terminal_with_error_message(
+            "ERROR: Please enter valid input and output directories."
+        )
+        return False
+    elif not input_directory:
+        self.parent_gui.terminal_output.update_terminal_with_error_message(
+            "ERROR: Please enter a valid input directory."
+        )
+        return False
+    elif not output_directory:
+        self.parent_gui.terminal_output.update_terminal_with_error_message(
+            "ERROR: Please enter a valid output directory."
+        )
+        return False
+
+    return True

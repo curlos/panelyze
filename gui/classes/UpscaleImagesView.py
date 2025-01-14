@@ -4,6 +4,7 @@ import os
 from utils import (
     ProcessManager,
     get_last_two_directories,
+    input_and_output_dirs_are_valid,
     remove_last_directory,
     replace_extension,
 )
@@ -25,35 +26,16 @@ class UpscaleImagesView(ft.Container):
         self.content = self.pick_input_output_directories_container
 
     def handle_upscale_images(self, e):
+        if not input_and_output_dirs_are_valid(self):
+            return
+
         input_directory = self.pick_input_output_directories_container.input_directory
         output_directory = self.pick_input_output_directories_container.output_directory
-
-        if not input_directory and not output_directory:
-            self.parent_gui.terminal_output.update_terminal_with_error_message(
-                "ERROR: Please enter valid input and output directories."
-            )
-            return
-        elif not input_directory:
-            self.parent_gui.terminal_output.update_terminal_with_error_message(
-                "ERROR: Please enter a valid input directory."
-            )
-            return
-        elif not output_directory:
-            self.parent_gui.terminal_output.update_terminal_with_error_message(
-                "ERROR: Please enter a valid output directory."
-            )
-            return
 
         files_directory_structure = (
             self.pick_input_output_directories_container.files_directory_structure
         )
-
-        self.process_images_in_structure(
-            files_directory_structure, remove_last_directory(input_directory)
-        )
-
-    def process_images_in_structure(self, structure, base_path=""):
-        output_directory = self.pick_input_output_directories_container.output_directory
+        base_path = remove_last_directory(input_directory)
 
         def traverse_and_process(level, current_path):
             for key, value in level.items():
@@ -68,7 +50,7 @@ class UpscaleImagesView(ft.Container):
                     traverse_and_process(value, next_path)
 
         # Start the traversal from the root of the structure
-        traverse_and_process(structure, base_path)
+        traverse_and_process(files_directory_structure, base_path)
 
     def process_list_of_images_waifu_2x(
         self, base_path, current_path, output_directory, img_obj_list
