@@ -4,7 +4,7 @@ from transformers import AutoModel
 import torch
 import numpy
 import os
-from utils import StreamInterceptor, select_folder, get_last_two_directories
+from utils import select_folder, get_last_two_directories, time_it
 import requests
 import time
 import base64
@@ -170,32 +170,25 @@ class Magi:
         )
         character_bank = self.get_character_bank()
 
-        # Start the timer
-        start_time = time.time()
-        print("Starting timer...")
+        @time_it(custom_execution_time_name="Magi AI Model Convert to Panel-by-Panel")
+        def get_panels():
+            if self.using_google_colab:
+                self.get_panels_using_google_colab(
+                    chapter_pages_image_numpy_array,
+                    character_bank,
+                    series_and_chapter_name_directory,
+                    output_directory,
+                )
+            else:
+                self.get_panels_using_local_cpu(
+                    chapter_pages_image_numpy_array,
+                    character_bank,
+                    series_and_chapter_name_directory,
+                    output_directory,
+                    flet_page_client_storage,
+                )
 
-        if self.using_google_colab:
-            self.get_panels_using_google_colab(
-                chapter_pages_image_numpy_array,
-                character_bank,
-                series_and_chapter_name_directory,
-                output_directory,
-            )
-        else:
-            self.get_panels_using_local_cpu(
-                chapter_pages_image_numpy_array,
-                character_bank,
-                series_and_chapter_name_directory,
-                output_directory,
-                flet_page_client_storage,
-            )
-
-        # Calculate and print the total time taken
-        end_time = time.time()
-        total_time = end_time - start_time
-        print(
-            f"Magi AI Model Panel-by-Panel conversion time taken: {total_time:.2f} seconds"
-        )
+        get_panels()
 
     def get_panels_using_google_colab(
         self,

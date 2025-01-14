@@ -1,3 +1,5 @@
+from functools import wraps
+import time
 import tkinter as tk
 from tkinter import filedialog
 import subprocess
@@ -492,3 +494,27 @@ def input_and_output_dirs_are_valid(self):
         return False
 
     return True
+
+
+def time_it(custom_execution_time_name=None):
+    """Decorator to measure execution time and optionally print a custom message."""
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            print(f"Starting '{custom_execution_time_name or func.__name__}'...")
+
+            result = func(*args, **kwargs)  # Call the wrapped function
+
+            end_time = time.time()
+            total_time = end_time - start_time
+            print(
+                f"'{custom_execution_time_name or func.__name__}' execution time: {total_time:.2f} seconds"
+            )
+
+            return result  # Return the result of the wrapped function
+
+        return wrapper
+
+    return decorator

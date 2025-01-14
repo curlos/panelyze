@@ -36,7 +36,7 @@ def create_video_from_images(image_folder, output_file, duration=3, video_height
     # Concatenate all ImageClips into a single video
     video = concatenate_videoclips(clips, method="compose")
 
-    # Write the video to the output file
+    # "fps" is set to 1 as the images being saved are typically going to be Manga Panels and will have no smooth transitions between panels so no need to create extra frames for nothing. Just show the same frame for the specified duration.
     video.write_videofile(output_file, fps=1)
 
 
