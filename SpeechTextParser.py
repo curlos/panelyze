@@ -17,7 +17,6 @@ class SpeechTextParser:
         )
 
         print(essential_text_list_in_image_list)
-        breakpoint()
 
         for essential_text_list_in_image in essential_text_list_in_image_list:
             duration_based_on_wpm = self.calculate_reading_time(
@@ -27,11 +26,13 @@ class SpeechTextParser:
 
             images_duration_based_on_wpm.append(duration_based_on_wpm)
 
+        print(images_duration_based_on_wpm)
         return images_duration_based_on_wpm
 
     @time_it()
     def get_essential_text_list_in_images(self, images_directory):
         magi_data_from_images = self.magi.get_data_from_images(images_directory)
+
         essential_text_list_in_images = []
 
         for magi_image_data in magi_data_from_images:

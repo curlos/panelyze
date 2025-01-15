@@ -4,7 +4,7 @@ from transformers import AutoModel
 import torch
 import numpy
 import os
-from utils import select_folder, get_last_two_directories, time_it
+from utils import natural_sort_key, select_folder, get_last_two_directories, time_it
 import requests
 import time
 import base64
@@ -44,7 +44,9 @@ class Magi:
         """
         From the passed in "chapter_directory", get the image numpy array of all of the image files in that directory.
         """
-        sorted_chapter_directory = sorted(os.listdir(chapter_directory))
+        sorted_chapter_directory = sorted(
+            os.listdir(chapter_directory), key=natural_sort_key
+        )
         files_that_are_images = [
             file
             for file in sorted_chapter_directory
@@ -262,8 +264,6 @@ class Magi:
         per_page_results = self.get_per_page_results(
             chapter_pages_image_numpy_array, character_bank
         )
-
-        breakpoint()
 
         for i, (image_as_np_array, page_result_predictions) in enumerate(
             zip(chapter_pages_image_numpy_array, per_page_results)

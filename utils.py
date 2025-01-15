@@ -1,4 +1,5 @@
 from functools import wraps
+import re
 import time
 import tkinter as tk
 from tkinter import filedialog
@@ -518,3 +519,11 @@ def time_it(custom_execution_time_name=None):
         return wrapper
 
     return decorator
+
+
+def natural_sort_key(filename):
+    """
+    Extracts numbers from filenames for natural sorting.
+    For example, 'panel_10.jpg' -> [10], so it can be sorted correctly.
+    """
+    return [int(s) if s.isdigit() else s for s in re.split(r"(\d+)", filename)]

@@ -2,22 +2,14 @@ from moviepy import ImageClip, concatenate_videoclips
 import os
 import re
 
-from utils import get_last_two_directories_obj, select_folder
-
-
-def natural_sort_key(filename):
-    """
-    Extracts numbers from filenames for natural sorting.
-    For example, 'panel_10.jpg' -> [10], so it can be sorted correctly.
-    """
-    return [int(s) if s.isdigit() else s for s in re.split(r"(\d+)", filename)]
+from utils import get_last_two_directories_obj, natural_sort_key, select_folder
 
 
 def create_video_from_images(
     image_folder, output_file, duration=3, video_height=1080, speech_text_parser=None
 ):
     use_wpm = True
-    wpm = 250
+    wpm = 150
     images_duration_based_on_wpm = []
 
     if use_wpm and speech_text_parser:
@@ -55,7 +47,11 @@ def create_video_from_images(
 
 def get_img_duration(duration, images_duration_based_on_wpm, index):
     if images_duration_based_on_wpm and images_duration_based_on_wpm[index]:
-        return int(images_duration_based_on_wpm[index])
+        image_duration_based_on_wpm = int(images_duration_based_on_wpm[index])
+        min_duration_per_image = 5
+
+        # TODO: Add to the Settings Modal a Minimum duration per image. In this case, it's 5. This is necessary because not every image will have text. So, for an image without text, "image_duration_based_on_wpm" would be 0 so the image would almost be skipped over in the video but obviously, we need to give the reader/viewer a chance to look at the image, so there should be a minimum duration (in this case it's 5 seconds).
+        return max(image_duration_based_on_wpm, min_duration_per_image)
 
     return duration
 
