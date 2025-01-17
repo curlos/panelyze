@@ -27,15 +27,14 @@ class GUI(ft.Page):
         self.page.bgcolor = "#3b4252"
 
         self.set_client_storage_default_values()
+        self.all_mangadex_languages = get_all_mangadex_languages()
 
-        self.current_view = "Images To Video"
+        self.current_view = "MangaDex Downloader"
         self.terminal_output = TerminalOutput(self.page)
         self.MangaDexDownloaderView = MangaDexDownloaderView(self)
         self.MagiPanelByPanelView = MagiPanelByPanelView(self)
         self.UpscaleImagesView = UpscaleImagesView(self)
         self.ImagesToVideoView = ImagesToVideoView(self)
-
-        self.all_mangadex_languages = get_all_mangadex_languages()
 
         self.render_page_based_on_current_view()
 

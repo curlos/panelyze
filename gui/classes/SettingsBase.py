@@ -30,7 +30,6 @@ class SettingsBase:
     def get_number_textfield(self, label, client_storage_key):
         return ft.TextField(
             label=label,
-            expand=True,
             border_color="#5e81ac",
             keyboard_type=ft.KeyboardType.NUMBER,
             value=self.page.client_storage.get(client_storage_key),

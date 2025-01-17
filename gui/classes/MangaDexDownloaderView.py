@@ -1,6 +1,7 @@
 import flet as ft
 from utils import is_tool_installed, pip_install_or_uninstall_tool
 from download_from_mangadex import download_from_mangadex
+from classes.SettingsMangaDexDownloader import SettingsMangaDexDownloader
 
 
 class MangaDexDownloaderView(ft.Container):
@@ -17,7 +18,7 @@ class MangaDexDownloaderView(ft.Container):
 
         self.mangadex_url_text_field = ft.TextField(
             label="Enter a MangaDex Page URL",
-            expand=True,
+            # expand=True,
             border_color="#5e81ac",
         )
 
@@ -38,15 +39,28 @@ class MangaDexDownloaderView(ft.Container):
             visible=False,
         )
 
+        self.settings = SettingsMangaDexDownloader(
+            self.page, self.parent_gui.all_mangadex_languages
+        )
+
         top_container = ft.Container(
-            content=ft.Column(
+            content=ft.Row(
                 controls=[
-                    ft.Row(controls=[self.mangadex_url_text_field]),
-                    self.download_button,
-                    self.cancel_button,
-                ],
+                    ft.Container(
+                        content=ft.Column(
+                            controls=[
+                                self.mangadex_url_text_field,
+                                self.download_button,
+                                self.cancel_button,
+                            ],
+                            expand=True,
+                        ),
+                        padding=15,
+                        expand=True,
+                    ),
+                    ft.Container(content=ft.Column(controls=[self.settings])),
+                ]
             ),
-            padding=15,
         )
 
         self.content = top_container

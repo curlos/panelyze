@@ -2,7 +2,7 @@ import flet as ft
 from classes.SettingsBase import SettingsBase
 
 
-class SettingsMangaDexDownloader(ft.NavigationDrawer, SettingsBase):
+class SettingsMangaDexDownloader(ft.Container, SettingsBase):
     def __init__(self, page, all_mangadex_languages):
         super().__init__()
 
@@ -49,120 +49,97 @@ class SettingsMangaDexDownloader(ft.NavigationDrawer, SettingsBase):
         }
 
         self.bgcolor = "#3b4252"
-        self.position = ft.NavigationDrawerPosition.END
-        self.controls = [
-            ft.Container(
-                content=ft.Column(
-                    controls=[
-                        ft.Container(
-                            content=ft.Row(
-                                controls=[
-                                    ft.Text(
-                                        "Settings - MangaDex Downloader",
-                                        size=14,
-                                        weight=ft.FontWeight.W_700,
-                                    ),
-                                ],
-                            ),
-                            expand=True,
-                            padding=ft.padding.only(bottom=5),
-                        ),
-                        # Languages only works for a whole manga - not individual chapters. If I pass in the URL for the One Piece Manga with all of the chapters, it will download it in the specified language. But if I pass in a specific URL of Chapter. 567 in English, it will download in English and not the passed in language.
-                        ft.Dropdown(
-                            label="Language",
-                            options=[
-                                ft.dropdown.Option(language["name"])
-                                for language in mangadex_languages
-                            ],
-                            value=default_language["name"],
-                            text_style=ft.TextStyle(
-                                color="white",  # Text color of the selected item
-                                size=14,  # Font size
-                            ),
-                            fill_color="#3b4252",  # Background color of the dropdown
-                            border_color="#5e81ac",
-                            max_menu_height=300,
-                            on_change=lambda e: self.handle_language_dropdown_change(
-                                e.data, mangadex_languages_by_name
-                            ),
-                        ),
-                        ft.Checkbox(
-                            label="Use Start and End Pages",
-                            value=self.page.client_storage.get(
-                                "use_start_and_end_pages"
-                            ),
-                            on_change=lambda e: self.toggle_setting_element_visibility(
-                                e,
-                                self.start_and_end_page_col,
-                                "use_start_and_end_pages",
-                            ),
-                        ),
-                        self.start_and_end_page_col,
-                        ft.Checkbox(
-                            label="Use Start and End Chapters",
-                            value=self.page.client_storage.get(
-                                "use_start_and_end_chapters"
-                            ),
-                            on_change=lambda e: self.toggle_setting_element_visibility(
-                                e,
-                                self.start_and_end_chapter_col,
-                                "use_start_and_end_chapters",
-                            ),
-                        ),
-                        self.start_and_end_chapter_col,
-                        ft.Checkbox(
-                            label="Use Chapter Title",
-                            value=self.page.client_storage.get("use_chapter_title"),
-                            on_change=lambda e: self.change_setting(
-                                "use_chapter_title", e.data
-                            ),
-                        ),
-                        ft.Checkbox(
-                            label="No Group Name",
-                            value=self.page.client_storage.get("no_group_name"),
-                            on_change=lambda e: self.change_setting(
-                                "no_group_name", e.data
-                            ),
-                        ),
-                        ft.Checkbox(
-                            # Replace existing manga, chapter, or list.
-                            label="Replace Existing Manga/Chapter",
-                            value=self.page.client_storage.get(
-                                "replace_existing_manga"
-                            ),
-                            on_change=lambda e: self.change_setting(
-                                "replace_existing_manga", e.data
-                            ),
-                        ),
-                        ft.Checkbox(
-                            # Replace existing manga, chapter, or list.
-                            label="No Oneshot Chapters",
-                            value=self.page.client_storage.get("no_oneshot_chapters"),
-                            on_change=lambda e: self.change_setting(
-                                "no_oneshot_chapters", e.data
-                            ),
-                        ),
-                        ft.Checkbox(
-                            label="Use Chapter Cover",
-                            value=self.page.client_storage.get("use_chapter_cover"),
-                            on_change=lambda e: self.change_setting(
-                                "use_chapter_cover", e.data
-                            ),
-                        ),
-                        ft.Checkbox(
-                            label="Use Volume Cover",
-                            value=self.page.client_storage.get("use_volume_cover"),
-                            on_change=lambda e: self.change_setting(
-                                "use_volume_cover", e.data
-                            ),
-                        ),
+        self.content = ft.Column(
+            controls=[
+                # Languages only works for a whole manga - not individual chapters. If I pass in the URL for the One Piece Manga with all of the chapters, it will download it in the specified language. But if I pass in a specific URL of Chapter. 567 in English, it will download in English and not the passed in language.
+                ft.Dropdown(
+                    label="Language",
+                    options=[
+                        ft.dropdown.Option(language["name"])
+                        for language in mangadex_languages
                     ],
-                    expand=True,
+                    value=default_language["name"],
+                    text_style=ft.TextStyle(
+                        color="white",  # Text color of the selected item
+                        size=14,  # Font size
+                    ),
+                    fill_color="#3b4252",  # Background color of the dropdown
+                    border_color="#5e81ac",
+                    max_menu_height=300,
+                    on_change=lambda e: self.handle_language_dropdown_change(
+                        e.data, mangadex_languages_by_name
+                    ),
+                    padding=ft.padding.only(top=10),
                 ),
-                padding=15,
-                expand=True,
-            )
-        ]
+                ft.Checkbox(
+                    label="Use Start and End Pages",
+                    value=self.page.client_storage.get("use_start_and_end_pages"),
+                    on_change=lambda e: self.toggle_setting_element_visibility(
+                        e,
+                        self.start_and_end_page_col,
+                        "use_start_and_end_pages",
+                    ),
+                ),
+                self.start_and_end_page_col,
+                ft.Checkbox(
+                    label="Use Start and End Chapters",
+                    value=self.page.client_storage.get("use_start_and_end_chapters"),
+                    on_change=lambda e: self.toggle_setting_element_visibility(
+                        e,
+                        self.start_and_end_chapter_col,
+                        "use_start_and_end_chapters",
+                    ),
+                ),
+                self.start_and_end_chapter_col,
+                ft.Checkbox(
+                    label="Use Chapter Title",
+                    value=self.page.client_storage.get("use_chapter_title"),
+                    on_change=lambda e: self.change_setting(
+                        "use_chapter_title", e.data
+                    ),
+                ),
+                ft.Checkbox(
+                    label="No Group Name",
+                    value=self.page.client_storage.get("no_group_name"),
+                    on_change=lambda e: self.change_setting("no_group_name", e.data),
+                ),
+                ft.Checkbox(
+                    # Replace existing manga, chapter, or list.
+                    label="Replace Existing Manga/Chapter",
+                    value=self.page.client_storage.get("replace_existing_manga"),
+                    on_change=lambda e: self.change_setting(
+                        "replace_existing_manga", e.data
+                    ),
+                ),
+                ft.Checkbox(
+                    # Replace existing manga, chapter, or list.
+                    label="No Oneshot Chapters",
+                    value=self.page.client_storage.get("no_oneshot_chapters"),
+                    on_change=lambda e: self.change_setting(
+                        "no_oneshot_chapters", e.data
+                    ),
+                ),
+                ft.Checkbox(
+                    label="Use Chapter Cover",
+                    value=self.page.client_storage.get("use_chapter_cover"),
+                    on_change=lambda e: self.change_setting(
+                        "use_chapter_cover", e.data
+                    ),
+                ),
+                ft.Checkbox(
+                    label="Use Volume Cover",
+                    value=self.page.client_storage.get("use_volume_cover"),
+                    on_change=lambda e: self.change_setting("use_volume_cover", e.data),
+                ),
+            ],
+            expand=True,
+            scroll=ft.ScrollMode.AUTO,
+        )
+
+        self.padding = ft.padding.only(left=10, right=10, bottom=10, top=0)
+        self.border = ft.border.only(left=ft.border.BorderSide(1, "#5e81ac"))
+        self.expand = True
+        self.width = 300
 
     def handle_language_dropdown_change(
         self, chosen_language_name, mangadex_languages_by_name

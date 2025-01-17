@@ -1,5 +1,4 @@
 import flet as ft
-from classes.SettingsMangaDexDownloader import SettingsMangaDexDownloader
 from classes.SettingsPanelByPanel import SettingsPanelByPanel
 from classes.SettingsUpscaleImages import SettingsUpscaleImages
 from classes.SettingsImagesToVideo import SettingsImagesToVideo
@@ -61,9 +60,6 @@ class AppBar(ft.Container):
         self.padding = 0
         self.margin = 0
 
-        self.drawer_mangadex_downloader = SettingsMangaDexDownloader(
-            self.page, self.parent_gui.all_mangadex_languages
-        )
         self.drawer_panel_by_panel = SettingsPanelByPanel(self.page)
         self.drawer_upscale_images = SettingsUpscaleImages(self.page)
         self.drawer_images_to_video = SettingsImagesToVideo(self.page)
@@ -118,9 +114,7 @@ class AppBar(ft.Container):
         self.parent_gui.page.update()
 
     def get_drawer_for_current_view(self):
-        if self.parent_gui.current_view == "MangaDex Downloader":
-            return self.drawer_mangadex_downloader
-        elif self.parent_gui.current_view == "Panel-By-Panel":
+        if self.parent_gui.current_view == "Panel-By-Panel":
             return self.drawer_panel_by_panel
         elif self.parent_gui.current_view == "Upscale Images":
             return self.drawer_upscale_images
