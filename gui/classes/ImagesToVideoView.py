@@ -7,6 +7,7 @@ from create_video_from_images import create_video_from_images
 from utils import (
     get_last_two_directories_obj,
     input_and_output_dirs_are_valid,
+    open_directory,
     remove_last_directory,
 )
 
@@ -52,6 +53,8 @@ class ImagesToVideoView(ft.Container):
 
         # Start the traversal from the root of the structure
         traverse_and_process(files_directory_structure, base_path)
+
+        open_directory(output_directory)
 
     def process_list_of_images_video_creator(
         self, base_path, current_path, output_directory

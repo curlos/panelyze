@@ -66,7 +66,6 @@ class SettingsImagesToVideo(
 
         self.inner_content = [
             self.video_height_textfield,
-            self.image_displayed_duration_textfield,
             ft.RadioGroup(
                 content=ft.Column(
                     controls=[val["elem"] for val in self.radio_group_dict.values()]
