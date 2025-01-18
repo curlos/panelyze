@@ -1,5 +1,6 @@
 import flet as ft
 from utils import construct_directory_structure, format_size, get_last_directory
+from classes.SettingsUpscaleImages import SettingsUpscaleImages
 
 
 class PickInputAndOutputDirectories(ft.Container):
@@ -165,11 +166,13 @@ class PickInputAndOutputDirectories(ft.Container):
             visible=False,
         )
 
+        self.settings = SettingsUpscaleImages(self.page)
+
         self.content = ft.Row(
             controls=[
                 ft.Column(
                     controls=[
-                        ft.Row(
+                        ft.Column(
                             controls=[
                                 self.pick_input_directory_column,
                                 self.files_list_column,
@@ -201,6 +204,7 @@ class PickInputAndOutputDirectories(ft.Container):
                     spacing=10,
                     alignment=ft.MainAxisAlignment.START,
                 ),
+                ft.Column(controls=[self.settings]),
             ],
             expand=True,
             spacing=5,

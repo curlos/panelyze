@@ -69,7 +69,7 @@ class SettingsMangaDexDownloader(ft.Container, SettingsBase):
                     on_change=lambda e: self.handle_language_dropdown_change(
                         e.data, mangadex_languages_by_name
                     ),
-                    padding=ft.padding.only(top=10),
+                    padding=ft.padding.only(top=5),
                 ),
                 ft.Checkbox(
                     label="Use Start and End Pages",
@@ -133,7 +133,7 @@ class SettingsMangaDexDownloader(ft.Container, SettingsBase):
                 ),
             ],
             expand=True,
-            scroll=ft.ScrollMode.AUTO,
+            scroll=ft.ScrollMode.ALWAYS,
         )
 
         self.padding = ft.padding.only(left=10, right=10, bottom=10, top=0)

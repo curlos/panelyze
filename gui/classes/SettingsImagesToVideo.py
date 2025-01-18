@@ -3,7 +3,6 @@ from classes.SettingsBase import SettingsBase
 
 
 class SettingsImagesToVideo(
-    ft.NavigationDrawer,
     SettingsBase,
 ):
     def __init__(self, page):
@@ -11,7 +10,6 @@ class SettingsImagesToVideo(
         self.page = page
 
         self.bgcolor = "#3b4252"
-        self.position = ft.NavigationDrawerPosition.END
 
         self.video_height_textfield = self.get_number_textfield(
             "Video Height (px)", "video_height"

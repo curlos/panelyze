@@ -1,7 +1,4 @@
 import flet as ft
-from classes.SettingsPanelByPanel import SettingsPanelByPanel
-from classes.SettingsUpscaleImages import SettingsUpscaleImages
-from classes.SettingsImagesToVideo import SettingsImagesToVideo
 
 
 class AppBarButton(ft.TextButton):
@@ -60,10 +57,6 @@ class AppBar(ft.Container):
         self.padding = 0
         self.margin = 0
 
-        self.drawer_panel_by_panel = SettingsPanelByPanel(self.page)
-        self.drawer_upscale_images = SettingsUpscaleImages(self.page)
-        self.drawer_images_to_video = SettingsImagesToVideo(self.page)
-
         self.content = ft.Row(
             controls=[
                 ft.Row(
@@ -76,7 +69,6 @@ class AppBar(ft.Container):
                 ),
                 ft.IconButton(
                     ft.Icons.SETTINGS,
-                    on_click=self.open_drawer,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=4), padding=1
                     ),
@@ -85,10 +77,6 @@ class AppBar(ft.Container):
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             expand=True,
         )
-
-    def open_drawer(self, e):
-        drawer_for_current_view = self.get_drawer_for_current_view()
-        self.page.open(drawer_for_current_view)
 
     # Function to change the view and update the button styles
     def change_view(self, view_name):
@@ -112,11 +100,3 @@ class AppBar(ft.Container):
 
         self.parent_gui.render_page_based_on_current_view()
         self.parent_gui.page.update()
-
-    def get_drawer_for_current_view(self):
-        if self.parent_gui.current_view == "Panel-By-Panel":
-            return self.drawer_panel_by_panel
-        elif self.parent_gui.current_view == "Upscale Images":
-            return self.drawer_upscale_images
-        elif self.parent_gui.current_view == "Images To Video":
-            return self.drawer_images_to_video

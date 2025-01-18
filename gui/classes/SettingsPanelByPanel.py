@@ -2,13 +2,12 @@ import flet as ft
 from classes.SettingsBase import SettingsBase
 
 
-class SettingsPanelByPanel(ft.NavigationDrawer, SettingsBase):
+class SettingsPanelByPanel(ft.Container, SettingsBase):
     def __init__(self, page):
         super().__init__()
         self.page = page
 
         self.bgcolor = "#3b4252"
-        self.position = ft.NavigationDrawerPosition.END
 
         self.custom_panel_image_height_textfield = self.get_number_textfield(
             "Panel Height (px)", "custom_panel_image_height"
@@ -24,39 +23,33 @@ class SettingsPanelByPanel(ft.NavigationDrawer, SettingsBase):
             "custom_panel_image_height": self.custom_panel_image_height_textfield,
         }
 
-        self.controls = [
-            ft.Container(
-                content=ft.Column(
-                    controls=[
-                        ft.Container(
-                            content=ft.Row(
-                                controls=[
-                                    ft.Text(
-                                        "Settings - Panel-by-Panel",
-                                        size=14,
-                                        weight=ft.FontWeight.W_700,
-                                    ),
-                                ],
+        self.content = ft.Column(
+            controls=[
+                ft.Container(
+                    content=ft.Row(
+                        controls=[
+                            ft.Text(
+                                "Settings - Panel-by-Panel",
+                                size=14,
+                                weight=ft.FontWeight.W_700,
                             ),
-                            expand=True,
-                            padding=ft.padding.only(bottom=5),
-                        ),
-                        ft.Checkbox(
-                            label="Use Custom Panel Image Height",
-                            value=self.page.client_storage.get(
-                                "use_custom_panel_image_height"
-                            ),
-                            on_change=lambda e: self.toggle_setting_element_visibility(
-                                e,
-                                self.custom_panel_image_height_col,
-                                "use_custom_panel_image_height",
-                            ),
-                        ),
-                        self.custom_panel_image_height_col,
-                    ],
+                        ],
+                    ),
                     expand=True,
+                    padding=ft.padding.only(bottom=5),
                 ),
-                padding=15,
-                expand=True,
-            )
-        ]
+                ft.Checkbox(
+                    label="Use Custom Panel Image Height",
+                    value=self.page.client_storage.get("use_custom_panel_image_height"),
+                    on_change=lambda e: self.toggle_setting_element_visibility(
+                        e,
+                        self.custom_panel_image_height_col,
+                        "use_custom_panel_image_height",
+                    ),
+                ),
+                self.custom_panel_image_height_col,
+            ],
+            expand=True,
+        )
+        self.padding = 15
+        self.expand = True
