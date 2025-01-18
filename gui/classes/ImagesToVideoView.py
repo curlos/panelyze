@@ -2,6 +2,7 @@ import os
 import flet as ft
 from SpeechTextParser import SpeechTextParser
 from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
+from classes.SettingsImagesToVideo import SettingsImagesToVideo
 from create_video_from_images import create_video_from_images
 from utils import (
     get_last_two_directories_obj,
@@ -19,7 +20,9 @@ class ImagesToVideoView(ft.Container):
         self.speech_text_parser = SpeechTextParser()
 
         self.pick_input_output_directories_container = PickInputAndOutputDirectories(
-            on_submit=self.handle_create_videos, parent_gui=parent_gui
+            on_submit=self.handle_create_videos,
+            parent_gui=parent_gui,
+            settings_container=SettingsImagesToVideo(self.parent_gui.page),
         )
 
         self.content = self.pick_input_output_directories_container

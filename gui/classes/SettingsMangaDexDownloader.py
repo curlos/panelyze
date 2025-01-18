@@ -2,7 +2,7 @@ import flet as ft
 from classes.SettingsBase import SettingsBase
 
 
-class SettingsMangaDexDownloader(ft.Container, SettingsBase):
+class SettingsMangaDexDownloader(SettingsBase):
     def __init__(self, page, all_mangadex_languages):
         super().__init__()
 
@@ -48,7 +48,6 @@ class SettingsMangaDexDownloader(ft.Container, SettingsBase):
             "end_chapter": self.end_chapter_textfield,
         }
 
-        self.bgcolor = "#3b4252"
         self.content = ft.Column(
             controls=[
                 # Languages only works for a whole manga - not individual chapters. If I pass in the URL for the One Piece Manga with all of the chapters, it will download it in the specified language. But if I pass in a specific URL of Chapter. 567 in English, it will download in English and not the passed in language.
@@ -138,8 +137,6 @@ class SettingsMangaDexDownloader(ft.Container, SettingsBase):
 
         self.padding = ft.padding.only(left=10, right=10, bottom=10, top=0)
         self.border = ft.border.only(left=ft.border.BorderSide(1, "#5e81ac"))
-        self.expand = True
-        self.width = 300
 
     def handle_language_dropdown_change(
         self, chosen_language_name, mangadex_languages_by_name

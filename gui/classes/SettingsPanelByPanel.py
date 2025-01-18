@@ -2,12 +2,10 @@ import flet as ft
 from classes.SettingsBase import SettingsBase
 
 
-class SettingsPanelByPanel(ft.Container, SettingsBase):
+class SettingsPanelByPanel(SettingsBase):
     def __init__(self, page):
         super().__init__()
         self.page = page
-
-        self.bgcolor = "#3b4252"
 
         self.custom_panel_image_height_textfield = self.get_number_textfield(
             "Panel Height (px)", "custom_panel_image_height"
@@ -23,33 +21,17 @@ class SettingsPanelByPanel(ft.Container, SettingsBase):
             "custom_panel_image_height": self.custom_panel_image_height_textfield,
         }
 
-        self.content = ft.Column(
-            controls=[
-                ft.Container(
-                    content=ft.Row(
-                        controls=[
-                            ft.Text(
-                                "Settings - Panel-by-Panel",
-                                size=14,
-                                weight=ft.FontWeight.W_700,
-                            ),
-                        ],
-                    ),
-                    expand=True,
-                    padding=ft.padding.only(bottom=5),
+        self.inner_content = [
+            ft.Checkbox(
+                label="Use Custom Panel Image Height",
+                value=self.page.client_storage.get("use_custom_panel_image_height"),
+                on_change=lambda e: self.toggle_setting_element_visibility(
+                    e,
+                    self.custom_panel_image_height_col,
+                    "use_custom_panel_image_height",
                 ),
-                ft.Checkbox(
-                    label="Use Custom Panel Image Height",
-                    value=self.page.client_storage.get("use_custom_panel_image_height"),
-                    on_change=lambda e: self.toggle_setting_element_visibility(
-                        e,
-                        self.custom_panel_image_height_col,
-                        "use_custom_panel_image_height",
-                    ),
-                ),
-                self.custom_panel_image_height_col,
-            ],
-            expand=True,
-        )
-        self.padding = 15
-        self.expand = True
+            ),
+            self.custom_panel_image_height_col,
+        ]
+
+        self.content = self.get_full_content()

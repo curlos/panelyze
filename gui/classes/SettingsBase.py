@@ -2,7 +2,13 @@ import flet as ft
 import pdb
 
 
-class SettingsBase:
+class SettingsBase(ft.Container):
+    def __init__(self):
+        super().__init__()
+        self.bgcolor = "#3b4252"
+        self.expand = True
+        self.width = 300
+
     def change_setting(self, setting_key, setting_value):
         final_setting_value = setting_value
 
@@ -40,3 +46,15 @@ class SettingsBase:
         view_element.visible = not view_element.visible
         self.change_setting(setting_key, e.data)
         self.page.update()
+
+    def get_full_content(self):
+        return ft.Column(
+            controls=[
+                ft.Container(
+                    content=ft.Column(controls=self.inner_content),
+                    padding=ft.padding.only(left=10, top=5, right=10),
+                )
+            ],
+            expand=True,
+            scroll=ft.ScrollMode.ALWAYS,
+        )

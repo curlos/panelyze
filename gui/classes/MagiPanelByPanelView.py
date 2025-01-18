@@ -1,5 +1,6 @@
 import flet as ft
 from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
+from classes.SettingsPanelByPanel import SettingsPanelByPanel
 from utils import (
     input_and_output_dirs_are_valid,
     open_directory,
@@ -18,7 +19,9 @@ class MagiPanelByPanelView(ft.Container):
         self.magi = None
 
         self.pick_input_output_directories_container = PickInputAndOutputDirectories(
-            on_submit=self.handle_convert_to_panel_by_panel, parent_gui=parent_gui
+            on_submit=self.handle_convert_to_panel_by_panel,
+            parent_gui=parent_gui,
+            settings_container=SettingsPanelByPanel(self.parent_gui.page),
         )
 
         self.content = self.pick_input_output_directories_container

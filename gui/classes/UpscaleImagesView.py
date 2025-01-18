@@ -1,6 +1,7 @@
 import flet as ft
 from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
 import os
+from classes.SettingsUpscaleImages import SettingsUpscaleImages
 from utils import (
     ProcessManager,
     get_last_two_directories,
@@ -20,7 +21,9 @@ class UpscaleImagesView(ft.Container):
         self.expand = True
 
         self.pick_input_output_directories_container = PickInputAndOutputDirectories(
-            on_submit=self.handle_upscale_images, parent_gui=parent_gui
+            on_submit=self.handle_upscale_images,
+            parent_gui=parent_gui,
+            settings_container=SettingsUpscaleImages(self.parent_gui.page),
         )
 
         self.content = self.pick_input_output_directories_container

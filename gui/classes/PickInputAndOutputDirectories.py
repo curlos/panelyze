@@ -4,7 +4,7 @@ from classes.SettingsUpscaleImages import SettingsUpscaleImages
 
 
 class PickInputAndOutputDirectories(ft.Container):
-    def __init__(self, on_submit, parent_gui):
+    def __init__(self, on_submit, parent_gui, settings_container):
         super().__init__()
 
         self.input_directory = ""
@@ -166,7 +166,7 @@ class PickInputAndOutputDirectories(ft.Container):
             visible=False,
         )
 
-        self.settings = SettingsUpscaleImages(self.page)
+        self.settings_container = settings_container
 
         self.content = ft.Row(
             controls=[
@@ -204,7 +204,7 @@ class PickInputAndOutputDirectories(ft.Container):
                     spacing=10,
                     alignment=ft.MainAxisAlignment.START,
                 ),
-                ft.Column(controls=[self.settings]),
+                ft.Column(controls=[self.settings_container]),
             ],
             expand=True,
             spacing=5,
