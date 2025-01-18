@@ -10,9 +10,7 @@ class AppBarButton(ft.TextButton):
 
     def get_button_style_by_view(self, current_view):
         return ft.ButtonStyle(
-            bgcolor=(
-                "#5e81ac" if current_view == self.text else ft.Colors.BLUE_GREY_800
-            ),
+            bgcolor=("#5e81ac" if current_view == self.text else "#3b4252"),
             color="white",
             shape={
                 ft.ControlState.HOVERED: ft.RoundedRectangleBorder(radius=0),
@@ -66,12 +64,6 @@ class AppBar(ft.Container):
                         self.upscale_images_button,
                         self.images_to_video_button,
                     ]
-                ),
-                ft.IconButton(
-                    ft.Icons.SETTINGS,
-                    style=ft.ButtonStyle(
-                        shape=ft.RoundedRectangleBorder(radius=4), padding=1
-                    ),
                 ),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,

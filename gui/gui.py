@@ -29,7 +29,7 @@ class GUI(ft.Page):
         self.set_client_storage_default_values()
         self.all_mangadex_languages = get_all_mangadex_languages()
 
-        self.current_view = "MangaDex Downloader"
+        self.current_view = "Images To Video"
         self.terminal_output = TerminalOutput(self.page)
         self.MangaDexDownloaderView = MangaDexDownloaderView(self)
         self.MagiPanelByPanelView = MagiPanelByPanelView(self)
@@ -93,6 +93,8 @@ class GUI(ft.Page):
             # Images To Video
             "video_height": 1080,
             "image_displayed_duration": 3,
+            "use_reading_speed_wpm": True,
+            "reading_speed_wpm": 150,
         }
 
         return client_storage_default_values
@@ -101,7 +103,8 @@ class GUI(ft.Page):
         client_storage_default_values = self.get_client_storage_default_values()
 
         for setting_key, setting_value in client_storage_default_values.items():
-            if not self.page.client_storage.get(setting_key):
+            val = self.page.client_storage.get(setting_key)
+            if not val and val != False:
                 self.page.client_storage.set(setting_key, setting_value)
 
 
