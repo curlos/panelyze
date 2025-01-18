@@ -48,6 +48,13 @@ class SettingsBase(ft.Container):
         view_element.update()
         self.page.update()
 
+    def change_setting_element_visibility(
+        self, view_element, elem_visible, setting_key
+    ):
+        view_element.visible = elem_visible
+        self.change_setting(setting_key, elem_visible)
+        view_element.update()
+
     def get_full_content(self):
         return ft.Column(
             controls=[
@@ -59,3 +66,23 @@ class SettingsBase(ft.Container):
             expand=True,
             scroll=ft.ScrollMode.ALWAYS,
         )
+
+    def handle_radio_group_change(self, e, radio_group_dict):
+        selected_setting_key = e.control.value
+
+        for val in radio_group_dict.values():
+            toggle_elem = val["toggle_elem"]
+            setting_key = val["setting_key"]
+            is_checked = False
+
+            if setting_key == selected_setting_key:
+                is_checked = True
+
+            self.change_setting_element_visibility(toggle_elem, is_checked, setting_key)
+
+    def get_radio_group_init_value(self, radio_group_dict):
+        for setting_key in radio_group_dict:
+            is_checked = self.page.client_storage.get(setting_key)
+
+            if is_checked:
+                return setting_key
