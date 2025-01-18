@@ -113,9 +113,13 @@ class PickInputAndOutputDirectories(ft.Container):
             self.open_output_files_picker_dialog,
         )
 
-        self.files_directory_panel_list = ft.Column(controls=[])
+        self.input_directory_row_text = ft.Text(
+            self.input_directory,
+            color="white",
+            size=14,
+        )
 
-        self.files_list_column = ft.Column(
+        self.selected_input_directory_row = ft.Column(
             controls=[
                 ft.Container(
                     content=ft.Container(
@@ -124,26 +128,26 @@ class PickInputAndOutputDirectories(ft.Container):
                                 controls=[
                                     ft.Row(
                                         controls=[
-                                            ft.Text(
-                                                "Files List",
+                                            ft.Icon(
+                                                ft.Icons.FILE_OPEN,
                                                 color="white",
-                                                size=14,
+                                            ),
+                                            ft.Text(
+                                                "Input Directory",
                                                 weight=ft.FontWeight.W_700,
                                             ),
+                                        ]
+                                    ),
+                                    ft.Row(
+                                        controls=[
+                                            self.input_directory_row_text,
                                             ft.IconButton(
                                                 ft.Icons.CLOSE,
                                                 icon_color="white",
-                                                icon_size=16,
                                                 on_click=self.handle_clear_input_directory,
                                             ),
                                         ],
                                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                    ),
-                                    ft.ListView(
-                                        controls=[
-                                            self.files_directory_panel_list,
-                                        ],
-                                        expand=True,
                                     ),
                                 ]
                             ),
@@ -175,7 +179,7 @@ class PickInputAndOutputDirectories(ft.Container):
                         ft.Column(
                             controls=[
                                 self.pick_input_directory_column,
-                                self.files_list_column,
+                                self.selected_input_directory_row,
                                 self.pick_output_directory_column,
                                 self.selected_output_directory_row,
                             ],
@@ -219,19 +223,15 @@ class PickInputAndOutputDirectories(ft.Container):
         self.pick_output_files_dialog.get_directory_path()
 
     def pick_input_files_result(self, e):
-        absolute_path = e.path
-        self.input_directory = absolute_path
+        self.input_directory = e.path
 
-        self.files_directory_structure = construct_directory_structure(absolute_path)
-        expansion_tiles = self.build_expansion_tiles(self.files_directory_structure)
-
-        self.files_directory_panel_list.controls = expansion_tiles
-        self.files_list_column.visible = True
         self.pick_input_directory_column.visible = False
+        self.selected_input_directory_row.visible = True
+        self.input_directory_row_text.value = get_last_directory(self.input_directory)
 
-        self.files_list_column.update()
-        self.files_directory_panel_list.update()
         self.pick_input_directory_column.update()
+        self.selected_input_directory_row.update()
+        self.input_directory_row_text.update()
 
     def pick_output_files_result(self, e):
         self.output_directory = e.path
@@ -290,10 +290,10 @@ class PickInputAndOutputDirectories(ft.Container):
     def handle_clear_input_directory(self, e):
         self.input_directory = ""
 
-        self.files_list_column.visible = False
+        self.selected_input_directory_row.visible = False
         self.pick_input_directory_column.visible = True
 
-        self.files_list_column.update()
+        self.selected_input_directory_row.update()
         self.pick_input_directory_column.update()
 
     def handle_clear_output_directory(self, e):
