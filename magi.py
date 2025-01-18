@@ -151,6 +151,8 @@ class Magi:
     def get_panels_for_chapter(
         self, input_directory, output_directory, flet_page_client_storage=None
     ):
+        print("Starting panel-by-panel conversion...")
+
         series_and_chapter_name_directory = get_last_two_directories(input_directory)
 
         chapter_pages_image_numpy_array = self.get_chapter_pages_image_numpy_array(

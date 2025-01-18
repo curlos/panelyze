@@ -87,6 +87,7 @@ class SettingsUpscaleImages(SettingsBase):
                     "use_custom_panel_image_height",
                 ),
             ),
+            self.custom_panel_image_height_col,
         ]
 
         self.content = self.get_full_content()

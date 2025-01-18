@@ -135,7 +135,7 @@ class SettingsMangaDexDownloader(SettingsBase):
             scroll=ft.ScrollMode.ALWAYS,
         )
 
-        self.padding = ft.padding.only(left=10, right=10, bottom=10, top=0)
+        self.padding = ft.padding.only(left=10, right=10, top=0)
         self.border = ft.border.only(left=ft.border.BorderSide(1, "#5e81ac"))
 
     def handle_language_dropdown_change(

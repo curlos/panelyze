@@ -223,7 +223,9 @@ class PickInputAndOutputDirectories(ft.Container):
         self.pick_output_files_dialog.get_directory_path()
 
     def pick_input_files_result(self, e):
-        self.input_directory = e.path
+        absolute_path = e.path
+        self.input_directory = absolute_path
+        self.files_directory_structure = construct_directory_structure(absolute_path)
 
         self.pick_input_directory_column.visible = False
         self.selected_input_directory_row.visible = True

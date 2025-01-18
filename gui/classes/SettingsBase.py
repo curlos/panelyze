@@ -45,6 +45,7 @@ class SettingsBase(ft.Container):
     def toggle_setting_element_visibility(self, e, view_element, setting_key):
         view_element.visible = not view_element.visible
         self.change_setting(setting_key, e.data)
+        view_element.update()
         self.page.update()
 
     def get_full_content(self):
