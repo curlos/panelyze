@@ -17,7 +17,7 @@ class ImagesToVideoView(ft.Container):
         self.parent_gui = parent_gui
         self.bgcolor = "#3b4252"
         self.expand = True
-        self.speech_text_parser = SpeechTextParser()
+        self.speech_text_parser = None
 
         self.pick_input_output_directories_container = PickInputAndOutputDirectories(
             on_submit=self.handle_create_videos,
@@ -56,6 +56,9 @@ class ImagesToVideoView(ft.Container):
     def process_list_of_images_video_creator(
         self, base_path, current_path, output_directory
     ):
+        if not self.speech_text_parser:
+            self.speech_text_parser = SpeechTextParser()
+
         # Current path is a directory containing images
         input_directory = os.path.join(base_path, current_path)
         series_name, chapter_name = get_last_two_directories_obj(input_directory)
@@ -74,6 +77,7 @@ class ImagesToVideoView(ft.Container):
             image_displayed_duration,
             video_height,
             speech_text_parser=self.speech_text_parser,
+            flet_page_client_storage=self.page.client_storage,
         )
 
         print(f"Images To Video: Finished creating video to {output_file}")

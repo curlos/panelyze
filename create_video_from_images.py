@@ -1,20 +1,30 @@
 from moviepy import ImageClip, concatenate_videoclips
 import os
-import re
 
 from utils import get_last_two_directories_obj, natural_sort_key, select_folder
 
 
 def create_video_from_images(
-    image_folder, output_file, duration=3, video_height=1080, speech_text_parser=None
+    image_folder,
+    output_file,
+    duration=3,
+    video_height=1080,
+    speech_text_parser=None,
+    flet_page_client_storage=None,
 ):
-    use_wpm = True
-    wpm = 150
+    use_reading_speed_wpm = False
+    reading_speed_wpm = 150
     images_duration_based_on_wpm = []
 
-    if use_wpm and speech_text_parser:
+    if flet_page_client_storage:
+        use_reading_speed_wpm = flet_page_client_storage.get("use_reading_speed_wpm")
+        reading_speed_wpm = int(flet_page_client_storage.get("reading_speed_wpm"))
+
+    if use_reading_speed_wpm and speech_text_parser:
         images_duration_based_on_wpm = (
-            speech_text_parser.get_images_duration_based_on_wpm(image_folder, wpm)
+            speech_text_parser.get_images_duration_based_on_wpm(
+                image_folder, reading_speed_wpm
+            )
         )
 
     # Ensure the output directory exists
