@@ -527,3 +527,16 @@ def natural_sort_key(filename):
     For example, 'panel_10.jpg' -> [10], so it can be sorted correctly.
     """
     return [int(s) if s.isdigit() else s for s in re.split(r"(\d+)", filename)]
+
+
+def is_valid_number(value):
+    """
+    Checks if the input value is a valid number (int or float).
+    Returns True if valid, False otherwise.
+    """
+    try:
+        # Try converting to float (covers both int and float cases)
+        float(value)
+        return True
+    except ValueError:
+        return False

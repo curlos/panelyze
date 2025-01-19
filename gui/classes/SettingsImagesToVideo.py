@@ -64,6 +64,24 @@ class SettingsImagesToVideo(
             },
         }
 
+        self.minimum_image_duration_textfield = self.get_number_textfield(
+            "Minimum Image Duration (seconds)", "minimum_image_duration"
+        )
+
+        self.minimum_image_duration_col = ft.Column(
+            controls=[
+                self.minimum_image_duration_textfield,
+            ],
+            visible=bool(self.page.client_storage.get("use_minimum_image_duration")),
+        )
+
+        self.page_num_textfield_dict = {
+            "video_height": self.video_height_textfield,
+            "reading_speed_wpm": self.reading_speed_wpm_textfield,
+            "image_displayed_duration": self.image_displayed_duration_textfield,
+            "minimum_image_duration": self.minimum_image_duration_textfield,
+        }
+
         self.inner_content = [
             self.video_height_textfield,
             ft.RadioGroup(
@@ -79,6 +97,16 @@ class SettingsImagesToVideo(
             ),
             self.reading_speed_wpm_col,
             self.image_displayed_duration_col,
+            ft.Checkbox(
+                label="Use Minimum Image Duration (sec.)",
+                value=self.page.client_storage.get("use_minimum_image_duration"),
+                on_change=lambda e: self.toggle_setting_element_visibility(
+                    e,
+                    self.minimum_image_duration_col,
+                    "use_minimum_image_duration",
+                ),
+            ),
+            self.minimum_image_duration_col,
         ]
 
         self.content = self.get_full_content()

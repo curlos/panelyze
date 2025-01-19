@@ -1,6 +1,8 @@
 import flet as ft
 import pdb
 
+from utils import is_valid_number
+
 
 class SettingsBase(ft.Container):
     def __init__(self):
@@ -23,7 +25,7 @@ class SettingsBase(ft.Container):
         ):
             page_num_textfield = self.page_num_textfield_dict[setting_key]
 
-            if setting_value and not setting_value.isdigit():
+            if setting_value and not is_valid_number(setting_value):
                 page_num_textfield.error_text = "Please enter a valid number."
             else:
                 page_num_textfield.error_text = ""

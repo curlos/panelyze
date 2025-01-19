@@ -92,9 +92,12 @@ class GUI(ft.Page):
             "image_format": "png",
             # Images To Video
             "video_height": 1080,
-            "image_displayed_duration": 3,
             "use_reading_speed_wpm": True,
             "reading_speed_wpm": 150,
+            "use_image_displayed_duration": False,
+            "image_displayed_duration": 5,
+            "use_minimum_image_duration": True,
+            "minimum_image_duration": 5,
         }
 
         return client_storage_default_values

@@ -20,11 +20,20 @@ def create_video_from_images(
     reading_speed_wpm = 150
     images_duration_based_on_wpm = []
 
+    use_minimum_image_duration = True
+    minimum_image_duration = 5
+
     if flet_page_client_storage:
         use_reading_speed_wpm = flet_page_client_storage.get("use_reading_speed_wpm")
         reading_speed_wpm = int(flet_page_client_storage.get("reading_speed_wpm"))
         image_displayed_duration = int(
-            flet_page_client_storage.get("image_displayed_duration")
+            flet_page_client_storage.get("image_displayed_duration") or 0
+        )
+        use_minimum_image_duration = flet_page_client_storage.get(
+            "use_minimum_image_duration"
+        )
+        minimum_image_duration = int(
+            flet_page_client_storage.get("minimum_image_duration") or 0
         )
 
     if speech_text_parser and use_reading_speed_wpm:
@@ -51,7 +60,12 @@ def create_video_from_images(
         .resized(height=int(video_height))  # Resize to fit the height of the video
         .with_duration(
             get_img_duration(
-                int(image_displayed_duration), images_duration_based_on_wpm, index
+                image_displayed_duration=float(image_displayed_duration),
+                images_duration_based_on_wpm=images_duration_based_on_wpm,
+                index=index,
+                use_reading_speed_wpm=use_reading_speed_wpm,
+                use_minimum_image_duration=use_minimum_image_duration,
+                minimum_image_duration=minimum_image_duration,
             )
         )  # Set duration for each image
         for index, img in enumerate(images)
@@ -64,19 +78,24 @@ def create_video_from_images(
     video.write_videofile(output_file, fps=1)
 
 
-def get_img_duration(image_displayed_duration, images_duration_based_on_wpm, index):
-    if (
-        images_duration_based_on_wpm
-        and len(images_duration_based_on_wpm) > 0
-        and images_duration_based_on_wpm[index]
-    ):
-        image_duration_based_on_wpm = int(images_duration_based_on_wpm[index])
-        min_duration_per_image = 5
+def get_img_duration(
+    image_displayed_duration,
+    images_duration_based_on_wpm,
+    index,
+    use_reading_speed_wpm,
+    use_minimum_image_duration,
+    minimum_image_duration,
+):
+    final_image_duration = image_displayed_duration
 
-        # TODO: Add to the Settings Modal a Minimum duration per image. In this case, it's 5. This is necessary because not every image will have text. So, for an image without text, "image_duration_based_on_wpm" would be 0 so the image would almost be skipped over in the video but obviously, we need to give the reader/viewer a chance to look at the image, so there should be a minimum duration (in this case it's 5 seconds).
-        return max(image_duration_based_on_wpm, min_duration_per_image)
+    if use_reading_speed_wpm:
+        final_image_duration = float(images_duration_based_on_wpm[index])
 
-    return image_displayed_duration
+    if use_minimum_image_duration:
+        # This is necessary because not every image will have text. So, for an image without text, "image_duration_based_on_wpm" would be 0 so the image would almost be skipped over in the video but obviously, we need to give the reader/viewer a chance to look at the image, so there should be a minimum duration (in this case it's 5 seconds).
+        return max(final_image_duration, minimum_image_duration)
+
+    return final_image_duration
 
 
 is_running_as_main_program = __name__ == "__main__"
