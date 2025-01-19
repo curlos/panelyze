@@ -1,7 +1,7 @@
 import os
 import azure.cognitiveservices.speech as speechsdk
-
 from utils import utils_load_dotenv
+from magi_panel_output import frieren_ch_55_essential_text_matrix
 
 
 class TextToSpeech:
@@ -11,18 +11,9 @@ class TextToSpeech:
         self.subscription_key = os.getenv("AZURE_SUBSCRIPTION_KEY")
         self.region = os.getenv("AZURE_REGION")
 
-    def calculate_azure_rate(self, wpm, base_wpm=150):
+    def generate_azure_audio(self, text, output_file):
         """
-        Map WPM to Azure's percentage-based rate with bounds (-100% to +400%).
-        """
-        rate_percentage = (wpm / base_wpm) * 100
-
-        # Cap the rate to Azure's limits
-        return max(50, min(rate_percentage, 400))
-
-    def generate_azure_audio_with_wpm(self, text, output_file, wpm=150):
-        """
-        Generate TTS audio with Azure, save it to a file, and control the WPM rate.
+        Generate TTS audio with Azure and save it to a file.
         """
         # Set up Azure Speech configuration
         speech_config = speechsdk.SpeechConfig(
@@ -30,16 +21,11 @@ class TextToSpeech:
         )
         audio_config = speechsdk.AudioConfig(filename=output_file)
 
-        # Calculate Azure speech rate and cap it
-        rate_percentage = self.calculate_azure_rate(wpm)
-
         # Create SSML text with the working voice and prosody for rate control
         ssml_text = f"""
         <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
             <voice name='en-US-AvaMultilingualNeural'>
-                <prosody rate='{rate_percentage}%'>
-                    {text}
-                </prosody>
+                {text}
             </voice>
         </speak>
         """
@@ -61,8 +47,12 @@ is_running_as_main_program = __name__ == "__main__"
 if is_running_as_main_program:
     tts = TextToSpeech()
 
-    # Example Usage
-    text = "This is a test of Azure TTS with a custom speaking rate."
-    output_file = "output_azure.wav"
-    wpm = 1  # Desired words per minute
-    tts.generate_azure_audio_with_wpm(text, output_file, wpm)
+    os.makedirs("tts-test-output", exist_ok=True)
+
+    for index, panel_text_arr in enumerate(frieren_ch_55_essential_text_matrix[:6]):
+        all_panel_text_str = " ".join(panel_text_arr)
+        output_file = f"tts-test-output/panel_{index + 1}.wav"
+
+        if all_panel_text_str:
+            print(all_panel_text_str)
+            tts.generate_azure_audio(all_panel_text_str, output_file)

@@ -186,7 +186,7 @@ one_piece_ch_595_panel_39_and_40 = [
 ]
 
 
-frieren_ch_55 = [
+frieren_ch_55_essential_text_matrix = [
     [],
     [],
     [
