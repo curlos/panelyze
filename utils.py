@@ -11,6 +11,7 @@ import flet as ft
 import select
 import pdb
 import math
+from dotenv import load_dotenv
 
 
 def select_folder():
@@ -540,3 +541,8 @@ def is_valid_number(value):
         return True
     except ValueError:
         return False
+
+
+def utils_load_dotenv():
+    env_path = ".env"
+    load_dotenv(env_path)
