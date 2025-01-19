@@ -12,6 +12,7 @@ import select
 import pdb
 import math
 from dotenv import load_dotenv
+import wave
 
 
 def select_folder():
@@ -546,3 +547,16 @@ def is_valid_number(value):
 def utils_load_dotenv():
     env_path = ".env"
     load_dotenv(env_path)
+
+
+def get_audio_file_duration(file_path):
+    # Open the .wav file
+    with wave.open(file_path, "rb") as wav_file:
+        # Get the frame rate (samples per second)
+        frame_rate = wav_file.getframerate()
+        # Get the number of frames
+        n_frames = wav_file.getnframes()
+        # Calculate duration in seconds
+        duration = n_frames / frame_rate
+
+    return duration

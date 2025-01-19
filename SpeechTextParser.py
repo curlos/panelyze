@@ -16,8 +16,6 @@ class SpeechTextParser:
             images_directory
         )
 
-        print(essential_text_list_in_image_list)
-
         for essential_text_list_in_image in essential_text_list_in_image_list:
             duration_based_on_wpm = self.calculate_reading_time(
                 essential_text_list_in_image, wpm
@@ -26,7 +24,6 @@ class SpeechTextParser:
 
             images_duration_based_on_wpm.append(duration_based_on_wpm)
 
-        print(images_duration_based_on_wpm)
         return images_duration_based_on_wpm
 
     @time_it()

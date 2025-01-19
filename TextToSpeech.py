@@ -1,7 +1,10 @@
 import os
 import azure.cognitiveservices.speech as speechsdk
 from utils import utils_load_dotenv
-from magi_panel_output import frieren_ch_55_essential_text_matrix
+from magi_panel_output import (
+    frieren_ch_55_essential_text_matrix,
+    one_piece_ch_595_panel_39_and_40,
+)
 
 
 class TextToSpeech:
@@ -49,14 +52,30 @@ is_running_as_main_program = __name__ == "__main__"
 if is_running_as_main_program:
     tts = TextToSpeech()
 
-    # os.makedirs("tts-test-output", exist_ok=True)
+    os.makedirs("tts-test-output", exist_ok=True)
 
-    # for index, panel_text_arr in enumerate(frieren_ch_55_essential_text_matrix[:6]):
-    #     all_panel_text_str = " ".join(panel_text_arr)
-    #     output_file = f"tts-test-output/panel_{index + 1}.wav"
+    one_piece_ch_595_panel_39_and_40_essential_text_matrix = [
+        [
+            "Red Line: Holy Land of Mariejoa",
+            "vanished...?",
+            "Yeah. That's what happened.",
+            "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
+            "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
+            "This is no joking matter!!!",
+        ],
+        [
+            "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
+            "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
+            "And you call this doing your job, do you...?!!!",
+        ],
+    ]
 
-    #     if all_panel_text_str:
-    #         print(all_panel_text_str)
-    #         tts.generate_azure_audio(all_panel_text_str, output_file)
+    for index, panel_text_arr in enumerate(
+        one_piece_ch_595_panel_39_and_40_essential_text_matrix
+    ):
+        all_panel_text_str = " ".join(panel_text_arr)
+        output_file = f"z-tts-test-output/panel_{index + 1}.wav"
 
-    tts.generate_azure_audio("Hello John", "output-azure-sentiment.wav")
+        if all_panel_text_str:
+            print(all_panel_text_str)
+            tts.generate_azure_audio(all_panel_text_str, output_file)
