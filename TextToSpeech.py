@@ -23,9 +23,11 @@ class TextToSpeech:
 
         # Create SSML text with the working voice and prosody for rate control
         ssml_text = f"""
-        <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-            <voice name='en-US-AvaMultilingualNeural'>
-                {text}
+        <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang='en-US'>
+            <voice name='en-US-AriaNeural'>
+                <mstts:express-as style='formal' styledegree='2'>
+                    {text}
+                </mstts:express-as>
             </voice>
         </speak>
         """
@@ -47,12 +49,14 @@ is_running_as_main_program = __name__ == "__main__"
 if is_running_as_main_program:
     tts = TextToSpeech()
 
-    os.makedirs("tts-test-output", exist_ok=True)
+    # os.makedirs("tts-test-output", exist_ok=True)
 
-    for index, panel_text_arr in enumerate(frieren_ch_55_essential_text_matrix[:6]):
-        all_panel_text_str = " ".join(panel_text_arr)
-        output_file = f"tts-test-output/panel_{index + 1}.wav"
+    # for index, panel_text_arr in enumerate(frieren_ch_55_essential_text_matrix[:6]):
+    #     all_panel_text_str = " ".join(panel_text_arr)
+    #     output_file = f"tts-test-output/panel_{index + 1}.wav"
 
-        if all_panel_text_str:
-            print(all_panel_text_str)
-            tts.generate_azure_audio(all_panel_text_str, output_file)
+    #     if all_panel_text_str:
+    #         print(all_panel_text_str)
+    #         tts.generate_azure_audio(all_panel_text_str, output_file)
+
+    tts.generate_azure_audio("Hello John", "output-azure-sentiment.wav")
