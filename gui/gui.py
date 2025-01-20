@@ -98,6 +98,8 @@ class GUI(ft.Page):
             "image_displayed_duration": 5,
             "use_minimum_image_duration": True,
             "minimum_image_duration": 5,
+            "image_pre_tts_audio_delay": 0,
+            "image_post_tts_audio_delay": 0,
         }
 
         return client_storage_default_values

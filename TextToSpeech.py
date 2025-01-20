@@ -1,10 +1,6 @@
 import os
 import azure.cognitiveservices.speech as speechsdk
 from utils import utils_load_dotenv
-from magi_panel_output import (
-    frieren_ch_55_essential_text_matrix,
-    one_piece_ch_595_panel_39_and_40,
-)
 
 
 class TextToSpeech:

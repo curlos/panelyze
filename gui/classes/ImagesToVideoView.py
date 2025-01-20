@@ -1,6 +1,7 @@
 import os
 import flet as ft
 from SpeechTextParser import SpeechTextParser
+from TextToSpeech import TextToSpeech
 from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
 from classes.SettingsImagesToVideo import SettingsImagesToVideo
 from create_video_from_images import create_video_from_images
@@ -16,9 +17,11 @@ class ImagesToVideoView(ft.Container):
     def __init__(self, parent_gui):
         super().__init__()
         self.parent_gui = parent_gui
+        self.page = self.parent_gui.page
         self.bgcolor = "#3b4252"
         self.expand = True
         self.speech_text_parser = None
+        self.tts = None
 
         self.pick_input_output_directories_container = PickInputAndOutputDirectories(
             on_submit=self.handle_create_videos,
@@ -62,9 +65,13 @@ class ImagesToVideoView(ft.Container):
         if not self.speech_text_parser:
             self.speech_text_parser = SpeechTextParser()
 
+        if not self.tts:
+            self.tts = TextToSpeech()
+
         # Current path is a directory containing images
         input_directory = os.path.join(base_path, current_path)
         series_name, chapter_name = get_last_two_directories_obj(input_directory)
+        full_output_directory = f"{output_directory}/{series_name}"
         output_file = f"{output_directory}/{series_name}/{chapter_name}.mp4"
 
         video_height = self.page.client_storage.get("video_height")
@@ -81,6 +88,8 @@ class ImagesToVideoView(ft.Container):
             video_height,
             speech_text_parser=self.speech_text_parser,
             flet_page_client_storage=self.page.client_storage,
+            tts=self.tts,
+            full_output_directory=full_output_directory,
         )
 
         print(f"Images To Video: Finished creating video to {output_file}")

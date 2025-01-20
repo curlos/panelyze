@@ -42,8 +42,11 @@ def create_video_from_images(
     use_minimum_image_duration = True
     minimum_image_duration = 5
 
-    use_text_to_speech = True
+    use_text_to_speech_azure = False
     images_duration_based_on_tts = []
+
+    image_pre_tts_audio_delay = 0
+    image_post_tts_audio_delay = 0
 
     if flet_page_client_storage:
         use_reading_speed_wpm = flet_page_client_storage.get("use_reading_speed_wpm")
@@ -58,8 +61,19 @@ def create_video_from_images(
             flet_page_client_storage.get("minimum_image_duration") or 0
         )
 
+        use_text_to_speech_azure = flet_page_client_storage.get(
+            "use_text_to_speech_azure"
+        )
+
+        image_pre_tts_audio_delay = int(
+            flet_page_client_storage.get("image_pre_tts_audio_delay") or 0
+        )
+        image_post_tts_audio_delay = int(
+            flet_page_client_storage.get("image_post_tts_audio_delay") or 0
+        )
+
     if speech_text_parser:
-        if use_text_to_speech:
+        if use_text_to_speech_azure:
             essential_text_in_images_matrix = (
                 speech_text_parser.get_essential_text_list_in_images(image_folder)
             )
@@ -119,7 +133,7 @@ def create_video_from_images(
                 use_reading_speed_wpm=use_reading_speed_wpm,
                 use_minimum_image_duration=use_minimum_image_duration,
                 minimum_image_duration=minimum_image_duration,
-                use_text_to_speech=use_text_to_speech,
+                use_text_to_speech_azure=use_text_to_speech_azure,
             )
 
             image_clip = (
@@ -140,30 +154,25 @@ def create_video_from_images(
                 # Subclip the audio to match the adjusted duration
                 audio_clip = audio_clip.subclipped(0, adjusted_duration)
 
-                use_padded_duration_before_audio = True
-                use_padded_duration_after_audio = True
-
                 combined_audio_clips = audio_clip
 
-                if use_padded_duration_before_audio:
-                    padded_duration_before_audio = 3
-                    adjusted_duration += padded_duration_before_audio
+                if image_pre_tts_audio_delay > 0:
+                    adjusted_duration += image_pre_tts_audio_delay
 
-                    # Add padding before the audio starts (3 seconds of silence)
+                    # Add padding before the audio starts
                     padding_before_audio_file_clip = AudioClip(
-                        lambda t: 0, duration=padded_duration_before_audio
+                        lambda t: 0, duration=image_pre_tts_audio_delay
                     )
 
                     # Combine the silent audio and actual audio
                     combined_audio_clips = CompositeAudioClip(
                         [
                             padding_before_audio_file_clip.with_start(0),
-                            audio_clip.with_start(3),
+                            audio_clip.with_start(image_pre_tts_audio_delay),
                         ]
                     )
 
-                if use_padded_duration_after_audio:
-                    adjusted_duration += 3
+                adjusted_duration += image_post_tts_audio_delay
 
                 # Update the image clip's duration and add the audio
                 image_clip = image_clip.with_duration(adjusted_duration).with_audio(
@@ -193,11 +202,11 @@ def get_img_duration(
     use_reading_speed_wpm,
     use_minimum_image_duration,
     minimum_image_duration,
-    use_text_to_speech,
+    use_text_to_speech_azure,
 ):
     final_image_duration = image_displayed_duration
 
-    if use_text_to_speech:
+    if use_text_to_speech_azure:
         final_image_duration = float(images_duration_based_on_tts[index])
     elif use_reading_speed_wpm:
         final_image_duration = float(images_duration_based_on_wpm[index])
@@ -221,13 +230,6 @@ if is_running_as_main_program:
 
     print("Select Output Directory:")
     output_directory = select_folder()
-
-    # input_directory = (
-    #     "/Users/curlos/Desktop/Github Repos/manga-panel-splitter/wpm-test-ch-595"
-    # )
-    # output_directory = (
-    #     "/Users/curlos/Desktop/Github Repos/manga-panel-splitter/wpm-test-ch-595"
-    # )
 
     series_name, chapter_name = get_last_two_directories_obj(input_directory)
     full_output_directory = f"{output_directory}/{series_name}"
