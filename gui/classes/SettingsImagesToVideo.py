@@ -1,5 +1,6 @@
 import flet as ft
 from classes.SettingsBase import SettingsBase
+from TextToSpeech import TextToSpeech
 
 
 class SettingsImagesToVideo(
@@ -8,6 +9,8 @@ class SettingsImagesToVideo(
     def __init__(self, page):
         super().__init__()
         self.page = page
+        self.tts = TextToSpeech(self.page.client_storage)
+        self.locale_voice_mapping = self.tts.get_locale_voice_mapping()
 
         self.video_height_textfield = self.get_number_textfield(
             "Video Height (px)", "video_height"
@@ -58,8 +61,69 @@ class SettingsImagesToVideo(
             "image_post_tts_audio_delay",
         )
 
+        self.azure_subscription_key_textfield = ft.TextField(
+            label="Azure Subscription Key",
+            border_color="#5e81ac",
+            password=True,
+            can_reveal_password=True,
+            value=self.page.client_storage.get("azure_subscription_key"),
+            on_change=lambda e: self.change_setting("azure_subscription_key", e.data),
+        )
+
+        self.azure_region_textfield = ft.TextField(
+            label="Azure Region",
+            border_color="#5e81ac",
+            value=self.page.client_storage.get("azure_region"),
+            on_change=lambda e: self.change_setting("azure_region", e.data),
+        )
+
+        default_locale = self.get_setting_value("azure_voice_locale", "en-US")
+
+        default_voice_dict = self.locale_voice_mapping[default_locale]
+        default_voice_short_names = default_voice_dict.keys()
+        default_voice_short_names_list = list(default_voice_dict.keys())
+        default_voice_name = default_voice_short_names_list[0]
+
+        self.voice_locale_dropdown = ft.Dropdown(
+            label="Voice Locale",
+            options=[
+                ft.dropdown.Option(locale)
+                for locale in sorted(self.locale_voice_mapping.keys())
+            ],
+            value=default_locale,
+            text_style=ft.TextStyle(
+                color="white",  # Text color of the selected item
+                size=14,  # Font size
+            ),
+            fill_color="#3b4252",  # Background color of the dropdown
+            border_color="#5e81ac",
+            max_menu_height=300,
+            on_change=self.handle_voice_locale_change,
+        )
+
+        self.voice_names_dropdown = ft.Dropdown(
+            label="Voice Names",
+            options=[
+                ft.dropdown.Option(voice_short_name)
+                for voice_short_name in default_voice_short_names
+            ],
+            value=default_voice_name,
+            text_style=ft.TextStyle(
+                color="white",  # Text color of the selected item
+                size=14,  # Font size
+            ),
+            fill_color="#3b4252",  # Background color of the dropdown
+            border_color="#5e81ac",
+            max_menu_height=300,
+            on_change=lambda e: self.change_setting("azure_voice_name", e.data),
+        )
+
         self.text_to_speech_azure_col = ft.Column(
             controls=[
+                self.azure_subscription_key_textfield,
+                self.azure_region_textfield,
+                self.voice_locale_dropdown,
+                self.voice_names_dropdown,
                 self.image_pre_tts_audio_delay_textfield,
                 self.image_post_tts_audio_delay_textfield,
             ],
@@ -138,3 +202,20 @@ class SettingsImagesToVideo(
         ]
 
         self.content = self.get_full_content()
+
+    def handle_voice_locale_change(self, e):
+        self.change_setting("azure_voice_locale", e.data)
+
+        current_locale = self.get_setting_value("azure_voice_locale", "en-US")
+
+        current_voice_dict = self.locale_voice_mapping[current_locale]
+        current_voice_short_names = current_voice_dict.keys()
+        current_voice_short_names_list = list(current_voice_dict.keys())
+        current_voice_name = current_voice_short_names_list[0]
+
+        self.voice_names_dropdown.options = [
+            ft.dropdown.Option(voice_short_name)
+            for voice_short_name in current_voice_short_names
+        ]
+        self.voice_names_dropdown.value = current_voice_name
+        self.voice_names_dropdown.update()

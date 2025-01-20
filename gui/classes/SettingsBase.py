@@ -88,3 +88,11 @@ class SettingsBase(ft.Container):
 
             if is_checked:
                 return setting_key
+
+    def get_setting_value(self, setting_key, default_setting_value):
+        setting_value = self.page.client_storage.get(setting_key)
+
+        if setting_value == None or setting_value == "":
+            self.page.client_storage.set(setting_key, default_setting_value)
+
+        return self.page.client_storage.get(setting_key)

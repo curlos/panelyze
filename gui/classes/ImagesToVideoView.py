@@ -66,7 +66,7 @@ class ImagesToVideoView(ft.Container):
             self.speech_text_parser = SpeechTextParser()
 
         if not self.tts:
-            self.tts = TextToSpeech()
+            self.tts = TextToSpeech(self.page.client_storage)
 
         # Current path is a directory containing images
         input_directory = os.path.join(base_path, current_path)

@@ -4,26 +4,67 @@ from utils import utils_load_dotenv
 
 
 class TextToSpeech:
-    def __init__(self):
+    def __init__(self, flet_page_client_storage=None):
         utils_load_dotenv()
-
         self.subscription_key = os.getenv("AZURE_SUBSCRIPTION_KEY")
         self.region = os.getenv("AZURE_REGION")
+
+        self.flet_page_client_storage = flet_page_client_storage
+
+    def get_locale_voice_mapping(self):
+        subscription_key = (
+            self.flet_page_client_storage.get("azure_subscription_key")
+            or self.subscription_key
+        )
+        region = self.flet_page_client_storage.get("azure_region") or self.region
+
+        # Configure the Azure Speech SDK
+        speech_config = speechsdk.SpeechConfig(
+            subscription=subscription_key, region=region
+        )
+
+        # Create the speech synthesizer
+        synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
+
+        # Fetch all available voices
+        results = synthesizer.get_voices_async().get()
+
+        # Create a dictionary with locale as key and another dictionary as value
+        locale_voice_mapping = {}
+        for voice in results.voices:
+            if voice.locale not in locale_voice_mapping:
+                locale_voice_mapping[voice.locale] = {}
+            locale_voice_mapping[voice.locale][voice.short_name] = voice
+
+        return locale_voice_mapping
 
     def generate_azure_audio(self, text, output_file):
         """
         Generate TTS audio with Azure and save it to a file.
         """
+        subscription_key = (
+            self.flet_page_client_storage.get("azure_subscription_key")
+            or self.subscription_key
+        )
+        region = self.flet_page_client_storage.get("azure_region") or self.region
+
         # Set up Azure Speech configuration
         speech_config = speechsdk.SpeechConfig(
-            subscription=self.subscription_key, region=self.region
+            subscription=subscription_key, region=region
         )
         audio_config = speechsdk.AudioConfig(filename=output_file)
+
+        voice_name = "en-US-AriaNeural"
+
+        if self.flet_page_client_storage:
+            voice_name = self.flet_page_client_storage.get("azure_voice_name")
+
+        breakpoint()
 
         # Create SSML text with the working voice and prosody for rate control
         ssml_text = f"""
         <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang='en-US'>
-            <voice name='en-US-AriaNeural'>
+            <voice name='{voice_name}'>
                 <mstts:express-as style='formal' styledegree='2'>
                     {text}
                 </mstts:express-as>
@@ -35,6 +76,7 @@ class TextToSpeech:
         synthesizer = speechsdk.SpeechSynthesizer(
             speech_config=speech_config, audio_config=audio_config
         )
+
         result = synthesizer.speak_ssml_async(ssml_text).get()
 
         if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
