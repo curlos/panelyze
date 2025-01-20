@@ -35,9 +35,6 @@ def create_video_from_images(
     ]
     images = [os.path.join(image_folder, file) for file in files_that_are_images]
 
-    # print(images)
-    # breakpoint()
-
     use_reading_speed_wpm = True
     reading_speed_wpm = 150
     images_duration_based_on_wpm = []
@@ -66,31 +63,23 @@ def create_video_from_images(
             essential_text_in_images_matrix = (
                 speech_text_parser.get_essential_text_list_in_images(image_folder)
             )
-            # essential_text_in_images_matrix = [
-            #     [
-            #         "Red Line: Holy Land of Mariejoa",
-            #         "vanished...?",
-            #         "Yeah. That's what happened.",
-            #         "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
-            #         "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
-            #         "This is no joking matter!!!",
-            #     ],
-            #     [
-            #         "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
-            #         "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
-            #         "And you call this doing your job, do you...?!!!",
-            #     ],
-            # ]
 
             for index, panel_text_arr in enumerate(essential_text_in_images_matrix):
                 image_path = images[index]
                 base_name, _ = os.path.splitext(os.path.basename(image_path))
 
                 all_panel_text_str = " ".join(panel_text_arr)
-                audio_output_file = f"{full_output_directory}/{base_name}.wav"
+
+                full_audio_files_output_directory = (
+                    f"{full_output_directory}/audio-files"
+                )
+
+                audio_output_file = (
+                    f"{full_audio_files_output_directory}/{base_name}.wav"
+                )
                 panel_audio_file_duration = 0
 
-                os.makedirs(full_output_directory, exist_ok=True)
+                os.makedirs(full_audio_files_output_directory, exist_ok=True)
 
                 if all_panel_text_str:
                     print(all_panel_text_str)
@@ -118,7 +107,9 @@ def create_video_from_images(
         for index, img in enumerate(images):
             # Extract base name of the image (e.g., panel_1.png -> panel_1)
             base_name, _ = os.path.splitext(os.path.basename(img))
-            wav_path = os.path.join(full_output_directory, f"{base_name}.wav")
+            wav_path = os.path.join(
+                full_output_directory, f"audio-files/{base_name}.wav"
+            )
 
             img_duration = get_img_duration(
                 image_displayed_duration=float(image_displayed_duration),
