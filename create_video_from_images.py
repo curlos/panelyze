@@ -1,4 +1,10 @@
-from moviepy import ImageClip, concatenate_videoclips, AudioFileClip
+from moviepy import (
+    AudioClip,
+    ImageClip,
+    concatenate_videoclips,
+    AudioFileClip,
+    CompositeAudioClip,
+)
 import os
 
 from TextToSpeech import TextToSpeech
@@ -131,16 +137,47 @@ def create_video_from_images(
                 .with_duration(img_duration)
             )
 
-            # print(wav_path)
-            # breakpoint()
-
             # Check if the corresponding .wav file exists
             if os.path.exists(wav_path):
-                # Add audio to the clip
-                audio_clip = AudioFileClip(wav_path).subclipped(
-                    0, img_duration
-                )  # Match audio to image duration
-                image_clip = image_clip.with_audio(audio_clip)
+                # Get the actual duration of the audio file
+                audio_clip = AudioFileClip(wav_path)
+                audio_duration = audio_clip.duration
+
+                # Adjust the duration to avoid exceeding the audio duration
+                adjusted_duration = min(img_duration, audio_duration)
+
+                # Subclip the audio to match the adjusted duration
+                audio_clip = audio_clip.subclipped(0, adjusted_duration)
+
+                use_padded_duration_before_audio = True
+                use_padded_duration_after_audio = True
+
+                combined_audio_clips = audio_clip
+
+                if use_padded_duration_before_audio:
+                    padded_duration_before_audio = 3
+                    adjusted_duration += padded_duration_before_audio
+
+                    # Add padding before the audio starts (3 seconds of silence)
+                    padding_before_audio_file_clip = AudioClip(
+                        lambda t: 0, duration=padded_duration_before_audio
+                    )
+
+                    # Combine the silent audio and actual audio
+                    combined_audio_clips = CompositeAudioClip(
+                        [
+                            padding_before_audio_file_clip.with_start(0),
+                            audio_clip.with_start(3),
+                        ]
+                    )
+
+                if use_padded_duration_after_audio:
+                    adjusted_duration += 3
+
+                # Update the image clip's duration and add the audio
+                image_clip = image_clip.with_duration(adjusted_duration).with_audio(
+                    combined_audio_clips
+                )
 
             # Add the clip to the list
             clips.append(image_clip)
@@ -170,7 +207,6 @@ def get_img_duration(
     final_image_duration = image_displayed_duration
 
     if use_text_to_speech:
-        print("tts")
         final_image_duration = float(images_duration_based_on_tts[index])
     elif use_reading_speed_wpm:
         final_image_duration = float(images_duration_based_on_wpm[index])
