@@ -128,6 +128,7 @@ class SettingsImagesToVideo(
                                 text_style=ft.TextStyle(color="white"),
                                 bgcolor="#3b4252",
                                 border=ft.border.all(1, "#5e81ac"),
+                                wait_duration=200,
                             ),
                         ),
                     ]
