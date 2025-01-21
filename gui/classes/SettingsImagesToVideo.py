@@ -105,6 +105,9 @@ class SettingsImagesToVideo(
         default_azure_voice_pitch = self.get_setting_value(
             "azure_voice_pitch", "medium"
         )
+        default_azure_break_time_between_text = float(
+            self.get_setting_value("azure_break_time_between_text", 0.00)
+        )
 
         self.voice_locale_dropdown = DropdownTextOptions(
             label="Voice Locale",
@@ -164,6 +167,18 @@ class SettingsImagesToVideo(
                 self.voice_pitch_options_dropdown,
                 self.image_pre_tts_audio_delay_textfield,
                 self.image_post_tts_audio_delay_textfield,
+                ft.Text("Break Time Between Text (seconds):"),
+                ft.Slider(
+                    value=default_azure_break_time_between_text,
+                    min=0,
+                    max=5,
+                    divisions=20,
+                    label="{value}s",
+                    round=2,
+                    on_change_end=lambda e: self.change_setting(
+                        "azure_break_time_between_text", e.data
+                    ),
+                ),
             ],
             visible=bool(self.page.client_storage.get("use_text_to_speech_azure")),
         )

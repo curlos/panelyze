@@ -38,7 +38,7 @@ class TextToSpeech:
 
         return locale_voice_mapping
 
-    def generate_azure_audio(self, text, output_file):
+    def generate_azure_audio(self, text_list, output_file):
         """
         Generate TTS audio with Azure and save it to a file.
         """
@@ -60,6 +60,7 @@ class TextToSpeech:
         azure_voice_volume = "x-loud"
         azure_voice_rate = "medium"
         azure_voice_pitch = "medium"
+        azure_break_time_between_text = 0.00
 
         if self.flet_page_client_storage:
             azure_voice_locale = self.flet_page_client_storage.get("azure_voice_locale")
@@ -68,14 +69,23 @@ class TextToSpeech:
             azure_voice_volume = self.flet_page_client_storage.get("azure_voice_volume")
             azure_voice_rate = self.flet_page_client_storage.get("azure_voice_rate")
             azure_voice_pitch = self.flet_page_client_storage.get("azure_voice_pitch")
+            azure_break_time_between_text = float(
+                self.flet_page_client_storage.get("azure_break_time_between_text")
+            )
 
-        # Create SSML text with the working voice and prosody for rate control
         ssml_text = f"""
         <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang='{azure_voice_locale}'>
             <voice name='{azure_voice_name}'>
                 <mstts:express-as style='formal' styledegree='2'>
                     <prosody pitch="{azure_voice_pitch}" rate="{azure_voice_rate}" volume="{azure_voice_volume}">
-                        {text}
+        """
+
+        # Add text from the array with pauses
+        for line in text_list:
+            ssml_text += f"{line}<break time='{azure_break_time_between_text}s'/>"  # Add a 1-second pause after each line
+
+        # Close SSML tags
+        ssml_text += """
                     </prosody>
                 </mstts:express-as>
             </voice>
