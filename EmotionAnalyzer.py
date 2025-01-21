@@ -45,8 +45,8 @@ class EmotionAnalyzer:
                 "lyrical",
             ],
             "neutral": [
-                "serious",
                 "calm",
+                "serious",
                 "chat",
                 "newscast",
                 "assistant",

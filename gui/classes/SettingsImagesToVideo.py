@@ -10,7 +10,7 @@ class SettingsImagesToVideo(
         super().__init__()
         self.page = page
         self.tts = TextToSpeech(self.page.client_storage)
-        self.locale_voice_mapping = self.tts.get_locale_voice_mapping()
+        self.locale_voice_mapping = self.tts.locale_voice_mapping
 
         self.video_height_textfield = self.get_number_textfield(
             "Video Height (px)", "video_height"
@@ -128,7 +128,7 @@ class SettingsImagesToVideo(
                                 text_style=ft.TextStyle(color="white"),
                                 bgcolor="#3b4252",
                                 border=ft.border.all(1, "#5e81ac"),
-                                wait_duration=200,
+                                wait_duration=500,
                             ),
                         ),
                     ]

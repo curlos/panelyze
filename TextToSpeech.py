@@ -1,6 +1,7 @@
 import os
 import azure.cognitiveservices.speech as speechsdk
 from utils import utils_load_dotenv
+from EmotionAnalyzer import EmotionAnalyzer
 
 
 class TextToSpeech:
@@ -10,6 +11,8 @@ class TextToSpeech:
         self.region = os.getenv("AZURE_REGION")
 
         self.flet_page_client_storage = flet_page_client_storage
+        self.locale_voice_mapping = self.get_locale_voice_mapping()
+        self.emotion_analyzer = EmotionAnalyzer()
 
     def get_all_voices(self):
         subscription_key = (
@@ -70,6 +73,21 @@ class TextToSpeech:
         )
         audio_config = speechsdk.AudioConfig(filename=output_file)
 
+        ssml_text = self.get_ssml_text(text_list)
+
+        # Generate audio
+        synthesizer = speechsdk.SpeechSynthesizer(
+            speech_config=speech_config, audio_config=audio_config
+        )
+
+        result = synthesizer.speak_ssml_async(ssml_text).get()
+
+        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+            print(f"Audio saved to {output_file}")
+        else:
+            print(f"Azure TTS failed: {result.reason}")
+
+    def get_ssml_text(self, text_list):
         azure_voice_locale = "en-US"
         azure_voice_name = "en-US-AriaNeural"
 
@@ -97,36 +115,75 @@ class TextToSpeech:
             if temp_azure_voice_style and temp_azure_voice_style != "No Style":
                 azure_voice_style = temp_azure_voice_style
 
-        ssml_text = f"""
-        <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang='{azure_voice_locale}'>
-            <voice name='{azure_voice_name}'>
-                <mstts:express-as style='{azure_voice_style}' styledegree='2'>
+        if azure_voice_style == "Dynamic-Style (Emotion-By-Text)":
+            azure_voice = self.locale_voice_mapping[azure_voice_locale][
+                azure_voice_name
+            ]
+            azure_voice_style_list_dict = {}
+
+            for voice_style in azure_voice.style_list:
+                azure_voice_style_list_dict[voice_style] = True
+
+            # Dynamic style applied to each text individually
+            ssml_text = f"""
+            <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang='{azure_voice_locale}'>
+                <voice name='{azure_voice_name}'>
                     <prosody pitch="{azure_voice_pitch}" rate="{azure_voice_rate}" volume="{azure_voice_volume}">
-        """
+            """
 
-        # Add text from the array with pauses
-        for line in text_list:
-            ssml_text += f"{line}<break time='{azure_break_time_between_text}s'/>"  # Add a 1-second pause after each line
+            # Add text from the array with individual styles
+            for line in text_list:
+                emotion, _ = self.emotion_analyzer.get_emotion(line)
+                emotion_voice_styles = self.emotion_analyzer.azure_emotion_dict[emotion]
+                voice_style_to_use_for_line = ""
 
-        # Close SSML tags
-        ssml_text += """
+                for voice_style in emotion_voice_styles:
+                    current_voice_has_voice_style = (
+                        voice_style in azure_voice_style_list_dict
+                    )
+
+                    if current_voice_has_voice_style:
+                        voice_style_to_use_for_line = voice_style
+                        break
+
+                ssml_text += f"""
+                        <mstts:express-as style='{voice_style_to_use_for_line}' styledegree='2'>
+                            {line}
+                        </mstts:express-as>
+                        <break time='{azure_break_time_between_text}s'/>
+                """
+
+            # Close SSML tags
+            ssml_text += """
                     </prosody>
-                </mstts:express-as>
-            </voice>
-        </speak>
-        """
-
-        # Generate audio
-        synthesizer = speechsdk.SpeechSynthesizer(
-            speech_config=speech_config, audio_config=audio_config
-        )
-
-        result = synthesizer.speak_ssml_async(ssml_text).get()
-
-        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-            print(f"Audio saved to {output_file}")
+                </voice>
+            </speak>
+            """
         else:
-            print(f"Azure TTS failed: {result.reason}")
+            # Single style applied around all text
+            ssml_text = f"""
+            <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang='{azure_voice_locale}'>
+                <voice name='{azure_voice_name}'>
+                    <mstts:express-as style='{azure_voice_style}' styledegree='2'>
+                        <prosody pitch="{azure_voice_pitch}" rate="{azure_voice_rate}" volume="{azure_voice_volume}">
+            """
+
+            # Add all text together with pauses
+            for line in text_list:
+                ssml_text += f"""
+                            {line}
+                            <break time='{azure_break_time_between_text}s'/>
+                """
+
+            # Close SSML tags
+            ssml_text += """
+                        </prosody>
+                    </mstts:express-as>
+                </voice>
+            </speak>
+            """
+
+        return ssml_text
 
 
 is_running_as_main_program = __name__ == "__main__"
