@@ -115,10 +115,10 @@ class TextToSpeech:
             if temp_azure_voice_style and temp_azure_voice_style != "No Style":
                 azure_voice_style = temp_azure_voice_style
 
-        if azure_voice_style == "Dynamic-Style (Emotion-By-Text)":
-            azure_voice = self.locale_voice_mapping[azure_voice_locale][
-                azure_voice_name
-            ]
+        azure_voice = self.locale_voice_mapping[azure_voice_locale][azure_voice_name]
+        has_voice_styles = len(azure_voice.style_list) > 0
+
+        if azure_voice_style == "Dynamic-Style (Emotion-By-Text)" and has_voice_styles:
             azure_voice_style_list_dict = {}
 
             for voice_style in azure_voice.style_list:

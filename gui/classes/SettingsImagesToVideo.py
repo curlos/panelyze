@@ -115,25 +115,27 @@ class SettingsImagesToVideo(
             "azure_voice_style", "No Style"
         )
 
+        self.dynamic_style_dropdown_option = ft.dropdown.Option(
+            key="Dynamic-Style (Emotion-By-Text)",
+            content=ft.Row(
+                controls=[
+                    ft.Text(
+                        value="Dynamic-Style (Emotion-By-Text)",
+                        tooltip=ft.Tooltip(
+                            message="Dynamic-Style (Emotion-By-Text): Instead of using one voice style throughout the whole video, this option will dynamically go through the text in an image and use the individual voice-style that fits each part of the text the most. For example, if one part of the text is 'angry', then the 'angry' voice style will be used. If another part is 'cheerful', then the 'cheerful' voice style will be used.",
+                            text_style=ft.TextStyle(color="white"),
+                            bgcolor="#3b4252",
+                            border=ft.border.all(1, "#5e81ac"),
+                            wait_duration=500,
+                        ),
+                    ),
+                ]
+            ),
+        )
+
         default_voice_style_list_options = [
             ft.dropdown.Option("No Style"),
-            ft.dropdown.Option(
-                key="Dynamic-Style (Emotion-By-Text)",
-                content=ft.Row(
-                    controls=[
-                        ft.Text(
-                            value="Dynamic-Style (Emotion-By-Text)",
-                            tooltip=ft.Tooltip(
-                                message="Dynamic-Style (Emotion-By-Text): Instead of using one voice style throughout the whole video, this option will dynamically go through the text in an image and use the individual voice-style that fits each part of the text the most. For example, if one part of the text is 'angry', then the 'angry' voice style will be used. If another part is 'cheerful', then the 'cheerful' voice style will be used.",
-                                text_style=ft.TextStyle(color="white"),
-                                bgcolor="#3b4252",
-                                border=ft.border.all(1, "#5e81ac"),
-                                wait_duration=500,
-                            ),
-                        ),
-                    ]
-                ),
-            ),
+            self.dynamic_style_dropdown_option,
         ]
         default_voice_style_list_options.extend(
             [ft.dropdown.Option(style) for style in default_voice_style_list if style]
@@ -315,7 +317,10 @@ class SettingsImagesToVideo(
         current_voice = current_voice_dict[current_voice_name]
         current_voice_style_list = current_voice.style_list
 
-        self.voice_style_options_dropdown.options = [ft.dropdown.Option("No Style")]
+        self.voice_style_options_dropdown.options = [
+            ft.dropdown.Option("No Style"),
+            self.dynamic_style_dropdown_option,
+        ]
 
         self.voice_style_options_dropdown.options.extend(
             [ft.dropdown.Option(style) for style in current_voice_style_list if style]
@@ -334,7 +339,10 @@ class SettingsImagesToVideo(
         current_voice = current_voice_dict[current_voice_name]
         current_voice_style_list = current_voice.style_list
 
-        self.voice_style_options_dropdown.options = [ft.dropdown.Option("No Style")]
+        self.voice_style_options_dropdown.options = [
+            ft.dropdown.Option("No Style"),
+            self.dynamic_style_dropdown_option,
+        ]
 
         self.voice_style_options_dropdown.options.extend(
             [ft.dropdown.Option(style) for style in current_voice_style_list if style]
