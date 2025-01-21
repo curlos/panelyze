@@ -106,85 +106,50 @@ class SettingsImagesToVideo(
             "azure_voice_pitch", "medium"
         )
 
-        self.voice_locale_dropdown = ft.Dropdown(
+        self.voice_locale_dropdown = DropdownTextOptions(
             label="Voice Locale",
             options=[
                 ft.dropdown.Option(locale)
                 for locale in sorted(self.locale_voice_mapping.keys())
             ],
             value=default_locale,
-            text_style=ft.TextStyle(
-                color="white",  # Text color of the selected item
-                size=14,  # Font size
-            ),
-            fill_color="#3b4252",  # Background color of the dropdown
-            border_color="#5e81ac",
-            max_menu_height=300,
             on_change=self.handle_voice_locale_change,
         )
 
-        self.voice_names_dropdown = ft.Dropdown(
+        self.voice_names_dropdown = DropdownTextOptions(
             label="Voice Names",
             options=[
                 ft.dropdown.Option(voice_short_name)
                 for voice_short_name in default_voice_short_names
             ],
             value=default_voice_name,
-            text_style=ft.TextStyle(
-                color="white",  # Text color of the selected item
-                size=14,  # Font size
-            ),
-            fill_color="#3b4252",  # Background color of the dropdown
-            border_color="#5e81ac",
-            max_menu_height=300,
             on_change=lambda e: self.change_setting("azure_voice_name", e.data),
         )
 
-        self.voice_volume_options_dropdown = ft.Dropdown(
+        self.voice_volume_options_dropdown = DropdownTextOptions(
             label="Voice Volume",
             options=[
                 ft.dropdown.Option(volume) for volume in self.azure_voice_volume_options
             ],
             value=default_azure_voice_volume,
-            text_style=ft.TextStyle(
-                color="white",  # Text color of the selected item
-                size=14,  # Font size
-            ),
-            fill_color="#3b4252",  # Background color of the dropdown
-            border_color="#5e81ac",
-            max_menu_height=300,
             on_change=lambda e: self.change_setting("azure_voice_volume", e.data),
         )
 
-        self.voice_rate_options_dropdown = ft.Dropdown(
+        self.voice_rate_options_dropdown = DropdownTextOptions(
             label="Voice Rate",
             options=[
                 ft.dropdown.Option(rate) for rate in self.azure_voice_rate_options
             ],
             value=default_azure_voice_rate,
-            text_style=ft.TextStyle(
-                color="white",  # Text color of the selected item
-                size=14,  # Font size
-            ),
-            fill_color="#3b4252",  # Background color of the dropdown
-            border_color="#5e81ac",
-            max_menu_height=300,
             on_change=lambda e: self.change_setting("azure_voice_rate", e.data),
         )
 
-        self.voice_pitch_options_dropdown = ft.Dropdown(
+        self.voice_pitch_options_dropdown = DropdownTextOptions(
             label="Voice Pitch",
             options=[
                 ft.dropdown.Option(pitch) for pitch in self.azure_voice_pitch_options
             ],
             value=default_azure_voice_pitch,
-            text_style=ft.TextStyle(
-                color="white",  # Text color of the selected item
-                size=14,  # Font size
-            ),
-            fill_color="#3b4252",  # Background color of the dropdown
-            border_color="#5e81ac",
-            max_menu_height=300,
             on_change=lambda e: self.change_setting("azure_voice_pitch", e.data),
         )
 
@@ -292,3 +257,20 @@ class SettingsImagesToVideo(
         ]
         self.voice_names_dropdown.value = current_voice_name
         self.voice_names_dropdown.update()
+
+
+class DropdownTextOptions(ft.Dropdown):
+    def __init__(self, label, options, value, on_change):
+        super().__init__()
+        self.label = label
+        self.options = options
+        self.value = value
+        self.on_change = on_change
+
+        self.text_style = ft.TextStyle(
+            color="white",  # Text color of the selected item
+            size=14,  # Font size
+        )
+        self.fill_color = "#3b4252"  # Background color of the dropdown
+        self.border_color = "#5e81ac"
+        self.max_menu_height = 300
