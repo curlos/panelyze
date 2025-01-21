@@ -9,6 +9,74 @@ class EmotionAnalyzer:
             "text-classification", model="j-hartmann/emotion-english-distilroberta-base"
         )
 
+        self.azure_emotion_dict = {
+            "anger": [
+                "angry",
+                "shouting",
+                "disgruntled",
+                "unfriendly",
+                "envious",
+            ],
+            "disgust": [
+                "disgruntled",
+                "unfriendly",
+                "embarrassed",
+                "envious",
+            ],
+            "fear": [
+                "terrified",
+                "fearful",
+                "shouting",
+                "sorry",
+                "shy",
+                "whispering",
+                "envious",
+            ],
+            "joy": [
+                "cheerful",
+                "excited",
+                "affectionate",
+                "gentle",
+                "friendly",
+                "relieved",
+                "hopeful",
+                "empathetic",
+                "sports-commentary-excited",
+                "lyrical",
+            ],
+            "neutral": [
+                "serious",
+                "calm",
+                "chat",
+                "newscast",
+                "assistant",
+                "customerservice",
+                "narration-professional",
+                "newscast-casual",
+                "newscast-formal",
+                "conversation",
+                "poetry-reading",
+                "chat-casual",
+                "narration-relaxed",
+                "sports-commentary",
+                "documentary-narration",
+                "livecommercial",
+                "story",
+                "advertisement-upbeat",
+            ],
+            "sadness": [
+                "depressed",
+                "sad",
+                "sorry",
+                "shy",
+            ],
+            "surprise": [
+                "excited",
+                "embarrassed",
+                "sports-commentary-excited",
+            ],
+        }
+
     def get_emotion(self, text):
         """
         Analyze emotions using j-hartmann/emotion-english-distilroberta-base.

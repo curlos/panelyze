@@ -11,7 +11,7 @@ class TextToSpeech:
 
         self.flet_page_client_storage = flet_page_client_storage
 
-    def get_locale_voice_mapping(self):
+    def get_all_voices(self):
         subscription_key = (
             self.flet_page_client_storage.get("azure_subscription_key")
             or self.subscription_key
@@ -29,9 +29,25 @@ class TextToSpeech:
         # Fetch all available voices
         results = synthesizer.get_voices_async().get()
 
+        return results
+
+    def get_all_voice_styles(self):
+        all_voices = self.get_all_voices()
+        all_voice_styles = {}
+
+        for voice in all_voices.voices:
+            for voice_style in voice.style_list:
+                if voice_style:
+                    all_voice_styles[voice_style] = True
+
+        return list(all_voice_styles.keys())
+
+    def get_locale_voice_mapping(self):
+        all_voices = self.get_all_voices()
+
         # Create a dictionary with locale as key and another dictionary as value
         locale_voice_mapping = {}
-        for voice in results.voices:
+        for voice in all_voices.voices:
             if voice.locale not in locale_voice_mapping:
                 locale_voice_mapping[voice.locale] = {}
             locale_voice_mapping[voice.locale][voice.short_name] = voice
