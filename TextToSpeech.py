@@ -57,18 +57,26 @@ class TextToSpeech:
         azure_voice_locale = "en-US"
         azure_voice_name = "en-US-AriaNeural"
 
+        azure_voice_volume = "x-loud"
+        azure_voice_rate = "medium"
+        azure_voice_pitch = "medium"
+
         if self.flet_page_client_storage:
             azure_voice_locale = self.flet_page_client_storage.get("azure_voice_locale")
             azure_voice_name = self.flet_page_client_storage.get("azure_voice_name")
 
-        breakpoint()
+            azure_voice_volume = self.flet_page_client_storage.get("azure_voice_volume")
+            azure_voice_rate = self.flet_page_client_storage.get("azure_voice_rate")
+            azure_voice_pitch = self.flet_page_client_storage.get("azure_voice_pitch")
 
         # Create SSML text with the working voice and prosody for rate control
         ssml_text = f"""
         <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang='{azure_voice_locale}'>
             <voice name='{azure_voice_name}'>
                 <mstts:express-as style='formal' styledegree='2'>
-                    {text}
+                    <prosody pitch="{azure_voice_pitch}" rate="{azure_voice_rate}" volume="{azure_voice_volume}">
+                        {text}
+                    </prosody>
                 </mstts:express-as>
             </voice>
         </speak>

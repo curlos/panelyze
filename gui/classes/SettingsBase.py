@@ -9,7 +9,7 @@ class SettingsBase(ft.Container):
         super().__init__()
         self.bgcolor = "#3b4252"
         self.expand = True
-        self.width = 300
+        self.width = 350
 
     def change_setting(self, setting_key, setting_value):
         final_setting_value = setting_value

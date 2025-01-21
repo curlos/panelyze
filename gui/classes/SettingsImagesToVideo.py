@@ -12,6 +12,17 @@ class SettingsImagesToVideo(
         self.tts = TextToSpeech(self.page.client_storage)
         self.locale_voice_mapping = self.tts.get_locale_voice_mapping()
 
+        self.azure_voice_pitch_options = ["x-low", "low", "medium", "high", "x-high"]
+        self.azure_voice_rate_options = ["x-slow", "slow", "medium", "fast", "x-fast"]
+        self.azure_voice_volume_options = [
+            "silent",
+            "x-soft",
+            "soft",
+            "medium",
+            "loud",
+            "x-loud",
+        ]
+
         self.video_height_textfield = self.get_number_textfield(
             "Video Height (px)", "video_height"
         )
@@ -82,7 +93,18 @@ class SettingsImagesToVideo(
         default_voice_dict = self.locale_voice_mapping[default_locale]
         default_voice_short_names = default_voice_dict.keys()
         default_voice_short_names_list = list(default_voice_dict.keys())
-        default_voice_name = default_voice_short_names_list[0]
+        default_voice_name = (
+            self.page.client_storage.get("azure_voice_name")
+            or default_voice_short_names_list[0]
+        )
+
+        default_azure_voice_volume = self.get_setting_value(
+            "azure_voice_volume", "x-loud"
+        )
+        default_azure_voice_rate = self.get_setting_value("azure_voice_rate", "medium")
+        default_azure_voice_pitch = self.get_setting_value(
+            "azure_voice_pitch", "medium"
+        )
 
         self.voice_locale_dropdown = ft.Dropdown(
             label="Voice Locale",
@@ -118,12 +140,63 @@ class SettingsImagesToVideo(
             on_change=lambda e: self.change_setting("azure_voice_name", e.data),
         )
 
+        self.voice_volume_options_dropdown = ft.Dropdown(
+            label="Voice Volume",
+            options=[
+                ft.dropdown.Option(volume) for volume in self.azure_voice_volume_options
+            ],
+            value=default_azure_voice_volume,
+            text_style=ft.TextStyle(
+                color="white",  # Text color of the selected item
+                size=14,  # Font size
+            ),
+            fill_color="#3b4252",  # Background color of the dropdown
+            border_color="#5e81ac",
+            max_menu_height=300,
+            on_change=lambda e: self.change_setting("azure_voice_volume", e.data),
+        )
+
+        self.voice_rate_options_dropdown = ft.Dropdown(
+            label="Voice Rate",
+            options=[
+                ft.dropdown.Option(rate) for rate in self.azure_voice_rate_options
+            ],
+            value=default_azure_voice_rate,
+            text_style=ft.TextStyle(
+                color="white",  # Text color of the selected item
+                size=14,  # Font size
+            ),
+            fill_color="#3b4252",  # Background color of the dropdown
+            border_color="#5e81ac",
+            max_menu_height=300,
+            on_change=lambda e: self.change_setting("azure_voice_rate", e.data),
+        )
+
+        self.voice_pitch_options_dropdown = ft.Dropdown(
+            label="Voice Pitch",
+            options=[
+                ft.dropdown.Option(pitch) for pitch in self.azure_voice_pitch_options
+            ],
+            value=default_azure_voice_pitch,
+            text_style=ft.TextStyle(
+                color="white",  # Text color of the selected item
+                size=14,  # Font size
+            ),
+            fill_color="#3b4252",  # Background color of the dropdown
+            border_color="#5e81ac",
+            max_menu_height=300,
+            on_change=lambda e: self.change_setting("azure_voice_pitch", e.data),
+        )
+
         self.text_to_speech_azure_col = ft.Column(
             controls=[
                 self.azure_subscription_key_textfield,
                 self.azure_region_textfield,
                 self.voice_locale_dropdown,
                 self.voice_names_dropdown,
+                self.voice_volume_options_dropdown,
+                self.voice_rate_options_dropdown,
+                self.voice_pitch_options_dropdown,
                 self.image_pre_tts_audio_delay_textfield,
                 self.image_post_tts_audio_delay_textfield,
             ],
