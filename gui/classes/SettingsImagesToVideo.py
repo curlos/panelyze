@@ -110,9 +110,14 @@ class SettingsImagesToVideo(
         ]
 
         default_voice = default_voice_dict[default_voice_name]
-        default_voice_style_list = ["No Style"] + default_voice.style_list
+        default_voice_style_list = default_voice.style_list
         default_azure_voice_style = self.get_setting_value(
             "azure_voice_style", "No Style"
+        )
+
+        default_voice_style_list_options = [ft.dropdown.Option("No Style")]
+        default_voice_style_list_options.extend(
+            [ft.dropdown.Option(style) for style in default_voice_style_list if style]
         )
 
         self.voice_locale_dropdown = DropdownTextOptions(
@@ -164,9 +169,7 @@ class SettingsImagesToVideo(
 
         self.voice_style_options_dropdown = DropdownTextOptions(
             label="Voice Style",
-            options=[
-                ft.dropdown.Option(style) for style in default_voice_style_list if style
-            ],
+            options=default_voice_style_list_options,
             value=default_azure_voice_style,
             on_change=lambda e: self.change_setting("azure_voice_style", e.data),
         )
@@ -291,11 +294,13 @@ class SettingsImagesToVideo(
         self.voice_names_dropdown.update()
 
         current_voice = current_voice_dict[current_voice_name]
-        current_voice_style_list = ["No Style"] + current_voice.style_list
+        current_voice_style_list = current_voice.style_list
 
-        self.voice_style_options_dropdown.options = [
-            ft.dropdown.Option(style) for style in current_voice_style_list
-        ]
+        self.voice_style_options_dropdown.options = [ft.dropdown.Option("No Style")]
+
+        self.voice_style_options_dropdown.options.extend(
+            [ft.dropdown.Option(style) for style in current_voice_style_list if style]
+        )
         self.voice_style_options_dropdown.value = "No Style"
         self.change_setting("azure_voice_style", "No Style")
         self.voice_style_options_dropdown.update()
@@ -308,13 +313,13 @@ class SettingsImagesToVideo(
         current_voice_name = e.data
 
         current_voice = current_voice_dict[current_voice_name]
-        current_voice_style_list = ["No Style"] + current_voice.style_list
+        current_voice_style_list = current_voice.style_list
 
-        # breakpoint()
+        self.voice_style_options_dropdown.options = [ft.dropdown.Option("No Style")]
 
-        self.voice_style_options_dropdown.options = [
-            ft.dropdown.Option(style) for style in current_voice_style_list if style
-        ]
+        self.voice_style_options_dropdown.options.extend(
+            [ft.dropdown.Option(style) for style in current_voice_style_list if style]
+        )
         self.voice_style_options_dropdown.value = "No Style"
         self.change_setting("azure_voice_style", "No Style")
         self.voice_style_options_dropdown.update()
