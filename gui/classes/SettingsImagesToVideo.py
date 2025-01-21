@@ -12,17 +12,6 @@ class SettingsImagesToVideo(
         self.tts = TextToSpeech(self.page.client_storage)
         self.locale_voice_mapping = self.tts.get_locale_voice_mapping()
 
-        self.azure_voice_pitch_options = ["x-low", "low", "medium", "high", "x-high"]
-        self.azure_voice_rate_options = ["x-slow", "slow", "medium", "fast", "x-fast"]
-        self.azure_voice_volume_options = [
-            "silent",
-            "x-soft",
-            "soft",
-            "medium",
-            "loud",
-            "x-loud",
-        ]
-
         self.video_height_textfield = self.get_number_textfield(
             "Video Height (px)", "video_height"
         )
@@ -109,6 +98,23 @@ class SettingsImagesToVideo(
             self.get_setting_value("azure_break_time_between_text", 0.00)
         )
 
+        self.azure_voice_pitch_options = ["x-low", "low", "medium", "high", "x-high"]
+        self.azure_voice_rate_options = ["x-slow", "slow", "medium", "fast", "x-fast"]
+        self.azure_voice_volume_options = [
+            "silent",
+            "x-soft",
+            "soft",
+            "medium",
+            "loud",
+            "x-loud",
+        ]
+
+        default_voice = default_voice_dict[default_voice_name]
+        default_voice_style_list = ["No Style"] + default_voice.style_list
+        default_azure_voice_style = self.get_setting_value(
+            "azure_voice_style", "No Style"
+        )
+
         self.voice_locale_dropdown = DropdownTextOptions(
             label="Voice Locale",
             options=[
@@ -156,6 +162,13 @@ class SettingsImagesToVideo(
             on_change=lambda e: self.change_setting("azure_voice_pitch", e.data),
         )
 
+        self.voice_style_options_dropdown = DropdownTextOptions(
+            label="Voice Style",
+            options=[ft.dropdown.Option(style) for style in default_voice_style_list],
+            value=default_azure_voice_style,
+            on_change=lambda e: self.change_setting("azure_voice_style", e.data),
+        )
+
         self.text_to_speech_azure_col = ft.Column(
             controls=[
                 self.azure_subscription_key_textfield,
@@ -165,6 +178,7 @@ class SettingsImagesToVideo(
                 self.voice_volume_options_dropdown,
                 self.voice_rate_options_dropdown,
                 self.voice_pitch_options_dropdown,
+                self.voice_style_options_dropdown,
                 self.image_pre_tts_audio_delay_textfield,
                 self.image_post_tts_audio_delay_textfield,
                 ft.Text("Break Time Between Text (seconds):"),
@@ -271,7 +285,18 @@ class SettingsImagesToVideo(
             for voice_short_name in current_voice_short_names
         ]
         self.voice_names_dropdown.value = current_voice_name
+        self.change_setting("azure_voice_name", current_voice_name)
         self.voice_names_dropdown.update()
+
+        current_voice = current_voice_dict[current_voice_name]
+        current_voice_style_list = ["No Style"] + current_voice.style_list
+
+        self.voice_style_options_dropdown.options = [
+            ft.dropdown.Option(style) for style in current_voice_style_list
+        ]
+        self.voice_style_options_dropdown.value = "No Style"
+        self.change_setting("azure_voice_style", "No Style")
+        self.voice_style_options_dropdown.update()
 
 
 class DropdownTextOptions(ft.Dropdown):

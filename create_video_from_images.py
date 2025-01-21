@@ -74,15 +74,30 @@ def create_video_from_images(
 
     if speech_text_parser:
         if use_text_to_speech_azure:
-            essential_text_in_images_matrix = (
-                speech_text_parser.get_essential_text_list_in_images(image_folder)
-            )
+            # TODO: Bring this back after testing is done.
+            # essential_text_in_images_matrix = (
+            #     speech_text_parser.get_essential_text_list_in_images(image_folder)
+            # )
+
+            essential_text_in_images_matrix = [
+                [
+                    "Red Line: Holy Land of Mariejoa",
+                    "vanished...?",
+                    "Yeah. That's what happened.",
+                    "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
+                    "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
+                    "This is no joking matter!!!",
+                ],
+                [
+                    "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
+                    "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
+                    "And you call this doing your job, do you...?!!!",
+                ],
+            ]
 
             for index, panel_text_arr in enumerate(essential_text_in_images_matrix):
                 image_path = images[index]
                 base_name, _ = os.path.splitext(os.path.basename(image_path))
-
-                all_panel_text_str = " ".join(panel_text_arr)
 
                 full_audio_files_output_directory = (
                     f"{full_output_directory}/audio-files"
@@ -95,9 +110,9 @@ def create_video_from_images(
 
                 os.makedirs(full_audio_files_output_directory, exist_ok=True)
 
-                if all_panel_text_str:
-                    print(all_panel_text_str)
-                    tts.generate_azure_audio(all_panel_text_str, audio_output_file)
+                if panel_text_arr and len(panel_text_arr) > 0:
+                    print(panel_text_arr)
+                    tts.generate_azure_audio(panel_text_arr, audio_output_file)
 
                     panel_audio_file_duration = get_audio_file_duration(
                         audio_output_file
