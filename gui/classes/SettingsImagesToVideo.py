@@ -132,7 +132,7 @@ class SettingsImagesToVideo(
                 for voice_short_name in default_voice_short_names
             ],
             value=default_voice_name,
-            on_change=lambda e: self.change_setting("azure_voice_name", e.data),
+            on_change=self.handle_voice_name_change,
         )
 
         self.voice_volume_options_dropdown = DropdownTextOptions(
@@ -164,7 +164,9 @@ class SettingsImagesToVideo(
 
         self.voice_style_options_dropdown = DropdownTextOptions(
             label="Voice Style",
-            options=[ft.dropdown.Option(style) for style in default_voice_style_list],
+            options=[
+                ft.dropdown.Option(style) for style in default_voice_style_list if style
+            ],
             value=default_azure_voice_style,
             on_change=lambda e: self.change_setting("azure_voice_style", e.data),
         )
@@ -175,10 +177,10 @@ class SettingsImagesToVideo(
                 self.azure_region_textfield,
                 self.voice_locale_dropdown,
                 self.voice_names_dropdown,
+                self.voice_style_options_dropdown,
                 self.voice_volume_options_dropdown,
                 self.voice_rate_options_dropdown,
                 self.voice_pitch_options_dropdown,
-                self.voice_style_options_dropdown,
                 self.image_pre_tts_audio_delay_textfield,
                 self.image_post_tts_audio_delay_textfield,
                 ft.Text("Break Time Between Text (seconds):"),
@@ -293,6 +295,25 @@ class SettingsImagesToVideo(
 
         self.voice_style_options_dropdown.options = [
             ft.dropdown.Option(style) for style in current_voice_style_list
+        ]
+        self.voice_style_options_dropdown.value = "No Style"
+        self.change_setting("azure_voice_style", "No Style")
+        self.voice_style_options_dropdown.update()
+
+    def handle_voice_name_change(self, e):
+        self.change_setting("azure_voice_name", e.data)
+
+        current_locale = self.get_setting_value("azure_voice_locale", "en-US")
+        current_voice_dict = self.locale_voice_mapping[current_locale]
+        current_voice_name = e.data
+
+        current_voice = current_voice_dict[current_voice_name]
+        current_voice_style_list = ["No Style"] + current_voice.style_list
+
+        # breakpoint()
+
+        self.voice_style_options_dropdown.options = [
+            ft.dropdown.Option(style) for style in current_voice_style_list if style
         ]
         self.voice_style_options_dropdown.value = "No Style"
         self.change_setting("azure_voice_style", "No Style")
