@@ -97,6 +97,9 @@ class SettingsImagesToVideo(
         default_azure_break_time_between_text = float(
             self.get_setting_value("azure_break_time_between_text", 0.00)
         )
+        default_azure_voice_style_degree = float(
+            self.get_setting_value("azure_voice_style_degree", 2.00)
+        )
 
         self.azure_voice_pitch_options = ["x-low", "low", "medium", "high", "x-high"]
         self.azure_voice_rate_options = ["x-slow", "slow", "medium", "fast", "x-fast"]
@@ -202,11 +205,21 @@ class SettingsImagesToVideo(
                 self.voice_locale_dropdown,
                 self.voice_names_dropdown,
                 self.voice_style_options_dropdown,
+                ft.Text("Voice Style Degree (Intensity):"),
+                ft.Slider(
+                    value=default_azure_voice_style_degree,
+                    min=0,
+                    max=2,
+                    divisions=20,
+                    label="{value}",
+                    round=2,
+                    on_change_end=lambda e: self.change_setting(
+                        "azure_voice_style_degree", e.data
+                    ),
+                ),
                 self.voice_volume_options_dropdown,
                 self.voice_rate_options_dropdown,
                 self.voice_pitch_options_dropdown,
-                self.image_pre_tts_audio_delay_textfield,
-                self.image_post_tts_audio_delay_textfield,
                 ft.Text("Break Time Between Text (seconds):"),
                 ft.Slider(
                     value=default_azure_break_time_between_text,
@@ -219,6 +232,8 @@ class SettingsImagesToVideo(
                         "azure_break_time_between_text", e.data
                     ),
                 ),
+                self.image_pre_tts_audio_delay_textfield,
+                self.image_post_tts_audio_delay_textfield,
             ],
             visible=bool(self.page.client_storage.get("use_text_to_speech_azure")),
         )

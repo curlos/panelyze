@@ -96,6 +96,7 @@ class TextToSpeech:
         azure_voice_pitch = "medium"
         azure_break_time_between_text = 0.00
         azure_voice_style = ""
+        azure_voice_style_degree = 2.00
 
         if self.flet_page_client_storage:
             azure_voice_locale = self.flet_page_client_storage.get("azure_voice_locale")
@@ -114,6 +115,10 @@ class TextToSpeech:
 
             if temp_azure_voice_style and temp_azure_voice_style != "No Style":
                 azure_voice_style = temp_azure_voice_style
+
+            azure_voice_style_degree = float(
+                self.flet_page_client_storage.get("azure_voice_style_degree")
+            )
 
         azure_voice = self.locale_voice_mapping[azure_voice_locale][azure_voice_name]
         has_voice_styles = len(azure_voice.style_list) > 0
@@ -147,7 +152,7 @@ class TextToSpeech:
                         break
 
                 ssml_text += f"""
-                        <mstts:express-as style='{voice_style_to_use_for_line}' styledegree='2'>
+                        <mstts:express-as style='{voice_style_to_use_for_line}' styledegree='{azure_voice_style_degree}'>
                             {line}
                         </mstts:express-as>
                         <break time='{azure_break_time_between_text}s'/>
@@ -164,7 +169,7 @@ class TextToSpeech:
             ssml_text = f"""
             <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang='{azure_voice_locale}'>
                 <voice name='{azure_voice_name}'>
-                    <mstts:express-as style='{azure_voice_style}' styledegree='2'>
+                    <mstts:express-as style='{azure_voice_style}' styledegree='{azure_voice_style_degree}'>
                         <prosody pitch="{azure_voice_pitch}" rate="{azure_voice_rate}" volume="{azure_voice_volume}">
             """
 
