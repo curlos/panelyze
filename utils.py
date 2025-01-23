@@ -560,3 +560,15 @@ def get_audio_file_duration(file_path):
         duration = n_frames / frame_rate
 
     return duration
+
+
+def modify_filename(filepath, suffix):
+    # Get the file directory, base name without extension, and extension
+    directory, filename = os.path.split(filepath)
+    basename, ext = os.path.splitext(filename)
+
+    # Create the new file name by adding the suffix
+    new_filename = f"{basename}-{suffix}{ext}"
+
+    # Combine the directory with the new file name
+    return os.path.join(directory, new_filename)
