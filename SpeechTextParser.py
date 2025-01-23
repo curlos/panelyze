@@ -52,6 +52,10 @@ class SpeechTextParser:
 
             essential_text_list_in_images.append(ocr_essential_text_arr)
 
+        # print(magi_data_from_images)
+        # print(essential_text_list_in_images)
+        # breakpoint()
+
         return essential_text_list_in_images
 
     def calculate_reading_time(self, text_list, wpm=250):

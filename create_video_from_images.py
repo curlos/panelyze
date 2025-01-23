@@ -9,6 +9,7 @@ import os
 
 from TextToSpeech import TextToSpeech
 from SpeechTextParser import SpeechTextParser
+from magi_ch_55_frieren_essential_text import magi_ch_55_frieren_essential_text
 from utils import (
     get_last_two_directories_obj,
     natural_sort_key,
@@ -79,21 +80,23 @@ def create_video_from_images(
             #     speech_text_parser.get_essential_text_list_in_images(image_folder)
             # )
 
-            essential_text_in_images_matrix = [
-                [
-                    "Red Line: Holy Land of Mariejoa",
-                    "vanished...?",
-                    "Yeah. That's what happened.",
-                    "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
-                    "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
-                    "This is no joking matter!!!",
-                ],
-                [
-                    "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
-                    "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
-                    "And you call this doing your job, do you...?!!!",
-                ],
-            ]
+            # essential_text_in_images_matrix = [
+            #     [
+            #         "Red Line: Holy Land of Mariejoa",
+            #         "vanished...?",
+            #         "Yeah. That's what happened.",
+            #         "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
+            #         "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
+            #         "This is no joking matter!!!",
+            #     ],
+            #     [
+            #         "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
+            #         "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
+            #         "And you call this doing your job, do you...?!!!",
+            #     ],
+            # ]
+
+            essential_text_in_images_matrix = magi_ch_55_frieren_essential_text
 
             for index, panel_text_arr in enumerate(essential_text_in_images_matrix):
                 image_path = images[index]
