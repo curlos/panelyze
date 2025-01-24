@@ -54,8 +54,7 @@ def create_video_from_images(
     image_pre_tts_audio_delay = 0
     image_post_tts_audio_delay = 0
 
-    # TODO: New feature - Use dynamic flet client storage setting later on when it's implemented.
-    use_highlight_text = True
+    highlight_text_boxes_in_images = False
 
     if flet_page_client_storage:
         use_reading_speed_wpm = flet_page_client_storage.get("use_reading_speed_wpm")
@@ -79,6 +78,10 @@ def create_video_from_images(
         )
         image_post_tts_audio_delay = int(
             flet_page_client_storage.get("image_post_tts_audio_delay") or 0
+        )
+
+        highlight_text_boxes_in_images = flet_page_client_storage.get(
+            "highlight_text_boxes_in_images"
         )
 
     if speech_text_parser:
@@ -145,7 +148,7 @@ def create_video_from_images(
             # TODO: Will need the full Magi output for the highlight text boxes feature.
             # TODO: Move this up to the top later - this is a separate feature from TTS that should be able to be used with other options "Image Duration" and "Reading WPM (Seconds)".
 
-            if use_highlight_text:
+            if highlight_text_boxes_in_images:
                 images_with_highlighted_text_boxes_folder = os.path.join(
                     full_output_directory, "images-with-highlighted-text-boxes"
                 )
@@ -186,7 +189,7 @@ def create_video_from_images(
                 os.makedirs(full_audio_files_output_directory, exist_ok=True)
 
                 if panel_text_arr and len(panel_text_arr) > 0:
-                    if use_highlight_text:
+                    if highlight_text_boxes_in_images:
                         for index, text_str in enumerate(panel_text_arr):
                             highlight_text_audio_output_file = f"{full_audio_files_output_directory}/{base_name}-{index + 1}.wav"
                             tts.generate_azure_audio(
@@ -226,7 +229,7 @@ def create_video_from_images(
 
         image_paths_to_use = images
 
-        if use_highlight_text:
+        if highlight_text_boxes_in_images:
             sorted_images_from_highlighted_text = sorted(
                 os.listdir(images_with_highlighted_text_boxes_folder),
                 key=natural_sort_key,
@@ -257,7 +260,7 @@ def create_video_from_images(
                 use_minimum_image_duration=use_minimum_image_duration,
                 minimum_image_duration=minimum_image_duration,
                 use_text_to_speech_azure=use_text_to_speech_azure,
-                use_highlight_text=use_highlight_text,
+                highlight_text_boxes_in_images=highlight_text_boxes_in_images,
             )
 
             image_clip = (
@@ -283,7 +286,7 @@ def create_video_from_images(
                 use_image_pre_tts_audio_delay = True
 
                 # Check if the image can use "Pre-TTS"
-                if use_highlight_text:
+                if highlight_text_boxes_in_images:
                     current_panel_num = int(base_name.split("-")[1])
                     is_first_base_panel_image = current_panel_num == 1
 
@@ -309,7 +312,7 @@ def create_video_from_images(
                 use_image_post_tts_audio_delay = True
 
                 # If the image is the last image in the directory or the next image after this one has a different starting base_name, then add the post_tts_delay. Else, do not add it.
-                if use_highlight_text:
+                if highlight_text_boxes_in_images:
                     is_last_image_in_dir = index == len(image_paths_to_use) - 1
 
                     if not is_last_image_in_dir:
@@ -352,7 +355,7 @@ def create_video_from_images(
 
     fps = 1
 
-    if use_highlight_text or use_text_to_speech_azure:
+    if highlight_text_boxes_in_images or use_text_to_speech_azure:
         fps = 2
 
     # "fps" is set to 1 as the images being saved are typically going to be Manga Panels and will have no smooth transitions between panels so no need to create extra frames for nothing. Just show the same frame for the specified duration.
@@ -368,12 +371,12 @@ def get_img_duration(
     use_minimum_image_duration,
     minimum_image_duration,
     use_text_to_speech_azure,
-    use_highlight_text,
+    highlight_text_boxes_in_images,
 ):
     final_image_duration = image_displayed_duration
 
     if use_text_to_speech_azure:
-        if use_highlight_text:
+        if highlight_text_boxes_in_images:
             final_image_duration = float(images_duration_based_on_tts[index])
         else:
             final_image_duration = float(images_duration_based_on_tts[index])

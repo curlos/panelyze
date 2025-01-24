@@ -261,6 +261,7 @@ class SettingsImagesToVideo(
             },
         }
 
+        # Use Minimum Image Duration
         self.minimum_image_duration_textfield = self.get_number_textfield(
             "Minimum Image Duration (seconds)", "minimum_image_duration"
         )
@@ -270,6 +271,20 @@ class SettingsImagesToVideo(
                 self.minimum_image_duration_textfield,
             ],
             visible=bool(self.page.client_storage.get("use_minimum_image_duration")),
+        )
+
+        # Highlight Text In Images
+        self.highlight_text_boxes_in_images_textfield = self.get_number_textfield(
+            "Text Box Color", "text_box_color"
+        )
+
+        self.highlight_text_boxes_in_images_col = ft.Column(
+            controls=[
+                self.highlight_text_boxes_in_images_textfield,
+            ],
+            visible=bool(
+                self.page.client_storage.get("highlight_text_boxes_in_images")
+            ),
         )
 
         self.page_num_textfield_dict = {
@@ -293,6 +308,16 @@ class SettingsImagesToVideo(
                 ),
             ),
             self.minimum_image_duration_col,
+            ft.Checkbox(
+                label="Highlight Text Boxes In Images",
+                value=self.page.client_storage.get("highlight_text_boxes_in_images"),
+                on_change=lambda e: self.toggle_setting_element_visibility(
+                    e,
+                    self.highlight_text_boxes_in_images_col,
+                    "highlight_text_boxes_in_images",
+                ),
+            ),
+            self.highlight_text_boxes_in_images_col,
             ft.RadioGroup(
                 content=ft.Column(
                     controls=[val["elem"] for val in self.radio_group_dict.values()]
