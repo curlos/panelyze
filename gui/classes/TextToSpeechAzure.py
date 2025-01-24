@@ -222,6 +222,15 @@ class TextToSpeechAzure(SettingsBase):
                 ),
                 self.image_pre_tts_audio_delay_textfield,
                 self.image_post_tts_audio_delay_textfield,
+                ft.Checkbox(
+                    label='Clean up TTS "audio-files" folder',
+                    value=self.page.client_storage.get(
+                        "clean_up_tts_audio_files_folder"
+                    ),
+                    on_change=lambda e: self.change_setting(
+                        "clean_up_tts_audio_files_folder", e.data
+                    ),
+                ),
             ],
             visible=bool(self.page.client_storage.get("use_text_to_speech_azure")),
         )

@@ -56,7 +56,6 @@ class HighlightTextBoxesInImages(SettingsBase):
             "#eab308",  # Yellow is the default color.
         )
 
-        # Highlight Text In Images
         self.text_box_border_color_dropdown = DropdownTextOptions(
             label="Border Color",
             options=[

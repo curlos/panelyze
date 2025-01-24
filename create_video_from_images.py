@@ -1,3 +1,4 @@
+import shutil
 from moviepy import (
     AudioClip,
     ImageClip,
@@ -55,6 +56,7 @@ def create_video_from_images(
     image_post_tts_audio_delay = 0
 
     highlight_text_boxes_in_images = False
+    clean_up_tts_audio_files_folder = False
 
     if flet_page_client_storage:
         use_reading_speed_wpm = flet_page_client_storage.get("use_reading_speed_wpm")
@@ -68,20 +70,20 @@ def create_video_from_images(
         minimum_image_duration = int(
             flet_page_client_storage.get("minimum_image_duration") or 0
         )
-
         use_text_to_speech_azure = flet_page_client_storage.get(
             "use_text_to_speech_azure"
         )
-
         image_pre_tts_audio_delay = int(
             flet_page_client_storage.get("image_pre_tts_audio_delay") or 0
         )
         image_post_tts_audio_delay = int(
             flet_page_client_storage.get("image_post_tts_audio_delay") or 0
         )
-
         highlight_text_boxes_in_images = flet_page_client_storage.get(
             "highlight_text_boxes_in_images"
+        )
+        clean_up_tts_audio_files_folder = flet_page_client_storage.get(
+            "clean_up_tts_audio_files_folder"
         )
 
     if speech_text_parser:
@@ -360,6 +362,15 @@ def create_video_from_images(
 
     # "fps" is set to 1 as the images being saved are typically going to be Manga Panels and will have no smooth transitions between panels so no need to create extra frames for nothing. Just show the same frame for the specified duration.
     video.write_videofile(output_file, fps=fps)
+
+    if (
+        clean_up_tts_audio_files_folder
+        and full_audio_files_output_directory
+        and os.path.exists(full_audio_files_output_directory)
+    ):
+        # Remove the directory and all its contents
+        shutil.rmtree(full_audio_files_output_directory)
+        print('Removed TTS "audio-files" folders')
 
 
 def get_img_duration(
