@@ -5,7 +5,7 @@ from EmotionAnalyzer import EmotionAnalyzer
 
 
 class TextToSpeech:
-    def __init__(self, flet_page_client_storage=None):
+    def __init__(self, flet_page_client_storage={}):
         utils_load_dotenv()
         self.subscription_key = os.getenv("AZURE_SUBSCRIPTION_KEY")
         self.region = os.getenv("AZURE_REGION")

@@ -9,7 +9,12 @@ import os
 
 from TextToSpeech import TextToSpeech
 from SpeechTextParser import SpeechTextParser
+from draw_box_coords import draw_box_coords_box_list
 from magi_ch_55_frieren_essential_text import magi_ch_55_frieren_essential_text
+from magi_frieren_ch_55_panel_6_output import magi_frieren_ch_55_panel_6_output
+from magi_ch_55_frieren_panel_1_to_7_output import (
+    magi_ch_55_frieren_panel_1_to_7_output,
+)
 from utils import (
     get_last_two_directories_obj,
     natural_sort_key,
@@ -48,6 +53,9 @@ def create_video_from_images(
 
     image_pre_tts_audio_delay = 0
     image_post_tts_audio_delay = 0
+
+    # TODO: New feature - Use dynamic flet client storage setting later on when it's implemented.
+    use_highlight_text = True
 
     if flet_page_client_storage:
         use_reading_speed_wpm = flet_page_client_storage.get("use_reading_speed_wpm")
@@ -96,7 +104,71 @@ def create_video_from_images(
             #     ],
             # ]
 
-            essential_text_in_images_matrix = magi_ch_55_frieren_essential_text
+            # essential_text_in_images_matrix = [
+            #     [
+            #         "A battle between mages is akin to a rock-paper-scissors match, after all.",
+            #         "Albeit a rock-paper-scissors match",
+            #         "that is extremely complex, difficult to read and involves a myriad of moves.",
+            #     ],
+            # ]
+
+            essential_text_in_images_matrix = [
+                [],
+                [],
+                [
+                    "I more or less get the picture now.",
+                    'You people are buying time for Friedman to defeat this "Spiegel", the "Reflective Water Demon".',
+                    "Well, for the clones, we've already dealt with three of them.",
+                    "It seems this discussion will be quick then.",
+                    "In that case-",
+                ],
+                [
+                    "..... Oh my.",
+                    "It seems Sense-san's clone got crushed just now.",
+                    "...This mama. The one who took it down must be libel, the third- class mage.",
+                ],
+                [
+                    "What a surprising outcome.",
+                    "You think? That match-up's pretty off.",
+                ],
+                [
+                    "A battle between images is akin to a rock- paper-scissors match, after all.",
+                    "Albert a rock-paper- scissors match",
+                    "that is extremely complex, difficult to read and involves a myriad of moves.",
+                ],
+                [
+                    "So you would like to increase the number of available moves we have, by how- ever little it may be.",
+                    "Very well. I'll help you hold back the clones.",
+                ],
+            ]
+
+            # TODO: Will need the full Magi output for the highlight text boxes feature.
+            # TODO: Move this up to the top later - this is a separate feature from TTS that should be able to be used with other options "Image Duration" and "Reading WPM (Seconds)".
+
+            if use_highlight_text:
+                images_with_highlighted_text_boxes_folder = os.path.join(
+                    full_output_directory, "images-with-highlighted-text-boxes"
+                )
+
+                for index, image_file in enumerate(images):
+                    magi_image_data = magi_ch_55_frieren_panel_1_to_7_output[index]
+                    text_matrix_boxes_coords = magi_image_data["texts"]
+                    essential_text_arr = magi_image_data["is_essential_text"]
+
+                    essential_text_matrix_boxes_coords = [
+                        box_coords
+                        for index, box_coords in enumerate(text_matrix_boxes_coords)
+                        if essential_text_arr[index]
+                    ]
+
+                    print(image_file)
+                    print(essential_text_matrix_boxes_coords)
+
+                    draw_box_coords_box_list(
+                        essential_text_matrix_boxes_coords,
+                        image_file,
+                        images_with_highlighted_text_boxes_folder,
+                    )
 
             for index, panel_text_arr in enumerate(essential_text_in_images_matrix):
                 image_path = images[index]
@@ -109,19 +181,35 @@ def create_video_from_images(
                 audio_output_file = (
                     f"{full_audio_files_output_directory}/{base_name}.wav"
                 )
-                panel_audio_file_duration = 0
+                panel_audio_file_duration = 1
 
                 os.makedirs(full_audio_files_output_directory, exist_ok=True)
 
                 if panel_text_arr and len(panel_text_arr) > 0:
-                    print(panel_text_arr)
-                    tts.generate_azure_audio(panel_text_arr, audio_output_file)
+                    if use_highlight_text:
+                        for index, text_str in enumerate(panel_text_arr):
+                            highlight_text_audio_output_file = f"{full_audio_files_output_directory}/{base_name}-{index + 1}.wav"
+                            tts.generate_azure_audio(
+                                [text_str], highlight_text_audio_output_file
+                            )
 
-                    panel_audio_file_duration = get_audio_file_duration(
-                        audio_output_file
-                    )
+                            panel_audio_file_duration = get_audio_file_duration(
+                                highlight_text_audio_output_file
+                            )
 
-                images_duration_based_on_tts.append(panel_audio_file_duration)
+                            images_duration_based_on_tts.append(
+                                panel_audio_file_duration
+                            )
+                    else:
+                        tts.generate_azure_audio(panel_text_arr, audio_output_file)
+
+                        panel_audio_file_duration = get_audio_file_duration(
+                            audio_output_file
+                        )
+
+                        images_duration_based_on_tts.append(panel_audio_file_duration)
+                else:
+                    images_duration_based_on_tts.append(panel_audio_file_duration)
         elif use_reading_speed_wpm:
             images_duration_based_on_wpm = (
                 speech_text_parser.get_images_duration_based_on_wpm(
@@ -136,7 +224,24 @@ def create_video_from_images(
     def get_clips():
         clips = []
 
-        for index, img in enumerate(images):
+        image_paths_to_use = images
+
+        if use_highlight_text:
+            sorted_images_from_highlighted_text = sorted(
+                os.listdir(images_with_highlighted_text_boxes_folder),
+                key=natural_sort_key,
+            )
+            files_that_are_images = [
+                file
+                for file in sorted_images_from_highlighted_text
+                if file.lower().endswith((".png", ".jpg", ".jpeg"))
+            ]
+            image_paths_to_use = [
+                os.path.join(images_with_highlighted_text_boxes_folder, file)
+                for file in files_that_are_images
+            ]
+
+        for index, img in enumerate(image_paths_to_use):
             # Extract base name of the image (e.g., panel_1.png -> panel_1)
             base_name, _ = os.path.splitext(os.path.basename(img))
             wav_path = os.path.join(
@@ -152,6 +257,7 @@ def create_video_from_images(
                 use_minimum_image_duration=use_minimum_image_duration,
                 minimum_image_duration=minimum_image_duration,
                 use_text_to_speech_azure=use_text_to_speech_azure,
+                use_highlight_text=use_highlight_text,
             )
 
             image_clip = (
@@ -174,7 +280,17 @@ def create_video_from_images(
 
                 combined_audio_clips = audio_clip
 
-                if image_pre_tts_audio_delay > 0:
+                use_image_pre_tts_audio_delay = True
+
+                # Check if the image can use "Pre-TTS"
+                if use_highlight_text:
+                    current_panel_num = int(base_name.split("-")[1])
+                    is_first_base_panel_image = current_panel_num == 1
+
+                    if not is_first_base_panel_image:
+                        use_image_pre_tts_audio_delay = False
+
+                if image_pre_tts_audio_delay > 0 and use_image_pre_tts_audio_delay:
                     adjusted_duration += image_pre_tts_audio_delay
 
                     # Add padding before the audio starts
@@ -190,7 +306,33 @@ def create_video_from_images(
                         ]
                     )
 
-                adjusted_duration += image_post_tts_audio_delay
+                use_image_post_tts_audio_delay = True
+
+                # If the image is the last image in the directory or the next image after this one has a different starting base_name, then add the post_tts_delay. Else, do not add it.
+                if use_highlight_text:
+                    is_last_image_in_dir = index == len(image_paths_to_use) - 1
+
+                    if not is_last_image_in_dir:
+                        next_image_path = image_paths_to_use[index + 1]
+                        next_panel_base_name, _ = os.path.splitext(
+                            os.path.basename(next_image_path)
+                        )
+
+                        current_panel_starting_base_name = base_name.split("-")[0]
+                        next_panel_starting_base_name = next_panel_base_name.split("-")[
+                            0
+                        ]
+
+                        last_highlighted_text_image_for_panel = (
+                            current_panel_starting_base_name
+                            != next_panel_starting_base_name
+                        )
+
+                        if not last_highlighted_text_image_for_panel:
+                            use_image_post_tts_audio_delay = False
+
+                if use_image_post_tts_audio_delay:
+                    adjusted_duration += image_post_tts_audio_delay
 
                 # Update the image clip's duration and add the audio
                 image_clip = image_clip.with_duration(adjusted_duration).with_audio(
@@ -208,8 +350,13 @@ def create_video_from_images(
     # Concatenate all ImageClips into a single video
     video = concatenate_videoclips(clips, method="compose")
 
+    fps = 1
+
+    if use_highlight_text or use_text_to_speech_azure:
+        fps = 2
+
     # "fps" is set to 1 as the images being saved are typically going to be Manga Panels and will have no smooth transitions between panels so no need to create extra frames for nothing. Just show the same frame for the specified duration.
-    video.write_videofile(output_file, fps=1)
+    video.write_videofile(output_file, fps=fps)
 
 
 def get_img_duration(
@@ -221,11 +368,15 @@ def get_img_duration(
     use_minimum_image_duration,
     minimum_image_duration,
     use_text_to_speech_azure,
+    use_highlight_text,
 ):
     final_image_duration = image_displayed_duration
 
     if use_text_to_speech_azure:
-        final_image_duration = float(images_duration_based_on_tts[index])
+        if use_highlight_text:
+            final_image_duration = float(images_duration_based_on_tts[index])
+        else:
+            final_image_duration = float(images_duration_based_on_tts[index])
     elif use_reading_speed_wpm:
         final_image_duration = float(images_duration_based_on_wpm[index])
 
