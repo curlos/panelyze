@@ -164,13 +164,11 @@ def create_video_from_images(
                         if essential_text_arr[index]
                     ]
 
-                    print(image_file)
-                    print(essential_text_matrix_boxes_coords)
-
                     draw_box_coords_box_list(
                         essential_text_matrix_boxes_coords,
                         image_file,
                         images_with_highlighted_text_boxes_folder,
+                        flet_page_client_storage,
                     )
 
             for index, panel_text_arr in enumerate(essential_text_in_images_matrix):

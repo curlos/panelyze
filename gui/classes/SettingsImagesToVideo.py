@@ -12,6 +12,26 @@ class SettingsImagesToVideo(
         self.tts = TextToSpeech(self.page.client_storage)
         self.locale_voice_mapping = self.tts.locale_voice_mapping
 
+        self.colors = {
+            "red": "#ef4444",
+            "orange": "#f97316",
+            "amber": "#f59e0b",
+            "yellow": "#eab308",
+            "lime": "#84cc16",
+            "green": "#22c55e",
+            "emerald": "#10b981",
+            "teal": "#14b8a6",
+            "cyan": "#06b6d4",
+            "sky": "#0ea5e9",
+            "blue": "#3b82f6",
+            "indigo": "#6366f1",
+            "violet": "#8b5cf6",
+            "purple": "#a855f7",
+            "fuchsia": "#d946ef",
+            "pink": "#ec4899",
+            "rose": "#f43f5e",
+        }
+
         self.video_height_textfield = self.get_number_textfield(
             "Video Height (px)", "video_height"
         )
@@ -151,6 +171,10 @@ class SettingsImagesToVideo(
             [ft.dropdown.Option(style) for style in default_voice_style_list if style]
         )
 
+        default_images_to_video_text_box_color = self.get_setting_value(
+            "images_to_video_text_box_color", "red"
+        )
+
         self.voice_locale_dropdown = DropdownTextOptions(
             label="Voice Locale",
             options=[
@@ -281,13 +305,34 @@ class SettingsImagesToVideo(
         )
 
         # Highlight Text In Images
-        self.highlight_text_boxes_in_images_textfield = self.get_number_textfield(
-            "Text Box Color", "text_box_color"
+        self.text_box_color_dropdown = DropdownTextOptions(
+            label="Text Box Color",
+            options=[
+                ft.dropdown.Option(
+                    key=name,
+                    content=ft.Row(
+                        controls=[
+                            ft.Icon(name=ft.Icons.CIRCLE, color=hex_code),
+                            ft.Text(
+                                value=name,
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.START,
+                        vertical_alignment=ft.VerticalAlignment.CENTER,
+                        spacing=5,
+                    ),
+                )
+                for name, hex_code in self.colors.items()
+            ],
+            value=default_images_to_video_text_box_color,
+            on_change=lambda e: self.change_setting(
+                "images_to_video_text_box_color", e.data
+            ),
         )
 
         self.highlight_text_boxes_in_images_col = ft.Column(
             controls=[
-                self.highlight_text_boxes_in_images_textfield,
+                self.text_box_color_dropdown,
             ],
             visible=bool(
                 self.page.client_storage.get("highlight_text_boxes_in_images")

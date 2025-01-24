@@ -15,8 +15,20 @@ from magi_ch_55_frieren_panel_1_to_7_output import (
 
 
 def draw_box_coords_box(
-    box_coords, base_pil_image, input_file_path, index, output_image_folder
+    box_coords,
+    base_pil_image,
+    input_file_path,
+    index,
+    output_image_folder,
+    flet_page_client_storage,
 ):
+    images_to_video_text_box_color = "red"
+
+    if flet_page_client_storage:
+        images_to_video_text_box_color = flet_page_client_storage.get(
+            "images_to_video_text_box_color"
+        )
+
     figure, subplot = plt.subplots(1, 1, figsize=(10, 10))
     subplot.imshow(base_pil_image)
     plt.axis("off")
@@ -31,13 +43,10 @@ def draw_box_coords_box(
         width,
         height,
         linewidth=1,
-        edgecolor="red",
+        edgecolor=images_to_video_text_box_color,
         facecolor="none",
         linestyle="solid",
     )
-
-    # print(input_file_path)
-    # breakpoint()
 
     subplot.add_patch(rect)
 
@@ -50,7 +59,10 @@ def draw_box_coords_box(
 
 @time_it()
 def draw_box_coords_box_list(
-    text_matrix_boxes_coords, input_file_path, output_image_folder
+    text_matrix_boxes_coords,
+    input_file_path,
+    output_image_folder,
+    flet_page_client_storage,
 ):
     if len(text_matrix_boxes_coords) == 0:
         output_file_name = get_output_file_name(input_file_path, 1, output_image_folder)
@@ -65,7 +77,12 @@ def draw_box_coords_box_list(
 
     for index, box_coords in enumerate(text_matrix_boxes_coords):
         draw_box_coords_box(
-            box_coords, base_pil_image, input_file_path, index + 1, output_image_folder
+            box_coords,
+            base_pil_image,
+            input_file_path,
+            index + 1,
+            output_image_folder,
+            flet_page_client_storage,
         )
 
 
