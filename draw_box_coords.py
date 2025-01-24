@@ -3,7 +3,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from PIL import Image
-from utils import time_it
+from utils import hex_to_rgb, time_it
 
 matplotlib.use("Agg")
 
@@ -22,20 +22,41 @@ def draw_box_coords_box(
     output_image_folder,
     flet_page_client_storage,
 ):
-    images_to_video_text_box_color = "red"
+    images_to_video_text_box_border_color = "red"
     images_to_video_text_box_border_width = 1
     images_to_video_text_box_padding = 15
+    images_to_video_text_box_background_color = (
+        "#eab308"  # Yellow is the default color.
+    )
+
+    images_to_video_text_box_border_color_opacity = 0
+    images_to_video_text_box_background_color_opacity = 0
 
     if flet_page_client_storage:
-        images_to_video_text_box_color = flet_page_client_storage.get(
-            "images_to_video_text_box_color"
-        )
         images_to_video_text_box_border_width = int(
             float(flet_page_client_storage.get("images_to_video_text_box_border_width"))
         )
-
         images_to_video_text_box_padding = int(
             float(flet_page_client_storage.get("images_to_video_text_box_padding"))
+        )
+
+        images_to_video_text_box_border_color = flet_page_client_storage.get(
+            "images_to_video_text_box_border_color"
+        )
+
+        images_to_video_text_box_border_color_opacity = float(
+            flet_page_client_storage.get(
+                "images_to_video_text_box_border_color_opacity"
+            )
+        )
+
+        images_to_video_text_box_background_color = flet_page_client_storage.get(
+            "images_to_video_text_box_background_color"
+        )
+        images_to_video_text_box_background_color_opacity = float(
+            flet_page_client_storage.get(
+                "images_to_video_text_box_background_color_opacity"
+            )
         )
 
     figure, subplot = plt.subplots(1, 1, figsize=(10, 10))
@@ -44,8 +65,20 @@ def draw_box_coords_box(
 
     width = box_coords[2] - box_coords[0]
     height = box_coords[3] - box_coords[1]
-
     top_left_box_coords = box_coords[:2]
+
+    border_color = (0, 0, 0, 0)
+    background_color = (0, 0, 0, 0)
+
+    if images_to_video_text_box_border_color != "transparent":
+        border_color = hex_to_rgb(images_to_video_text_box_border_color) + (
+            images_to_video_text_box_border_color_opacity,
+        )
+
+    if images_to_video_text_box_background_color != "transparent":
+        background_color = hex_to_rgb(images_to_video_text_box_background_color) + (
+            images_to_video_text_box_background_color_opacity,
+        )
 
     rect = patches.Rectangle(
         (
@@ -60,8 +93,8 @@ def draw_box_coords_box(
         + 2
         * images_to_video_text_box_padding,  # Add padding to height on top and bottom
         linewidth=images_to_video_text_box_border_width,
-        edgecolor=images_to_video_text_box_color,
-        facecolor="none",
+        edgecolor=border_color,
+        facecolor=background_color,
         linestyle="solid",
     )
 

@@ -13,23 +13,24 @@ class SettingsImagesToVideo(
         self.locale_voice_mapping = self.tts.locale_voice_mapping
 
         self.colors = {
-            "red": "#ef4444",
-            "orange": "#f97316",
-            "amber": "#f59e0b",
-            "yellow": "#eab308",
-            "lime": "#84cc16",
-            "green": "#22c55e",
-            "emerald": "#10b981",
-            "teal": "#14b8a6",
-            "cyan": "#06b6d4",
-            "sky": "#0ea5e9",
-            "blue": "#3b82f6",
-            "indigo": "#6366f1",
-            "violet": "#8b5cf6",
-            "purple": "#a855f7",
-            "fuchsia": "#d946ef",
-            "pink": "#ec4899",
-            "rose": "#f43f5e",
+            "transparent": "none",
+            "#ef4444": "red",
+            "#f97316": "orange",
+            "#f59e0b": "amber",
+            "#eab308": "yellow",
+            "#84cc16": "lime",
+            "#22c55e": "green",
+            "#10b981": "emerald",
+            "#14b8a6": "teal",
+            "#06b6d4": "cyan",
+            "#0ea5e9": "sky",
+            "#3b82f6": "blue",
+            "#6366f1": "indigo",
+            "#8b5cf6": "violet",
+            "#a855f7": "purple",
+            "#d946ef": "fuchsia",
+            "#ec4899": "pink",
+            "#f43f5e": "rose",
         }
 
         self.video_height_textfield = self.get_number_textfield(
@@ -129,6 +130,16 @@ class SettingsImagesToVideo(
             float(self.get_setting_value("images_to_video_text_box_padding", 15))
         )
 
+        default_images_to_video_text_box_background_color_opacity = float(
+            self.get_setting_value(
+                "images_to_video_text_box_background_color_opacity", 1
+            )
+        )
+
+        default_images_to_video_text_box_border_color_opacity = float(
+            self.get_setting_value("images_to_video_text_box_border_color_opacity", 1)
+        )
+
         self.azure_voice_pitch_options = ["x-low", "low", "medium", "high", "x-high"]
         self.azure_voice_rate_options = ["x-slow", "slow", "medium", "fast", "x-fast"]
         self.azure_voice_volume_options = [
@@ -179,8 +190,15 @@ class SettingsImagesToVideo(
             [ft.dropdown.Option(style) for style in default_voice_style_list if style]
         )
 
-        default_images_to_video_text_box_color = self.get_setting_value(
-            "images_to_video_text_box_color", "red"
+        default_images_to_video_text_box_border_color = self.get_setting_value(
+            "images_to_video_text_box_border_color", "#ef4444"
+        )
+
+        print(default_images_to_video_text_box_border_color)
+
+        default_images_to_video_text_box_background_color = self.get_setting_value(
+            "images_to_video_text_box_background_color",
+            "#eab308",  # Yellow is the default color.
         )
 
         self.voice_locale_dropdown = DropdownTextOptions(
@@ -316,11 +334,11 @@ class SettingsImagesToVideo(
         )
 
         # Highlight Text In Images
-        self.text_box_color_dropdown = DropdownTextOptions(
-            label="Text Box Color",
+        self.text_box_border_color_dropdown = DropdownTextOptions(
+            label="Border Color",
             options=[
                 ft.dropdown.Option(
-                    key=name,
+                    key=hex_code,
                     content=ft.Row(
                         controls=[
                             ft.Icon(name=ft.Icons.CIRCLE, color=hex_code),
@@ -333,31 +351,98 @@ class SettingsImagesToVideo(
                         spacing=5,
                     ),
                 )
-                for name, hex_code in self.colors.items()
+                for hex_code, name in self.colors.items()
             ],
-            value=default_images_to_video_text_box_color,
+            value=default_images_to_video_text_box_border_color,
             on_change=lambda e: self.change_setting(
-                "images_to_video_text_box_color", e.data
+                "images_to_video_text_box_border_color", e.data
+            ),
+        )
+
+        self.text_box_background_color_dropdown = DropdownTextOptions(
+            label="Background Color",
+            options=[
+                ft.dropdown.Option(
+                    key=hex_code,
+                    content=ft.Row(
+                        controls=[
+                            ft.Icon(name=ft.Icons.CIRCLE, color=hex_code),
+                            ft.Text(
+                                value=name,
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.START,
+                        vertical_alignment=ft.VerticalAlignment.CENTER,
+                        spacing=5,
+                    ),
+                )
+                for hex_code, name in self.colors.items()
+            ],
+            value=default_images_to_video_text_box_background_color,
+            on_change=lambda e: self.change_setting(
+                "images_to_video_text_box_background_color", e.data
             ),
         )
 
         self.highlight_text_boxes_in_images_col = ft.Container(
             content=ft.Column(
                 controls=[
-                    self.text_box_color_dropdown,
-                    ft.Text("Text Box Border Width:"),
-                    ft.Slider(
-                        value=default_images_to_video_text_box_border_width,
-                        min=1,
-                        max=5,
-                        divisions=4,
-                        round=0,
-                        label="{value}",
-                        on_change_end=lambda e: self.change_setting(
-                            "images_to_video_text_box_border_width", e.data
+                    self.text_box_border_color_dropdown,
+                    ft.Container(
+                        content=ft.Column(
+                            controls=[
+                                ft.Text("Border Width:"),
+                                ft.Slider(
+                                    value=default_images_to_video_text_box_border_width,
+                                    min=0,
+                                    max=5,
+                                    divisions=5,
+                                    round=0,
+                                    label="{value}",
+                                    on_change_end=lambda e: self.change_setting(
+                                        "images_to_video_text_box_border_width",
+                                        e.data,
+                                    ),
+                                ),
+                                ft.Text("Border Color Opacity:"),
+                                ft.Slider(
+                                    value=default_images_to_video_text_box_border_color_opacity,
+                                    min=0,
+                                    max=1,
+                                    divisions=10,
+                                    round=1,
+                                    label="{value}",
+                                    on_change_end=lambda e: self.change_setting(
+                                        "images_to_video_text_box_border_color_opacity",
+                                        e.data,
+                                    ),
+                                ),
+                            ]
                         ),
+                        padding=ft.padding.only(left=20),
                     ),
-                    ft.Text("Text Box Padding:"),
+                    self.text_box_background_color_dropdown,
+                    ft.Container(
+                        content=ft.Column(
+                            controls=[
+                                ft.Text("Background Color Opacity:"),
+                                ft.Slider(
+                                    value=default_images_to_video_text_box_background_color_opacity,
+                                    min=0,
+                                    max=1,
+                                    divisions=10,
+                                    round=1,
+                                    label="{value}",
+                                    on_change_end=lambda e: self.change_setting(
+                                        "images_to_video_text_box_background_color_opacity",
+                                        e.data,
+                                    ),
+                                ),
+                            ]
+                        ),
+                        padding=ft.padding.only(left=20),
+                    ),
+                    ft.Text("Padding:"),
                     ft.Slider(
                         value=default_images_to_video_text_box_padding,
                         min=0,

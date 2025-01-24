@@ -46,9 +46,12 @@ class ImagesToVideoView(ft.Container):
         def traverse_and_process(level, current_path):
             for key, value in level.items():
                 if key == "__images__":
-                    self.process_list_of_images_video_creator(
-                        base_path, current_path, output_directory
-                    )
+                    directory_base_name = os.path.basename(current_path)
+
+                    if directory_base_name != "images-with-highlighted-text-boxes":
+                        self.process_list_of_images_video_creator(
+                            base_path, current_path, output_directory
+                        )
                 else:
                     # Traverse nested directories
                     next_path = os.path.join(current_path, key) if current_path else key

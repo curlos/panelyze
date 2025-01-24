@@ -572,3 +572,27 @@ def modify_filename(filepath, suffix):
 
     # Combine the directory with the new file name
     return os.path.join(directory, new_filename)
+
+
+def hex_to_rgb(hex_code):
+    """
+    Convert a hex color code to an RGBA tuple for Matplotlib.
+
+    Parameters:
+        hex_code (str): Hex color code in the format "#RRGGBB" or "RRGGBB".
+        alpha (float): Alpha (opacity) value between 0 (transparent) and 1 (opaque).
+
+    Returns:
+        tuple: A tuple (R, G, B, A) where R, G, B are normalized between 0 and 1, and A is the alpha value.
+    """
+
+    # Remove the "#" if present
+    hex_code = hex_code.lstrip("#")
+
+    # Convert the hex code to RGB values
+    r = int(hex_code[0:2], 16) / 255.0  # Red
+    g = int(hex_code[2:4], 16) / 255.0  # Green
+    b = int(hex_code[4:6], 16) / 255.0  # Blue
+
+    # Return the normalized RGBA tuple
+    return (r, g, b)
