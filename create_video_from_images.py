@@ -56,6 +56,8 @@ def create_video_from_images(
     image_post_tts_audio_delay = 0
 
     highlight_text_boxes_in_images = False
+
+    clean_up_images_with_highlighted_text_boxes_folder = False
     clean_up_tts_audio_files_folder = False
 
     if flet_page_client_storage:
@@ -81,6 +83,11 @@ def create_video_from_images(
         )
         highlight_text_boxes_in_images = flet_page_client_storage.get(
             "highlight_text_boxes_in_images"
+        )
+        clean_up_images_with_highlighted_text_boxes_folder = (
+            flet_page_client_storage.get(
+                "clean_up_images_with_highlighted_text_boxes_folder"
+            )
         )
         clean_up_tts_audio_files_folder = flet_page_client_storage.get(
             "clean_up_tts_audio_files_folder"
@@ -362,6 +369,15 @@ def create_video_from_images(
 
     # "fps" is set to 1 as the images being saved are typically going to be Manga Panels and will have no smooth transitions between panels so no need to create extra frames for nothing. Just show the same frame for the specified duration.
     video.write_videofile(output_file, fps=fps)
+
+    if (
+        clean_up_images_with_highlighted_text_boxes_folder
+        and images_with_highlighted_text_boxes_folder
+        and os.path.exists(images_with_highlighted_text_boxes_folder)
+    ):
+        # Remove the directory and all its contents
+        shutil.rmtree(images_with_highlighted_text_boxes_folder)
+        print('Removed "images-with-highlighted-text-boxes" folders')
 
     if (
         clean_up_tts_audio_files_folder

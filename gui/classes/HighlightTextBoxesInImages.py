@@ -189,6 +189,15 @@ class HighlightTextBoxesInImages(SettingsBase):
                             "images_to_video_text_box_padding", e.data
                         ),
                     ),
+                    ft.Checkbox(
+                        label='Clean up "images-with-highlighted-text-folder"',
+                        value=self.page.client_storage.get(
+                            "clean_up_images_with_highlighted_text_boxes_folder"
+                        ),
+                        on_change=lambda e: self.change_setting(
+                            "clean_up_images_with_highlighted_text_boxes_folder", e.data
+                        ),
+                    ),
                 ],
             ),
             padding=ft.padding.only(left=30),
