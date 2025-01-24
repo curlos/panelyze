@@ -124,15 +124,22 @@ class SettingsImagesToVideo(
                 controls=[
                     ft.Text(
                         value="Dynamic-Style (Emotion-By-Text)",
+                    ),
+                    ft.Icon(
+                        name=ft.Icons.INFO,
+                        color="#5e81ac",
                         tooltip=ft.Tooltip(
                             message="Dynamic-Style (Emotion-By-Text): Instead of using one voice style throughout the whole video, this option will dynamically go through the text in an image and use the individual voice-style that fits each part of the text the most. For example, if one part of the text is 'angry', then the 'angry' voice style will be used. If another part is 'cheerful', then the 'cheerful' voice style will be used.",
                             text_style=ft.TextStyle(color="white"),
                             bgcolor="#3b4252",
                             border=ft.border.all(1, "#5e81ac"),
-                            wait_duration=500,
+                            wait_duration=100,
                         ),
                     ),
-                ]
+                ],
+                alignment=ft.MainAxisAlignment.START,
+                vertical_alignment=ft.VerticalAlignment.CENTER,
+                spacing=5,
             ),
         )
 
