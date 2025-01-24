@@ -23,14 +23,19 @@ def draw_box_coords_box(
     flet_page_client_storage,
 ):
     images_to_video_text_box_color = "red"
-    images_to_video_line_width = 1
+    images_to_video_text_box_border_width = 1
+    images_to_video_text_box_padding = 15
 
     if flet_page_client_storage:
         images_to_video_text_box_color = flet_page_client_storage.get(
             "images_to_video_text_box_color"
         )
-        images_to_video_line_width = int(
-            float(flet_page_client_storage.get("images_to_video_line_width"))
+        images_to_video_text_box_border_width = int(
+            float(flet_page_client_storage.get("images_to_video_text_box_border_width"))
+        )
+
+        images_to_video_text_box_padding = int(
+            float(flet_page_client_storage.get("images_to_video_text_box_padding"))
         )
 
     figure, subplot = plt.subplots(1, 1, figsize=(10, 10))
@@ -42,17 +47,19 @@ def draw_box_coords_box(
 
     top_left_box_coords = box_coords[:2]
 
-    # Add padding to the box coordinates
-    padding = 15  # Adjust this value as needed
-
     rect = patches.Rectangle(
         (
-            top_left_box_coords[0] - padding,  # Move left by padding
-            top_left_box_coords[1] - padding,  # Move up by padding
+            top_left_box_coords[0]
+            - images_to_video_text_box_padding,  # Move left by padding
+            top_left_box_coords[1]
+            - images_to_video_text_box_padding,  # Move up by padding
         ),
-        width + 2 * padding,  # Add padding to width on both sides
-        height + 2 * padding,  # Add padding to height on top and bottom
-        linewidth=images_to_video_line_width,
+        width
+        + 2 * images_to_video_text_box_padding,  # Add padding to width on both sides
+        height
+        + 2
+        * images_to_video_text_box_padding,  # Add padding to height on top and bottom
+        linewidth=images_to_video_text_box_border_width,
         edgecolor=images_to_video_text_box_color,
         facecolor="none",
         linestyle="solid",

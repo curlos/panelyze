@@ -121,8 +121,12 @@ class SettingsImagesToVideo(
             self.get_setting_value("azure_voice_style_degree", 2.00)
         )
 
-        default_images_to_video_line_width = int(
-            float(self.get_setting_value("images_to_video_line_width", 1))
+        default_images_to_video_text_box_border_width = int(
+            float(self.get_setting_value("images_to_video_text_box_border_width", 1))
+        )
+
+        default_images_to_video_text_box_padding = int(
+            float(self.get_setting_value("images_to_video_text_box_padding", 15))
         )
 
         self.azure_voice_pitch_options = ["x-low", "low", "medium", "high", "x-high"]
@@ -341,16 +345,28 @@ class SettingsImagesToVideo(
             content=ft.Column(
                 controls=[
                     self.text_box_color_dropdown,
-                    ft.Text("Line Width:"),
+                    ft.Text("Text Box Border Width:"),
                     ft.Slider(
-                        value=default_images_to_video_line_width,
+                        value=default_images_to_video_text_box_border_width,
                         min=1,
                         max=5,
                         divisions=5,
                         round=0,
                         label="{value}",
                         on_change_end=lambda e: self.change_setting(
-                            "images_to_video_line_width", e.data
+                            "images_to_video_text_box_border_width", e.data
+                        ),
+                    ),
+                    ft.Text("Text Box Padding:"),
+                    ft.Slider(
+                        value=default_images_to_video_text_box_padding,
+                        min=0,
+                        max=30,
+                        divisions=6,
+                        round=0,
+                        label="{value}",
+                        on_change_end=lambda e: self.change_setting(
+                            "images_to_video_text_box_padding", e.data
                         ),
                     ),
                 ],
