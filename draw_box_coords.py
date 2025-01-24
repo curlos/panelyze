@@ -32,6 +32,8 @@ def draw_box_coords_box(
     images_to_video_text_box_border_color_opacity = 0
     images_to_video_text_box_background_color_opacity = 0
 
+    images_to_video_text_box_border_style = "solid"
+
     if flet_page_client_storage:
         images_to_video_text_box_border_width = int(
             float(flet_page_client_storage.get("images_to_video_text_box_border_width"))
@@ -57,6 +59,10 @@ def draw_box_coords_box(
             flet_page_client_storage.get(
                 "images_to_video_text_box_background_color_opacity"
             )
+        )
+
+        images_to_video_text_box_border_style = flet_page_client_storage.get(
+            "images_to_video_text_box_border_style"
         )
 
     figure, subplot = plt.subplots(1, 1, figsize=(10, 10))
@@ -95,7 +101,7 @@ def draw_box_coords_box(
         linewidth=images_to_video_text_box_border_width,
         edgecolor=border_color,
         facecolor=background_color,
-        linestyle="solid",
+        linestyle=images_to_video_text_box_border_style,
     )
 
     subplot.add_patch(rect)

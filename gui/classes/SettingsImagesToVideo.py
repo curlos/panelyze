@@ -33,6 +33,8 @@ class SettingsImagesToVideo(
             "#f43f5e": "rose",
         }
 
+        self.border_style_list = ["solid", "dotted", "dashed", "dashdot"]
+
         self.video_height_textfield = self.get_number_textfield(
             "Video Height (px)", "video_height"
         )
@@ -138,6 +140,10 @@ class SettingsImagesToVideo(
 
         default_images_to_video_text_box_border_color_opacity = float(
             self.get_setting_value("images_to_video_text_box_border_color_opacity", 1)
+        )
+
+        default_images_to_video_text_box_border_style = self.get_setting_value(
+            "images_to_video_text_box_border_style", "solid"
         )
 
         self.azure_voice_pitch_options = ["x-low", "low", "medium", "high", "x-high"]
@@ -359,6 +365,18 @@ class SettingsImagesToVideo(
             ),
         )
 
+        self.text_box_border_style_dropdown = DropdownTextOptions(
+            label="Border Style",
+            options=[
+                ft.dropdown.Option(border_style)
+                for border_style in self.border_style_list
+            ],
+            value=default_images_to_video_text_box_border_style,
+            on_change=lambda e: self.change_setting(
+                "images_to_video_text_box_border_style", e.data
+            ),
+        )
+
         self.text_box_background_color_dropdown = DropdownTextOptions(
             label="Background Color",
             options=[
@@ -391,19 +409,6 @@ class SettingsImagesToVideo(
                     ft.Container(
                         content=ft.Column(
                             controls=[
-                                ft.Text("Border Width:"),
-                                ft.Slider(
-                                    value=default_images_to_video_text_box_border_width,
-                                    min=0,
-                                    max=5,
-                                    divisions=5,
-                                    round=0,
-                                    label="{value}",
-                                    on_change_end=lambda e: self.change_setting(
-                                        "images_to_video_text_box_border_width",
-                                        e.data,
-                                    ),
-                                ),
                                 ft.Text("Border Color Opacity:"),
                                 ft.Slider(
                                     value=default_images_to_video_text_box_border_color_opacity,
@@ -417,9 +422,23 @@ class SettingsImagesToVideo(
                                         e.data,
                                     ),
                                 ),
+                                ft.Text("Border Width:"),
+                                ft.Slider(
+                                    value=default_images_to_video_text_box_border_width,
+                                    min=0,
+                                    max=5,
+                                    divisions=5,
+                                    round=0,
+                                    label="{value}",
+                                    on_change_end=lambda e: self.change_setting(
+                                        "images_to_video_text_box_border_width",
+                                        e.data,
+                                    ),
+                                ),
+                                self.text_box_border_style_dropdown,
                             ]
                         ),
-                        padding=ft.padding.only(left=20),
+                        padding=ft.padding.only(left=20, bottom=15),
                     ),
                     self.text_box_background_color_dropdown,
                     ft.Container(
