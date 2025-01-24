@@ -107,46 +107,48 @@ def create_video_from_images(
             #     ],
             # ]
 
-            # essential_text_in_images_matrix = [
-            #     [
-            #         "A battle between mages is akin to a rock-paper-scissors match, after all.",
-            #         "Albeit a rock-paper-scissors match",
-            #         "that is extremely complex, difficult to read and involves a myriad of moves.",
-            #     ],
-            # ]
-
             essential_text_in_images_matrix = [
-                [],
-                [],
                 [
-                    "I more or less get the picture now.",
-                    'You people are buying time for Friedman to defeat this "Spiegel", the "Reflective Water Demon".',
-                    "Well, for the clones, we've already dealt with three of them.",
-                    "It seems this discussion will be quick then.",
-                    "In that case-",
-                ],
-                [
-                    "..... Oh my.",
-                    "It seems Sense-san's clone got crushed just now.",
-                    "...This mama. The one who took it down must be libel, the third- class mage.",
-                ],
-                [
-                    "What a surprising outcome.",
-                    "You think? That match-up's pretty off.",
-                ],
-                [
-                    "A battle between images is akin to a rock- paper-scissors match, after all.",
-                    "Albert a rock-paper- scissors match",
+                    "A battle between mages is akin to a rock-paper-scissors match, after all.",
+                    "Albeit a rock-paper-scissors match",
                     "that is extremely complex, difficult to read and involves a myriad of moves.",
-                ],
-                [
-                    "So you would like to increase the number of available moves we have, by how- ever little it may be.",
-                    "Very well. I'll help you hold back the clones.",
                 ],
             ]
 
+            # essential_text_in_images_matrix = [
+            #     [],
+            #     [],
+            #     [
+            #         "I more or less get the picture now.",
+            #         'You people are buying time for Friedman to defeat this "Spiegel", the "Reflective Water Demon".',
+            #         "Well, for the clones, we've already dealt with three of them.",
+            #         "It seems this discussion will be quick then.",
+            #         "In that case-",
+            #     ],
+            #     [
+            #         "..... Oh my.",
+            #         "It seems Sense-san's clone got crushed just now.",
+            #         "...This mama. The one who took it down must be libel, the third- class mage.",
+            #     ],
+            #     [
+            #         "What a surprising outcome.",
+            #         "You think? That match-up's pretty off.",
+            #     ],
+            #     [
+            #         "A battle between images is akin to a rock- paper-scissors match, after all.",
+            #         "Albert a rock-paper- scissors match",
+            #         "that is extremely complex, difficult to read and involves a myriad of moves.",
+            #     ],
+            #     [
+            #         "So you would like to increase the number of available moves we have, by how- ever little it may be.",
+            #         "Very well. I'll help you hold back the clones.",
+            #     ],
+            # ]
+
             # TODO: Will need the full Magi output for the highlight text boxes feature.
             # TODO: Move this up to the top later - this is a separate feature from TTS that should be able to be used with other options "Image Duration" and "Reading WPM (Seconds)".
+
+            magi_output_data = magi_frieren_ch_55_panel_6_output
 
             if highlight_text_boxes_in_images:
                 images_with_highlighted_text_boxes_folder = os.path.join(
@@ -154,7 +156,7 @@ def create_video_from_images(
                 )
 
                 for index, image_file in enumerate(images):
-                    magi_image_data = magi_ch_55_frieren_panel_1_to_7_output[index]
+                    magi_image_data = magi_output_data[index]
                     text_matrix_boxes_coords = magi_image_data["texts"]
                     essential_text_arr = magi_image_data["is_essential_text"]
 

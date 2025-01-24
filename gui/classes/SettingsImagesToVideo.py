@@ -350,7 +350,7 @@ class SettingsImagesToVideo(
                         value=default_images_to_video_text_box_border_width,
                         min=1,
                         max=5,
-                        divisions=5,
+                        divisions=4,
                         round=0,
                         label="{value}",
                         on_change_end=lambda e: self.change_setting(
