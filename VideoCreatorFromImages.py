@@ -102,6 +102,10 @@ class VideoCreatorFromImages:
     ):
         images_duration_based_on_wpm = []
         images_duration_based_on_tts = []
+        images_with_highlighted_text_boxes_folder = os.path.join(
+            full_output_directory, "images-with-highlighted-text-boxes"
+        )
+        full_audio_files_output_directory = f"{full_output_directory}/audio-files"
 
         sorted_chapter_directory = sorted(
             os.listdir(image_folder), key=natural_sort_key
@@ -113,145 +117,17 @@ class VideoCreatorFromImages:
         ]
         images = [os.path.join(image_folder, file) for file in files_that_are_images]
 
-        if self.speech_text_parser:
-            if self.use_text_to_speech_azure:
-                # TODO: Bring this back after testing is done.
-                # essential_text_in_images_matrix = (
-                #     self.speech_text_parser.get_essential_text_list_in_images(image_folder)
-                # )
-
-                # essential_text_in_images_matrix = [
-                #     [
-                #         "Red Line: Holy Land of Mariejoa",
-                #         "vanished...?",
-                #         "Yeah. That's what happened.",
-                #         "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
-                #         "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
-                #         "This is no joking matter!!!",
-                #     ],
-                #     [
-                #         "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
-                #         "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
-                #         "And you call this doing your job, do you...?!!!",
-                #     ],
-                # ]
-
-                essential_text_in_images_matrix = [
-                    [
-                        "A battle between mages is akin to a rock-paper-scissors match, after all.",
-                        "Albeit a rock-paper-scissors match",
-                        "that is extremely complex, difficult to read and involves a myriad of moves.",
-                    ],
-                ]
-
-                # essential_text_in_images_matrix = [
-                #     [],
-                #     [],
-                #     [
-                #         "I more or less get the picture now.",
-                #         'You people are buying time for Friedman to defeat this "Spiegel", the "Reflective Water Demon".',
-                #         "Well, for the clones, we've already dealt with three of them.",
-                #         "It seems this discussion will be quick then.",
-                #         "In that case-",
-                #     ],
-                #     [
-                #         "..... Oh my.",
-                #         "It seems Sense-san's clone got crushed just now.",
-                #         "...This mama. The one who took it down must be libel, the third- class mage.",
-                #     ],
-                #     [
-                #         "What a surprising outcome.",
-                #         "You think? That match-up's pretty off.",
-                #     ],
-                #     [
-                #         "A battle between images is akin to a rock- paper-scissors match, after all.",
-                #         "Albert a rock-paper- scissors match",
-                #         "that is extremely complex, difficult to read and involves a myriad of moves.",
-                #     ],
-                #     [
-                #         "So you would like to increase the number of available moves we have, by how- ever little it may be.",
-                #         "Very well. I'll help you hold back the clones.",
-                #     ],
-                # ]
-
-                # TODO: Will need the full Magi output for the highlight text boxes feature.
-                # TODO: Move this up to the top later - this is a separate feature from TTS that should be able to be used with other options "Image Duration" and "Reading WPM (Seconds)".
-
-                magi_output_data = magi_frieren_ch_55_panel_6_output
-
-                if self.highlight_text_boxes_in_images:
-                    images_with_highlighted_text_boxes_folder = os.path.join(
-                        full_output_directory, "images-with-highlighted-text-boxes"
-                    )
-
-                    for index, image_file in enumerate(images):
-                        magi_image_data = magi_output_data[index]
-                        text_matrix_boxes_coords = magi_image_data["texts"]
-                        essential_text_arr = magi_image_data["is_essential_text"]
-
-                        essential_text_matrix_boxes_coords = [
-                            box_coords
-                            for index, box_coords in enumerate(text_matrix_boxes_coords)
-                            if essential_text_arr[index]
-                        ]
-
-                        draw_box_coords_box_list(
-                            essential_text_matrix_boxes_coords,
-                            image_file,
-                            images_with_highlighted_text_boxes_folder,
-                            self.flet_page_client_storage,
-                        )
-
-                for index, panel_text_arr in enumerate(essential_text_in_images_matrix):
-                    image_path = images[index]
-                    base_name, _ = os.path.splitext(os.path.basename(image_path))
-
-                    full_audio_files_output_directory = (
-                        f"{full_output_directory}/audio-files"
-                    )
-
-                    audio_output_file = (
-                        f"{full_audio_files_output_directory}/{base_name}.wav"
-                    )
-                    panel_audio_file_duration = 1
-
-                    os.makedirs(full_audio_files_output_directory, exist_ok=True)
-
-                    if panel_text_arr and len(panel_text_arr) > 0:
-                        if self.highlight_text_boxes_in_images:
-                            for index, text_str in enumerate(panel_text_arr):
-                                highlight_text_audio_output_file = f"{full_audio_files_output_directory}/{base_name}-{index + 1}.wav"
-                                self.tts.generate_azure_audio(
-                                    [text_str], highlight_text_audio_output_file
-                                )
-
-                                panel_audio_file_duration = get_audio_file_duration(
-                                    highlight_text_audio_output_file
-                                )
-
-                                images_duration_based_on_tts.append(
-                                    panel_audio_file_duration
-                                )
-                        else:
-                            self.tts.generate_azure_audio(
-                                panel_text_arr, audio_output_file
-                            )
-
-                            panel_audio_file_duration = get_audio_file_duration(
-                                audio_output_file
-                            )
-
-                            images_duration_based_on_tts.append(
-                                panel_audio_file_duration
-                            )
-                    else:
-                        images_duration_based_on_tts.append(panel_audio_file_duration)
-            elif self.use_reading_speed_wpm:
-                images_duration_based_on_wpm = (
-                    self.speech_text_parser.get_images_duration_based_on_wpm(
-                        image_folder, self.reading_speed_wpm
-                    )
-                )
+        # TODO: Add new function here to get variable values
+        if self.use_text_to_speech_azure:
+            images_duration_based_on_tts = self.get_images_duration_based_on_tts(
+                images,
+                images_with_highlighted_text_boxes_folder,
+                full_audio_files_output_directory,
+            )
+        elif self.use_reading_speed_wpm:
+            images_duration_based_on_wpm = self.get_images_duration_based_on_wpm(
+                image_folder
+            )
 
         # Ensure the output directory exists
         output_directory = os.path.dirname(output_file)
@@ -262,10 +138,7 @@ class VideoCreatorFromImages:
 
             image_paths_to_use = images
 
-            if (
-                self.highlight_text_boxes_in_images
-                and images_with_highlighted_text_boxes_folder
-            ):
+            if self.highlight_text_boxes_in_images:
                 sorted_images_from_highlighted_text = sorted(
                     os.listdir(images_with_highlighted_text_boxes_folder),
                     key=natural_sort_key,
@@ -389,7 +262,7 @@ class VideoCreatorFromImages:
         fps = 1
 
         if self.highlight_text_boxes_in_images or self.use_text_to_speech_azure:
-            fps = 2
+            fps = 5
 
         # "fps" is set to 1 as the images being saved are typically going to be Manga Panels and will have no smooth transitions between panels so no need to create extra frames for nothing. Just show the same frame for the specified duration.
         video.write_videofile(output_file, fps=fps)
@@ -413,6 +286,137 @@ class VideoCreatorFromImages:
             # Remove the directory and all its contents
             shutil.rmtree(full_audio_files_output_directory)
             print('Removed TTS "audio-files" folders')
+
+    def get_images_duration_based_on_tts(
+        self,
+        images,
+        images_with_highlighted_text_boxes_folder,
+        full_audio_files_output_directory,
+    ):
+        images_duration_based_on_tts = []
+
+        # TODO: Bring this back after testing is done.
+        # essential_text_in_images_matrix = (
+        #     self.speech_text_parser.get_essential_text_list_in_images(image_folder)
+        # )
+
+        # essential_text_in_images_matrix = [
+        #     [
+        #         "Red Line: Holy Land of Mariejoa",
+        #         "vanished...?",
+        #         "Yeah. That's what happened.",
+        #         "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
+        #         "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
+        #         "This is no joking matter!!!",
+        #     ],
+        #     [
+        #         "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
+        #         "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
+        #         "And you call this doing your job, do you...?!!!",
+        #     ],
+        # ]
+
+        essential_text_in_images_matrix = [
+            [
+                "A battle between mages is akin to a rock-paper-scissors match, after all.",
+                "Albeit a rock-paper-scissors match",
+                "that is extremely complex, difficult to read and involves a myriad of moves.",
+            ],
+        ]
+
+        # essential_text_in_images_matrix = [
+        #     [],
+        #     [],
+        #     [
+        #         "I more or less get the picture now.",
+        #         'You people are buying time for Friedman to defeat this "Spiegel", the "Reflective Water Demon".',
+        #         "Well, for the clones, we've already dealt with three of them.",
+        #         "It seems this discussion will be quick then.",
+        #         "In that case-",
+        #     ],
+        #     [
+        #         "..... Oh my.",
+        #         "It seems Sense-san's clone got crushed just now.",
+        #         "...This mama. The one who took it down must be libel, the third- class mage.",
+        #     ],
+        #     [
+        #         "What a surprising outcome.",
+        #         "You think? That match-up's pretty off.",
+        #     ],
+        #     [
+        #         "A battle between images is akin to a rock- paper-scissors match, after all.",
+        #         "Albert a rock-paper- scissors match",
+        #         "that is extremely complex, difficult to read and involves a myriad of moves.",
+        #     ],
+        #     [
+        #         "So you would like to increase the number of available moves we have, by how- ever little it may be.",
+        #         "Very well. I'll help you hold back the clones.",
+        #     ],
+        # ]
+
+        # TODO: Will need the full Magi output for the highlight text boxes feature.
+        # TODO: Move this up to the top later - this is a separate feature from TTS that should be able to be used with other options "Image Duration" and "Reading WPM (Seconds)".
+
+        magi_output_data = magi_frieren_ch_55_panel_6_output
+
+        if self.highlight_text_boxes_in_images:
+            for index, image_file in enumerate(images):
+                magi_image_data = magi_output_data[index]
+                text_matrix_boxes_coords = magi_image_data["texts"]
+                essential_text_arr = magi_image_data["is_essential_text"]
+
+                essential_text_matrix_boxes_coords = [
+                    box_coords
+                    for index, box_coords in enumerate(text_matrix_boxes_coords)
+                    if essential_text_arr[index]
+                ]
+
+                draw_box_coords_box_list(
+                    essential_text_matrix_boxes_coords,
+                    image_file,
+                    images_with_highlighted_text_boxes_folder,
+                    self.flet_page_client_storage,
+                )
+
+        for index, panel_text_arr in enumerate(essential_text_in_images_matrix):
+            image_path = images[index]
+            base_name, _ = os.path.splitext(os.path.basename(image_path))
+
+            audio_output_file = f"{full_audio_files_output_directory}/{base_name}.wav"
+            panel_audio_file_duration = 1
+
+            os.makedirs(full_audio_files_output_directory, exist_ok=True)
+
+            if panel_text_arr and len(panel_text_arr) > 0:
+                if self.highlight_text_boxes_in_images:
+                    for index, text_str in enumerate(panel_text_arr):
+                        highlight_text_audio_output_file = f"{full_audio_files_output_directory}/{base_name}-{index + 1}.wav"
+                        self.tts.generate_azure_audio(
+                            [text_str], highlight_text_audio_output_file
+                        )
+
+                        panel_audio_file_duration = get_audio_file_duration(
+                            highlight_text_audio_output_file
+                        )
+
+                        images_duration_based_on_tts.append(panel_audio_file_duration)
+                else:
+                    self.tts.generate_azure_audio(panel_text_arr, audio_output_file)
+
+                    panel_audio_file_duration = get_audio_file_duration(
+                        audio_output_file
+                    )
+
+                    images_duration_based_on_tts.append(panel_audio_file_duration)
+            else:
+                images_duration_based_on_tts.append(panel_audio_file_duration)
+
+        return images_duration_based_on_tts
+
+    def get_images_duration_based_on_wpm(self, image_folder):
+        return self.speech_text_parser.get_images_duration_based_on_wpm(
+            image_folder, self.reading_speed_wpm
+        )
 
     def get_img_duration(
         self, images_duration_based_on_wpm, images_duration_based_on_tts, index
