@@ -187,7 +187,7 @@ class VideoCreatorFromImages:
         # TODO: Move this up to the top later - this is a separate feature from TTS that should be able to be used with other options "Image Duration" and "Reading WPM (Seconds)".
         (essential_text_in_images_matrix, magi_output_data) = (
             self.get_essential_text_and_magi_data(
-                image_folder, "multiple-panels", full_output_directory
+                image_folder, "1-panel", full_output_directory
             )
         )
 

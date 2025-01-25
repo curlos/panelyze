@@ -171,6 +171,13 @@ class PickInputAndOutputDirectories(ft.Container):
         )
 
         self.settings_container = settings_container
+        self.submit_button = ft.FilledTonalButton(
+            text="Submit",
+            color="white",
+            bgcolor="#5e81ac",
+            expand=True,
+            on_click=self.on_submit,
+        )
 
         self.content = ft.Row(
             controls=[
@@ -194,13 +201,7 @@ class PickInputAndOutputDirectories(ft.Container):
                                     expand=True,
                                     on_click=self.handle_clear_all_directories,
                                 ),
-                                ft.FilledTonalButton(
-                                    text="Submit",
-                                    color="white",
-                                    bgcolor="#5e81ac",
-                                    expand=True,
-                                    on_click=self.on_submit,
-                                ),
+                                self.submit_button,
                             ]
                         ),
                     ],

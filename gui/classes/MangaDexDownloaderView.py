@@ -18,7 +18,6 @@ class MangaDexDownloaderView(ft.Container):
 
         self.mangadex_url_text_field = ft.TextField(
             label="Enter a MangaDex Page URL",
-            # expand=True,
             border_color="#5e81ac",
         )
 

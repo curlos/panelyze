@@ -33,6 +33,12 @@ class ImagesToVideoView(ft.Container):
         if not input_and_output_dirs_are_valid(self):
             return
 
+        self.pick_input_output_directories_container.submit_button.disabled = True
+        self.pick_input_output_directories_container.submit_button.opacity = 0.5
+        self.pick_input_output_directories_container.submit_button.update()
+
+        self.parent_gui.terminal_output.show_loading_text("Creating Video...")
+
         input_directory = self.pick_input_output_directories_container.input_directory
         output_directory = self.pick_input_output_directories_container.output_directory
 
@@ -57,8 +63,12 @@ class ImagesToVideoView(ft.Container):
 
         # Start the traversal from the root of the structure
         traverse_and_process(files_directory_structure, base_path)
-
         open_directory(output_directory)
+        self.pick_input_output_directories_container.submit_button.disabled = False
+        self.pick_input_output_directories_container.submit_button.opacity = 1
+        self.pick_input_output_directories_container.submit_button.update()
+
+        self.parent_gui.terminal_output.hide_loading_text("Video has been created!")
 
     def process_list_of_images_video_creator(
         self, base_path, current_path, output_directory

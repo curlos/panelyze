@@ -1,3 +1,4 @@
+import time
 import flet as ft
 
 
@@ -13,11 +14,23 @@ class TerminalOutput(ft.Container):
             style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=4), padding=1),
         )
 
+        self.title_text = ft.Text(value="Terminal Output", color="#8fbcbb")
+        self.command_text = ft.Text(value="", color="gray", visible=False)
+        self.progress_ring = ft.ProgressRing(width=14, height=14, visible=False)
+        self.success_icon = ft.Icon(ft.Icons.CHECK_CIRCLE, color="green", visible=False)
+
         self.content = ft.Column(
             controls=[
                 ft.Row(
                     controls=[
-                        ft.Text(value="Terminal Output", color="#8fbcbb"),
+                        ft.Row(
+                            controls=[
+                                self.title_text,
+                                self.command_text,
+                                self.progress_ring,
+                                self.success_icon,
+                            ]
+                        ),
                         self.terminal_arrow_icon,
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -29,6 +42,37 @@ class TerminalOutput(ft.Container):
         self.padding = 10
         self.height = 200
         self.border = ft.border.only(top=ft.border.BorderSide(1, "#5e81ac"))
+
+    def show_loading_text(self, new_command_text="Command Is Running..."):
+        self.title_text.value = "Terminal Output:"
+        self.command_text.value = new_command_text
+
+        self.command_text.visible = True
+        self.progress_ring.visible = True
+
+        self.title_text.update()
+        self.command_text.update()
+        self.progress_ring.update()
+
+    def hide_loading_text(self, result_text="Command has finished running!"):
+        self.command_text.value = result_text
+        self.progress_ring.visible = False
+        self.success_icon.visible = True
+
+        self.command_text.update()
+        self.progress_ring.update()
+        self.success_icon.update()
+
+        time.sleep(3)
+
+        self.title_text.value = "Terminal Output"
+        self.command_text.value = ""
+        self.command_text.visible = False
+        self.success_icon.visible = False
+
+        self.title_text.update()
+        self.command_text.update()
+        self.success_icon.update()
 
     def toggle_terminal_visibility(self, e):
         self.terminal_output_list_view.visible = (
