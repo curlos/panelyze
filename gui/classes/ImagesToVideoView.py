@@ -1,10 +1,8 @@
 import os
 import flet as ft
-from SpeechTextParser import SpeechTextParser
-from TextToSpeech import TextToSpeech
 from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
 from classes.SettingsImagesToVideo import SettingsImagesToVideo
-from create_video_from_images import create_video_from_images
+from create_video_from_images import VideoCreatorFromImages
 from utils import (
     get_last_two_directories_obj,
     input_and_output_dirs_are_valid,
@@ -65,12 +63,6 @@ class ImagesToVideoView(ft.Container):
     def process_list_of_images_video_creator(
         self, base_path, current_path, output_directory
     ):
-        if not self.speech_text_parser:
-            self.speech_text_parser = SpeechTextParser()
-
-        if not self.tts:
-            self.tts = TextToSpeech(self.page.client_storage)
-
         # Current path is a directory containing images
         input_directory = os.path.join(base_path, current_path)
         series_name, chapter_name = get_last_two_directories_obj(input_directory)
@@ -84,14 +76,15 @@ class ImagesToVideoView(ft.Container):
 
         print(f'Creating video "{series_name}/{chapter_name}.mp4"')
 
-        create_video_from_images(
+        video_creator_from_images = VideoCreatorFromImages(
+            flet_page_client_storage=self.page.client_storage,
+        )
+
+        video_creator_from_images.create_video_from_images(
             input_directory,
             output_file,
             image_displayed_duration,
             video_height,
-            speech_text_parser=self.speech_text_parser,
-            flet_page_client_storage=self.page.client_storage,
-            tts=self.tts,
             full_output_directory=full_output_directory,
         )
 
