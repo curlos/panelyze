@@ -32,14 +32,77 @@ class VideoCreatorFromImages:
         self.speech_text_parser = speech_text_parser or SpeechTextParser()
         self.tts = tts or TextToSpeech(self.flet_page_client_storage)
 
+        self.initialize_flet_client_storage_values()
+
+    def initialize_flet_client_storage_values(self):
+        self.video_height = 1080
+        self.image_displayed_duration = 3
+
+        self.use_reading_speed_wpm = True
+        self.reading_speed_wpm = 150
+
+        self.use_minimum_image_duration = True
+        self.minimum_image_duration = 5
+
+        self.use_text_to_speech_azure = False
+        self.image_pre_tts_audio_delay = 0
+        self.image_post_tts_audio_delay = 0
+
+        self.highlight_text_boxes_in_images = False
+
+        self.clean_up_images_with_highlighted_text_boxes_folder = False
+        self.clean_up_tts_audio_files_folder = False
+
+        if self.flet_page_client_storage:
+            self.video_height = self.flet_page_client_storage.get("video_height")
+            self.image_displayed_duration = int(
+                self.flet_page_client_storage.get("image_displayed_duration")
+            )
+            self.use_reading_speed_wpm = self.flet_page_client_storage.get(
+                "use_reading_speed_wpm"
+            )
+            self.reading_speed_wpm = int(
+                self.flet_page_client_storage.get("reading_speed_wpm")
+            )
+            self.image_displayed_duration = int(
+                self.flet_page_client_storage.get("image_displayed_duration") or 0
+            )
+            self.use_minimum_image_duration = self.flet_page_client_storage.get(
+                "use_minimum_image_duration"
+            )
+            self.minimum_image_duration = int(
+                self.flet_page_client_storage.get("minimum_image_duration") or 0
+            )
+            self.use_text_to_speech_azure = self.flet_page_client_storage.get(
+                "use_text_to_speech_azure"
+            )
+            self.image_pre_tts_audio_delay = int(
+                self.flet_page_client_storage.get("image_pre_tts_audio_delay") or 0
+            )
+            self.image_post_tts_audio_delay = int(
+                self.flet_page_client_storage.get("image_post_tts_audio_delay") or 0
+            )
+            self.highlight_text_boxes_in_images = self.flet_page_client_storage.get(
+                "highlight_text_boxes_in_images"
+            )
+            self.clean_up_images_with_highlighted_text_boxes_folder = (
+                self.flet_page_client_storage.get(
+                    "clean_up_images_with_highlighted_text_boxes_folder"
+                )
+            )
+            self.clean_up_tts_audio_files_folder = self.flet_page_client_storage.get(
+                "clean_up_tts_audio_files_folder"
+            )
+
     def create_video_from_images(
         self,
         image_folder,
         output_file,
-        image_displayed_duration=3,
-        video_height=1080,
         full_output_directory=None,
     ):
+        images_duration_based_on_wpm = []
+        images_duration_based_on_tts = []
+
         sorted_chapter_directory = sorted(
             os.listdir(image_folder), key=natural_sort_key
         )
@@ -50,63 +113,8 @@ class VideoCreatorFromImages:
         ]
         images = [os.path.join(image_folder, file) for file in files_that_are_images]
 
-        use_reading_speed_wpm = True
-        reading_speed_wpm = 150
-        images_duration_based_on_wpm = []
-
-        use_minimum_image_duration = True
-        minimum_image_duration = 5
-
-        use_text_to_speech_azure = False
-        images_duration_based_on_tts = []
-
-        image_pre_tts_audio_delay = 0
-        image_post_tts_audio_delay = 0
-
-        highlight_text_boxes_in_images = False
-
-        clean_up_images_with_highlighted_text_boxes_folder = False
-        clean_up_tts_audio_files_folder = False
-
-        if self.flet_page_client_storage:
-            use_reading_speed_wpm = self.flet_page_client_storage.get(
-                "use_reading_speed_wpm"
-            )
-            reading_speed_wpm = int(
-                self.flet_page_client_storage.get("reading_speed_wpm")
-            )
-            image_displayed_duration = int(
-                self.flet_page_client_storage.get("image_displayed_duration") or 0
-            )
-            use_minimum_image_duration = self.flet_page_client_storage.get(
-                "use_minimum_image_duration"
-            )
-            minimum_image_duration = int(
-                self.flet_page_client_storage.get("minimum_image_duration") or 0
-            )
-            use_text_to_speech_azure = self.flet_page_client_storage.get(
-                "use_text_to_speech_azure"
-            )
-            image_pre_tts_audio_delay = int(
-                self.flet_page_client_storage.get("image_pre_tts_audio_delay") or 0
-            )
-            image_post_tts_audio_delay = int(
-                self.flet_page_client_storage.get("image_post_tts_audio_delay") or 0
-            )
-            highlight_text_boxes_in_images = self.flet_page_client_storage.get(
-                "highlight_text_boxes_in_images"
-            )
-            clean_up_images_with_highlighted_text_boxes_folder = (
-                self.flet_page_client_storage.get(
-                    "clean_up_images_with_highlighted_text_boxes_folder"
-                )
-            )
-            clean_up_tts_audio_files_folder = self.flet_page_client_storage.get(
-                "clean_up_tts_audio_files_folder"
-            )
-
         if self.speech_text_parser:
-            if use_text_to_speech_azure:
+            if self.use_text_to_speech_azure:
                 # TODO: Bring this back after testing is done.
                 # essential_text_in_images_matrix = (
                 #     self.speech_text_parser.get_essential_text_list_in_images(image_folder)
@@ -171,7 +179,7 @@ class VideoCreatorFromImages:
 
                 magi_output_data = magi_frieren_ch_55_panel_6_output
 
-                if highlight_text_boxes_in_images:
+                if self.highlight_text_boxes_in_images:
                     images_with_highlighted_text_boxes_folder = os.path.join(
                         full_output_directory, "images-with-highlighted-text-boxes"
                     )
@@ -210,7 +218,7 @@ class VideoCreatorFromImages:
                     os.makedirs(full_audio_files_output_directory, exist_ok=True)
 
                     if panel_text_arr and len(panel_text_arr) > 0:
-                        if highlight_text_boxes_in_images:
+                        if self.highlight_text_boxes_in_images:
                             for index, text_str in enumerate(panel_text_arr):
                                 highlight_text_audio_output_file = f"{full_audio_files_output_directory}/{base_name}-{index + 1}.wav"
                                 self.tts.generate_azure_audio(
@@ -238,10 +246,10 @@ class VideoCreatorFromImages:
                             )
                     else:
                         images_duration_based_on_tts.append(panel_audio_file_duration)
-            elif use_reading_speed_wpm:
+            elif self.use_reading_speed_wpm:
                 images_duration_based_on_wpm = (
                     self.speech_text_parser.get_images_duration_based_on_wpm(
-                        image_folder, reading_speed_wpm
+                        image_folder, self.reading_speed_wpm
                     )
                 )
 
@@ -254,7 +262,10 @@ class VideoCreatorFromImages:
 
             image_paths_to_use = images
 
-            if highlight_text_boxes_in_images:
+            if (
+                self.highlight_text_boxes_in_images
+                and images_with_highlighted_text_boxes_folder
+            ):
                 sorted_images_from_highlighted_text = sorted(
                     os.listdir(images_with_highlighted_text_boxes_folder),
                     key=natural_sort_key,
@@ -277,20 +288,14 @@ class VideoCreatorFromImages:
                 )
 
                 img_duration = self.get_img_duration(
-                    image_displayed_duration=float(image_displayed_duration),
                     images_duration_based_on_wpm=images_duration_based_on_wpm,
                     images_duration_based_on_tts=images_duration_based_on_tts,
                     index=index,
-                    use_reading_speed_wpm=use_reading_speed_wpm,
-                    use_minimum_image_duration=use_minimum_image_duration,
-                    minimum_image_duration=minimum_image_duration,
-                    use_text_to_speech_azure=use_text_to_speech_azure,
-                    highlight_text_boxes_in_images=highlight_text_boxes_in_images,
                 )
 
                 image_clip = (
                     ImageClip(img)
-                    .resized(height=int(video_height))
+                    .resized(height=int(self.video_height))
                     .with_duration(img_duration)
                 )
 
@@ -311,33 +316,36 @@ class VideoCreatorFromImages:
                     use_image_pre_tts_audio_delay = True
 
                     # Check if the image can use "Pre-TTS"
-                    if highlight_text_boxes_in_images:
+                    if self.highlight_text_boxes_in_images:
                         current_panel_num = int(base_name.split("-")[1])
                         is_first_base_panel_image = current_panel_num == 1
 
                         if not is_first_base_panel_image:
                             use_image_pre_tts_audio_delay = False
 
-                    if image_pre_tts_audio_delay > 0 and use_image_pre_tts_audio_delay:
-                        adjusted_duration += image_pre_tts_audio_delay
+                    if (
+                        self.image_pre_tts_audio_delay > 0
+                        and use_image_pre_tts_audio_delay
+                    ):
+                        adjusted_duration += self.image_pre_tts_audio_delay
 
                         # Add padding before the audio starts
                         padding_before_audio_file_clip = AudioClip(
-                            lambda t: 0, duration=image_pre_tts_audio_delay
+                            lambda t: 0, duration=self.image_pre_tts_audio_delay
                         )
 
                         # Combine the silent audio and actual audio
                         combined_audio_clips = CompositeAudioClip(
                             [
                                 padding_before_audio_file_clip.with_start(0),
-                                audio_clip.with_start(image_pre_tts_audio_delay),
+                                audio_clip.with_start(self.image_pre_tts_audio_delay),
                             ]
                         )
 
                     use_image_post_tts_audio_delay = True
 
                     # If the image is the last image in the directory or the next image after this one has a different starting base_name, then add the post_tts_delay. Else, do not add it.
-                    if highlight_text_boxes_in_images:
+                    if self.highlight_text_boxes_in_images:
                         is_last_image_in_dir = index == len(image_paths_to_use) - 1
 
                         if not is_last_image_in_dir:
@@ -360,7 +368,7 @@ class VideoCreatorFromImages:
                                 use_image_post_tts_audio_delay = False
 
                     if use_image_post_tts_audio_delay:
-                        adjusted_duration += image_post_tts_audio_delay
+                        adjusted_duration += self.image_post_tts_audio_delay
 
                     # Update the image clip's duration and add the audio
                     image_clip = image_clip.with_duration(adjusted_duration).with_audio(
@@ -380,14 +388,15 @@ class VideoCreatorFromImages:
 
         fps = 1
 
-        if highlight_text_boxes_in_images or use_text_to_speech_azure:
+        if self.highlight_text_boxes_in_images or self.use_text_to_speech_azure:
             fps = 2
 
         # "fps" is set to 1 as the images being saved are typically going to be Manga Panels and will have no smooth transitions between panels so no need to create extra frames for nothing. Just show the same frame for the specified duration.
         video.write_videofile(output_file, fps=fps)
 
         if (
-            clean_up_images_with_highlighted_text_boxes_folder
+            self.highlight_text_boxes_in_images
+            and self.clean_up_images_with_highlighted_text_boxes_folder
             and images_with_highlighted_text_boxes_folder
             and os.path.exists(images_with_highlighted_text_boxes_folder)
         ):
@@ -396,7 +405,8 @@ class VideoCreatorFromImages:
             print('Removed "images-with-highlighted-text-boxes" folders')
 
         if (
-            clean_up_tts_audio_files_folder
+            self.use_text_to_speech_azure
+            and self.clean_up_tts_audio_files_folder
             and full_audio_files_output_directory
             and os.path.exists(full_audio_files_output_directory)
         ):
@@ -405,30 +415,21 @@ class VideoCreatorFromImages:
             print('Removed TTS "audio-files" folders')
 
     def get_img_duration(
-        self,
-        image_displayed_duration,
-        images_duration_based_on_wpm,
-        images_duration_based_on_tts,
-        index,
-        use_reading_speed_wpm,
-        use_minimum_image_duration,
-        minimum_image_duration,
-        use_text_to_speech_azure,
-        highlight_text_boxes_in_images,
+        self, images_duration_based_on_wpm, images_duration_based_on_tts, index
     ):
-        final_image_duration = image_displayed_duration
+        final_image_duration = self.image_displayed_duration
 
-        if use_text_to_speech_azure:
-            if highlight_text_boxes_in_images:
+        if self.use_text_to_speech_azure:
+            if self.highlight_text_boxes_in_images:
                 final_image_duration = float(images_duration_based_on_tts[index])
             else:
                 final_image_duration = float(images_duration_based_on_tts[index])
-        elif use_reading_speed_wpm:
+        elif self.use_reading_speed_wpm:
             final_image_duration = float(images_duration_based_on_wpm[index])
 
-        if use_minimum_image_duration:
+        if self.use_minimum_image_duration:
             # This is necessary because not every image will have text. So, for an image without text, "image_duration_based_on_wpm" would be 0 so the image would almost be skipped over in the video but obviously, we need to give the reader/viewer a chance to look at the image, so there should be a minimum duration (in this case it's 5 seconds).
-            return max(final_image_duration, minimum_image_duration)
+            return max(final_image_duration, self.minimum_image_duration)
 
         return final_image_duration
 

@@ -69,11 +69,6 @@ class ImagesToVideoView(ft.Container):
         full_output_directory = f"{output_directory}/{series_name}"
         output_file = f"{output_directory}/{series_name}/{chapter_name}.mp4"
 
-        video_height = self.page.client_storage.get("video_height")
-        image_displayed_duration = self.page.client_storage.get(
-            "image_displayed_duration"
-        )
-
         print(f'Creating video "{series_name}/{chapter_name}.mp4"')
 
         video_creator_from_images = VideoCreatorFromImages(
@@ -83,8 +78,6 @@ class ImagesToVideoView(ft.Container):
         video_creator_from_images.create_video_from_images(
             input_directory,
             output_file,
-            image_displayed_duration,
-            video_height,
             full_output_directory=full_output_directory,
         )
 
