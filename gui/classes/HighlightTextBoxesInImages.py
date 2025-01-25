@@ -137,19 +137,24 @@ class HighlightTextBoxesInImages(SettingsBase):
                                         "images_to_video_text_box_border_color_opacity",
                                         e.data,
                                     ),
+                                    height=20,
                                 ),
                                 ft.Text("Border Width:"),
-                                ft.Slider(
-                                    value=default_images_to_video_text_box_border_width,
-                                    min=0,
-                                    max=5,
-                                    divisions=5,
-                                    round=0,
-                                    label="{value}",
-                                    on_change_end=lambda e: self.change_setting(
-                                        "images_to_video_text_box_border_width",
-                                        e.data,
+                                ft.Container(
+                                    content=ft.Slider(
+                                        value=default_images_to_video_text_box_border_width,
+                                        min=0,
+                                        max=5,
+                                        divisions=5,
+                                        round=0,
+                                        label="{value}",
+                                        on_change_end=lambda e: self.change_setting(
+                                            "images_to_video_text_box_border_width",
+                                            e.data,
+                                        ),
+                                        height=20,
                                     ),
+                                    padding=ft.padding.only(bottom=10),
                                 ),
                                 self.text_box_border_style_dropdown,
                             ]
@@ -172,6 +177,7 @@ class HighlightTextBoxesInImages(SettingsBase):
                                         "images_to_video_text_box_background_color_opacity",
                                         e.data,
                                     ),
+                                    height=20,
                                 ),
                             ]
                         ),
@@ -188,6 +194,7 @@ class HighlightTextBoxesInImages(SettingsBase):
                         on_change_end=lambda e: self.change_setting(
                             "images_to_video_text_box_padding", e.data
                         ),
+                        height=20,
                     ),
                     ft.Checkbox(
                         label='Clean up "images-with-highlighted-text-folder"',

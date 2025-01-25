@@ -194,31 +194,39 @@ class TextToSpeechAzure(SettingsBase):
                 self.voice_names_dropdown,
                 self.voice_style_options_dropdown,
                 ft.Text("Voice Style Degree (Intensity):"),
-                ft.Slider(
-                    value=default_azure_voice_style_degree,
-                    min=0,
-                    max=2,
-                    divisions=20,
-                    label="{value}",
-                    round=2,
-                    on_change_end=lambda e: self.change_setting(
-                        "azure_voice_style_degree", e.data
+                ft.Container(
+                    content=ft.Slider(
+                        value=default_azure_voice_style_degree,
+                        min=0,
+                        max=2,
+                        divisions=20,
+                        label="{value}",
+                        round=2,
+                        on_change_end=lambda e: self.change_setting(
+                            "azure_voice_style_degree", e.data
+                        ),
+                        height=20,
                     ),
+                    padding=ft.padding.only(bottom=10),
                 ),
                 self.voice_volume_options_dropdown,
                 self.voice_rate_options_dropdown,
                 self.voice_pitch_options_dropdown,
                 ft.Text("Break Time Between Text (seconds):"),
-                ft.Slider(
-                    value=default_azure_break_time_between_text,
-                    min=0,
-                    max=5,
-                    divisions=20,
-                    label="{value}s",
-                    round=2,
-                    on_change_end=lambda e: self.change_setting(
-                        "azure_break_time_between_text", e.data
+                ft.Container(
+                    content=ft.Slider(
+                        value=default_azure_break_time_between_text,
+                        min=0,
+                        max=5,
+                        divisions=20,
+                        label="{value}s",
+                        round=2,
+                        on_change_end=lambda e: self.change_setting(
+                            "azure_break_time_between_text", e.data
+                        ),
+                        height=20,
                     ),
+                    padding=ft.padding.only(bottom=10),
                 ),
                 self.image_pre_tts_audio_delay_textfield,
                 self.image_post_tts_audio_delay_textfield,
