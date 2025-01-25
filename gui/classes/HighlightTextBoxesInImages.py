@@ -197,7 +197,8 @@ class HighlightTextBoxesInImages(SettingsBase):
                         height=20,
                     ),
                     ft.Checkbox(
-                        label='Clean up "images-with-highlighted-text-folder"',
+                        label='Clean up "images-with-highlighted-text-boxes" folder',
+                        label_style=ft.TextStyle(size=10),
                         value=self.page.client_storage.get(
                             "clean_up_images_with_highlighted_text_boxes_folder"
                         ),
