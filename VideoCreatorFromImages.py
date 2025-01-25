@@ -117,7 +117,6 @@ class VideoCreatorFromImages:
         ]
         images = [os.path.join(image_folder, file) for file in files_that_are_images]
 
-        # TODO: Add new function here to get variable values
         if self.use_text_to_speech_azure:
             images_duration_based_on_tts = self.get_images_duration_based_on_tts(
                 images,
@@ -133,128 +132,14 @@ class VideoCreatorFromImages:
         output_directory = os.path.dirname(output_file)
         os.makedirs(output_directory, exist_ok=True)
 
-        def get_clips():
-            clips = []
-
-            image_paths_to_use = images
-
-            if self.highlight_text_boxes_in_images:
-                sorted_images_from_highlighted_text = sorted(
-                    os.listdir(images_with_highlighted_text_boxes_folder),
-                    key=natural_sort_key,
-                )
-                files_that_are_images = [
-                    file
-                    for file in sorted_images_from_highlighted_text
-                    if file.lower().endswith((".png", ".jpg", ".jpeg"))
-                ]
-                image_paths_to_use = [
-                    os.path.join(images_with_highlighted_text_boxes_folder, file)
-                    for file in files_that_are_images
-                ]
-
-            for index, img in enumerate(image_paths_to_use):
-                # Extract base name of the image (e.g., panel_1.png -> panel_1)
-                base_name, _ = os.path.splitext(os.path.basename(img))
-                wav_path = os.path.join(
-                    full_output_directory, f"audio-files/{base_name}.wav"
-                )
-
-                img_duration = self.get_img_duration(
-                    images_duration_based_on_wpm=images_duration_based_on_wpm,
-                    images_duration_based_on_tts=images_duration_based_on_tts,
-                    index=index,
-                )
-
-                image_clip = (
-                    ImageClip(img)
-                    .resized(height=int(self.video_height))
-                    .with_duration(img_duration)
-                )
-
-                # Check if the corresponding .wav file exists
-                if os.path.exists(wav_path):
-                    # Get the actual duration of the audio file
-                    audio_clip = AudioFileClip(wav_path)
-                    audio_duration = audio_clip.duration
-
-                    # Adjust the duration to avoid exceeding the audio duration
-                    adjusted_duration = min(img_duration, audio_duration)
-
-                    # Subclip the audio to match the adjusted duration
-                    audio_clip = audio_clip.subclipped(0, adjusted_duration)
-
-                    combined_audio_clips = audio_clip
-
-                    use_image_pre_tts_audio_delay = True
-
-                    # Check if the image can use "Pre-TTS"
-                    if self.highlight_text_boxes_in_images:
-                        current_panel_num = int(base_name.split("-")[1])
-                        is_first_base_panel_image = current_panel_num == 1
-
-                        if not is_first_base_panel_image:
-                            use_image_pre_tts_audio_delay = False
-
-                    if (
-                        self.image_pre_tts_audio_delay > 0
-                        and use_image_pre_tts_audio_delay
-                    ):
-                        adjusted_duration += self.image_pre_tts_audio_delay
-
-                        # Add padding before the audio starts
-                        padding_before_audio_file_clip = AudioClip(
-                            lambda t: 0, duration=self.image_pre_tts_audio_delay
-                        )
-
-                        # Combine the silent audio and actual audio
-                        combined_audio_clips = CompositeAudioClip(
-                            [
-                                padding_before_audio_file_clip.with_start(0),
-                                audio_clip.with_start(self.image_pre_tts_audio_delay),
-                            ]
-                        )
-
-                    use_image_post_tts_audio_delay = True
-
-                    # If the image is the last image in the directory or the next image after this one has a different starting base_name, then add the post_tts_delay. Else, do not add it.
-                    if self.highlight_text_boxes_in_images:
-                        is_last_image_in_dir = index == len(image_paths_to_use) - 1
-
-                        if not is_last_image_in_dir:
-                            next_image_path = image_paths_to_use[index + 1]
-                            next_panel_base_name, _ = os.path.splitext(
-                                os.path.basename(next_image_path)
-                            )
-
-                            current_panel_starting_base_name = base_name.split("-")[0]
-                            next_panel_starting_base_name = next_panel_base_name.split(
-                                "-"
-                            )[0]
-
-                            last_highlighted_text_image_for_panel = (
-                                current_panel_starting_base_name
-                                != next_panel_starting_base_name
-                            )
-
-                            if not last_highlighted_text_image_for_panel:
-                                use_image_post_tts_audio_delay = False
-
-                    if use_image_post_tts_audio_delay:
-                        adjusted_duration += self.image_post_tts_audio_delay
-
-                    # Update the image clip's duration and add the audio
-                    image_clip = image_clip.with_duration(adjusted_duration).with_audio(
-                        combined_audio_clips
-                    )
-
-                # Add the clip to the list
-                clips.append(image_clip)
-
-            return clips
-
         # Create a list of ImageClips, resizing them to fit the video height
-        clips = get_clips()
+        clips = self.get_clips(
+            images,
+            images_with_highlighted_text_boxes_folder,
+            images_duration_based_on_wpm,
+            images_duration_based_on_tts,
+            full_output_directory,
+        )
 
         # Concatenate all ImageClips into a single video
         video = concatenate_videoclips(clips, method="compose")
@@ -354,7 +239,6 @@ class VideoCreatorFromImages:
         #     ],
         # ]
 
-        # TODO: Will need the full Magi output for the highlight text boxes feature.
         # TODO: Move this up to the top later - this is a separate feature from TTS that should be able to be used with other options "Image Duration" and "Reading WPM (Seconds)".
 
         magi_output_data = magi_frieren_ch_55_panel_6_output
@@ -436,6 +320,130 @@ class VideoCreatorFromImages:
             return max(final_image_duration, self.minimum_image_duration)
 
         return final_image_duration
+
+    def get_clips(
+        self,
+        images,
+        images_with_highlighted_text_boxes_folder,
+        images_duration_based_on_wpm,
+        images_duration_based_on_tts,
+        full_output_directory,
+    ):
+        clips = []
+
+        image_paths_to_use = images
+
+        if self.highlight_text_boxes_in_images:
+            sorted_images_from_highlighted_text = sorted(
+                os.listdir(images_with_highlighted_text_boxes_folder),
+                key=natural_sort_key,
+            )
+            files_that_are_images = [
+                file
+                for file in sorted_images_from_highlighted_text
+                if file.lower().endswith((".png", ".jpg", ".jpeg"))
+            ]
+            image_paths_to_use = [
+                os.path.join(images_with_highlighted_text_boxes_folder, file)
+                for file in files_that_are_images
+            ]
+
+        for index, img in enumerate(image_paths_to_use):
+            # Extract base name of the image (e.g., panel_1.png -> panel_1)
+            base_name, _ = os.path.splitext(os.path.basename(img))
+            wav_path = os.path.join(
+                full_output_directory, f"audio-files/{base_name}.wav"
+            )
+
+            img_duration = self.get_img_duration(
+                images_duration_based_on_wpm=images_duration_based_on_wpm,
+                images_duration_based_on_tts=images_duration_based_on_tts,
+                index=index,
+            )
+
+            image_clip = (
+                ImageClip(img)
+                .resized(height=int(self.video_height))
+                .with_duration(img_duration)
+            )
+
+            # Check if the corresponding .wav file exists
+            if os.path.exists(wav_path):
+                # Get the actual duration of the audio file
+                audio_clip = AudioFileClip(wav_path)
+                audio_duration = audio_clip.duration
+
+                # Adjust the duration to avoid exceeding the audio duration
+                adjusted_duration = min(img_duration, audio_duration)
+
+                # Subclip the audio to match the adjusted duration
+                audio_clip = audio_clip.subclipped(0, adjusted_duration)
+
+                combined_audio_clips = audio_clip
+
+                use_image_pre_tts_audio_delay = True
+
+                # Check if the image can use "Pre-TTS"
+                if self.highlight_text_boxes_in_images:
+                    current_panel_num = int(base_name.split("-")[1])
+                    is_first_base_panel_image = current_panel_num == 1
+
+                    if not is_first_base_panel_image:
+                        use_image_pre_tts_audio_delay = False
+
+                if self.image_pre_tts_audio_delay > 0 and use_image_pre_tts_audio_delay:
+                    adjusted_duration += self.image_pre_tts_audio_delay
+
+                    # Add padding before the audio starts
+                    padding_before_audio_file_clip = AudioClip(
+                        lambda t: 0, duration=self.image_pre_tts_audio_delay
+                    )
+
+                    # Combine the silent audio and actual audio
+                    combined_audio_clips = CompositeAudioClip(
+                        [
+                            padding_before_audio_file_clip.with_start(0),
+                            audio_clip.with_start(self.image_pre_tts_audio_delay),
+                        ]
+                    )
+
+                use_image_post_tts_audio_delay = True
+
+                # If the image is the last image in the directory or the next image after this one has a different starting base_name, then add the post_tts_delay. Else, do not add it.
+                if self.highlight_text_boxes_in_images:
+                    is_last_image_in_dir = index == len(image_paths_to_use) - 1
+
+                    if not is_last_image_in_dir:
+                        next_image_path = image_paths_to_use[index + 1]
+                        next_panel_base_name, _ = os.path.splitext(
+                            os.path.basename(next_image_path)
+                        )
+
+                        current_panel_starting_base_name = base_name.split("-")[0]
+                        next_panel_starting_base_name = next_panel_base_name.split("-")[
+                            0
+                        ]
+
+                        last_highlighted_text_image_for_panel = (
+                            current_panel_starting_base_name
+                            != next_panel_starting_base_name
+                        )
+
+                        if not last_highlighted_text_image_for_panel:
+                            use_image_post_tts_audio_delay = False
+
+                if use_image_post_tts_audio_delay:
+                    adjusted_duration += self.image_post_tts_audio_delay
+
+                # Update the image clip's duration and add the audio
+                image_clip = image_clip.with_duration(adjusted_duration).with_audio(
+                    combined_audio_clips
+                )
+
+            # Add the clip to the list
+            clips.append(image_clip)
+
+        return clips
 
 
 is_running_as_main_program = __name__ == "__main__"
