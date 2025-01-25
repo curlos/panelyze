@@ -216,17 +216,24 @@ class HighlightTextBoxesInImages(SettingsBase):
 
         self.content = ft.Column(
             controls=[
-                ft.Checkbox(
-                    label="Highlight Text Boxes In Images",
-                    value=self.page.client_storage.get(
-                        "highlight_text_boxes_in_images"
+                ft.ExpansionTile(
+                    title=ft.Checkbox(
+                        label="Highlight Text Boxes In Images",
+                        label_style=ft.TextStyle(size=14),
+                        value=self.page.client_storage.get(
+                            "highlight_text_boxes_in_images"
+                        ),
+                        on_change=lambda e: self.toggle_setting_element_visibility(
+                            e,
+                            self.highlight_text_boxes_in_images_col,
+                            "highlight_text_boxes_in_images",
+                        ),
                     ),
-                    on_change=lambda e: self.toggle_setting_element_visibility(
-                        e,
-                        self.highlight_text_boxes_in_images_col,
-                        "highlight_text_boxes_in_images",
-                    ),
+                    maintain_state=True,
+                    text_color="white",
+                    controls=[self.highlight_text_boxes_in_images_col],
+                    tile_padding=0,
+                    controls_padding=ft.padding.only(top=5, bottom=10),
                 ),
-                self.highlight_text_boxes_in_images_col,
             ]
         )
