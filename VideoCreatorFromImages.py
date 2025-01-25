@@ -122,6 +122,7 @@ class VideoCreatorFromImages:
                 images,
                 images_with_highlighted_text_boxes_folder,
                 full_audio_files_output_directory,
+                image_folder,
             )
         elif self.use_reading_speed_wpm:
             images_duration_based_on_wpm = self.get_images_duration_based_on_wpm(
@@ -177,71 +178,14 @@ class VideoCreatorFromImages:
         images,
         images_with_highlighted_text_boxes_folder,
         full_audio_files_output_directory,
+        image_folder,
     ):
         images_duration_based_on_tts = []
 
-        # TODO: Bring this back after testing is done.
-        # essential_text_in_images_matrix = (
-        #     self.speech_text_parser.get_essential_text_list_in_images(image_folder)
-        # )
-
-        # essential_text_in_images_matrix = [
-        #     [
-        #         "Red Line: Holy Land of Mariejoa",
-        #         "vanished...?",
-        #         "Yeah. That's what happened.",
-        #         "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
-        #         "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
-        #         "This is no joking matter!!!",
-        #     ],
-        #     [
-        #         "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
-        #         "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
-        #         "And you call this doing your job, do you...?!!!",
-        #     ],
-        # ]
-
-        essential_text_in_images_matrix = [
-            [
-                "A battle between mages is akin to a rock-paper-scissors match, after all.",
-                "Albeit a rock-paper-scissors match",
-                "that is extremely complex, difficult to read and involves a myriad of moves.",
-            ],
-        ]
-
-        # essential_text_in_images_matrix = [
-        #     [],
-        #     [],
-        #     [
-        #         "I more or less get the picture now.",
-        #         'You people are buying time for Friedman to defeat this "Spiegel", the "Reflective Water Demon".',
-        #         "Well, for the clones, we've already dealt with three of them.",
-        #         "It seems this discussion will be quick then.",
-        #         "In that case-",
-        #     ],
-        #     [
-        #         "..... Oh my.",
-        #         "It seems Sense-san's clone got crushed just now.",
-        #         "...This mama. The one who took it down must be libel, the third- class mage.",
-        #     ],
-        #     [
-        #         "What a surprising outcome.",
-        #         "You think? That match-up's pretty off.",
-        #     ],
-        #     [
-        #         "A battle between images is akin to a rock- paper-scissors match, after all.",
-        #         "Albert a rock-paper- scissors match",
-        #         "that is extremely complex, difficult to read and involves a myriad of moves.",
-        #     ],
-        #     [
-        #         "So you would like to increase the number of available moves we have, by how- ever little it may be.",
-        #         "Very well. I'll help you hold back the clones.",
-        #     ],
-        # ]
-
         # TODO: Move this up to the top later - this is a separate feature from TTS that should be able to be used with other options "Image Duration" and "Reading WPM (Seconds)".
-
-        magi_output_data = magi_frieren_ch_55_panel_6_output
+        (essential_text_in_images_matrix, magi_output_data) = (
+            self.get_essential_text_and_magi_data(image_folder, "multiple-panels")
+        )
 
         if self.highlight_text_boxes_in_images:
             for index, image_file in enumerate(images):
@@ -320,6 +264,78 @@ class VideoCreatorFromImages:
             return max(final_image_duration, self.minimum_image_duration)
 
         return final_image_duration
+
+    def get_essential_text_and_magi_data(self, image_folder, testing_type):
+        essential_text_in_images_matrix = None
+        magi_output_data = None
+
+        if testing_type == "1-panel":
+            essential_text_in_images_matrix = [
+                [
+                    "A battle between mages is akin to a rock-paper-scissors match, after all.",
+                    "Albeit a rock-paper-scissors match",
+                    "that is extremely complex, difficult to read and involves a myriad of moves.",
+                ],
+            ]
+            magi_output_data = magi_frieren_ch_55_panel_6_output
+
+        elif testing_type == "multiple-panels":
+            # essential_text_in_images_matrix = [
+            #     [
+            #         "Red Line: Holy Land of Mariejoa",
+            #         "vanished...?",
+            #         "Yeah. That's what happened.",
+            #         "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
+            #         "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
+            #         "This is no joking matter!!!",
+            #     ],
+            #     [
+            #         "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
+            #         "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
+            #         "And you call this doing your job, do you...?!!!",
+            #     ],
+            # ]
+
+            essential_text_in_images_matrix = [
+                [],
+                [],
+                [
+                    "I more or less get the picture now.",
+                    'You people are buying time for Friedman to defeat this "Spiegel", the "Reflective Water Demon".',
+                    "Well, for the clones, we've already dealt with three of them.",
+                    "It seems this discussion will be quick then.",
+                    "In that case-",
+                ],
+                [
+                    "..... Oh my.",
+                    "It seems Sense-san's clone got crushed just now.",
+                    "...This mama. The one who took it down must be libel, the third- class mage.",
+                ],
+                [
+                    "What a surprising outcome.",
+                    "You think? That match-up's pretty off.",
+                ],
+                [
+                    "A battle between images is akin to a rock- paper-scissors match, after all.",
+                    "Albert a rock-paper- scissors match",
+                    "that is extremely complex, difficult to read and involves a myriad of moves.",
+                ],
+                [
+                    "So you would like to increase the number of available moves we have, by how- ever little it may be.",
+                    "Very well. I'll help you hold back the clones.",
+                ],
+            ]
+            magi_output_data = magi_ch_55_frieren_panel_1_to_7_output
+        else:
+            # Default that should be used when not testing.
+            essential_text_in_images_matrix = (
+                self.speech_text_parser.get_essential_text_list_in_images(image_folder)
+            )
+
+            # TODO: Need to add logic somewhere here to get dynamic magi data for highlighted text. Probably should only call it when "highlight_text_boxes_in_images" is True too.
+            magi_output_data = None
+
+        return (essential_text_in_images_matrix, magi_output_data)
 
     def get_clips(
         self,
