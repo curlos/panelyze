@@ -2,7 +2,7 @@ import os
 import flet as ft
 from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
 from classes.SettingsImagesToVideo import SettingsImagesToVideo
-from create_video_from_images import VideoCreatorFromImages
+from VideoCreatorFromImages import VideoCreatorFromImages
 from utils import (
     get_last_two_directories_obj,
     input_and_output_dirs_are_valid,
