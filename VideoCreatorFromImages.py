@@ -123,6 +123,7 @@ class VideoCreatorFromImages:
                 images_with_highlighted_text_boxes_folder,
                 full_audio_files_output_directory,
                 image_folder,
+                full_output_directory,
             )
         elif self.use_reading_speed_wpm:
             images_duration_based_on_wpm = self.get_images_duration_based_on_wpm(
@@ -179,12 +180,15 @@ class VideoCreatorFromImages:
         images_with_highlighted_text_boxes_folder,
         full_audio_files_output_directory,
         image_folder,
+        full_output_directory,
     ):
         images_duration_based_on_tts = []
 
         # TODO: Move this up to the top later - this is a separate feature from TTS that should be able to be used with other options "Image Duration" and "Reading WPM (Seconds)".
         (essential_text_in_images_matrix, magi_output_data) = (
-            self.get_essential_text_and_magi_data(image_folder, "multiple-panels")
+            self.get_essential_text_and_magi_data(
+                image_folder, "multiple-panels", full_output_directory
+            )
         )
 
         if self.highlight_text_boxes_in_images:
@@ -265,15 +269,25 @@ class VideoCreatorFromImages:
 
         return final_image_duration
 
-    def get_essential_text_and_magi_data(self, image_folder, testing_type):
+    def get_essential_text_and_magi_data(
+        self, image_folder, testing_type, full_output_directory
+    ):
         essential_text_in_images_matrix = None
         magi_output_data = None
 
+        read_from_transcript = True
+        essential_text_from_transcript = None
+
+        if read_from_transcript:
+            essential_text_from_transcript = self.get_essential_text_from_transcript(
+                full_output_directory
+            )
+
         if testing_type == "1-panel":
-            essential_text_in_images_matrix = [
+            essential_text_in_images_matrix = essential_text_from_transcript or [
                 [
-                    "A battle between mages is akin to a rock-paper-scissors match, after all.",
-                    "Albeit a rock-paper-scissors match",
+                    "A battle between images is akin to a rock- paper-scissors match, after all.",
+                    "Albert a rock-paper- scissors match",
                     "that is extremely complex, difficult to read and involves a myriad of moves.",
                 ],
             ]
@@ -296,7 +310,7 @@ class VideoCreatorFromImages:
             #     ],
             # ]
 
-            essential_text_in_images_matrix = [
+            essential_text_in_images_matrix = essential_text_from_transcript or [
                 [],
                 [],
                 [
@@ -328,14 +342,73 @@ class VideoCreatorFromImages:
             magi_output_data = magi_ch_55_frieren_panel_1_to_7_output
         else:
             # Default that should be used when not testing.
-            essential_text_in_images_matrix = (
+            essential_text_in_images_matrix = essential_text_from_transcript or (
                 self.speech_text_parser.get_essential_text_list_in_images(image_folder)
             )
 
             # TODO: Need to add logic somewhere here to get dynamic magi data for highlighted text. Probably should only call it when "highlight_text_boxes_in_images" is True too.
             magi_output_data = None
 
+        self.save_essential_text_to_transcript(
+            essential_text_in_images_matrix, full_output_directory
+        )
+
         return (essential_text_in_images_matrix, magi_output_data)
+
+    def save_essential_text_to_transcript(
+        self, essential_text_in_images_matrix, full_output_directory
+    ):
+        # Ensure the directory exists
+        os.makedirs(full_output_directory, exist_ok=True)
+
+        # Save each sentence on a new line with a separator between arrays
+        with open(f"{full_output_directory}/transcript.txt", "w") as file:
+            for image_text_arr in essential_text_in_images_matrix:
+                if image_text_arr:  # Non-empty array
+                    for sentence in image_text_arr:
+                        file.write(sentence + "\n")
+                # Add the separator for the next array
+                file.write("------ new image ------\n")
+
+        print("Transcript saved with separators.")
+
+    def get_essential_text_from_transcript(self, full_output_directory):
+        # Check if the directory exists
+        if not os.path.isdir(full_output_directory):
+            print(
+                f"Directory '{full_output_directory}' does not exist. Skipping operation."
+            )
+            return None
+
+        transcript_path = f"{full_output_directory}/transcript.txt"
+
+        # Check if the transcript file exists
+        if not os.path.exists(transcript_path):
+            print(
+                f"Transcript file '{transcript_path}' does not exist. Skipping operation."
+            )
+            return None
+
+        # Read the transcript file
+        with open(transcript_path, "r") as file:
+            lines = file.readlines()
+
+        loaded_arrays = []  # List to store all arrays
+        current_array = []  # Temporary list for the current array
+
+        for line in lines:
+            line = line.strip()
+            if line == "------ new image ------":  # Separator marks the end of an array
+                loaded_arrays.append(current_array)  # Append the current array
+                current_array = []  # Reset for the next array
+            else:
+                current_array.append(line)  # Add line to the current array
+
+        # Add the last array if the file doesn't end with the separator
+        if current_array:
+            loaded_arrays.append(current_array)
+
+        return loaded_arrays
 
     def get_clips(
         self,
