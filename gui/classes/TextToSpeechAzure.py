@@ -36,12 +36,6 @@ class TextToSpeechAzure(SettingsBase):
             value="use_text_to_speech_azure",
         )
 
-        self.radio_group_dict["use_text_to_speech_azure"] = {
-            "elem": self.radio_use_text_to_speech_azure,
-            "toggle_elem": self,
-            "setting_key": "use_text_to_speech_azure",
-        }
-
         self.azure_subscription_key_textfield = ft.TextField(
             label="Azure Subscription Key",
             border_color="#5e81ac",
@@ -186,7 +180,7 @@ class TextToSpeechAzure(SettingsBase):
             on_change=lambda e: self.change_setting("azure_voice_style", e.data),
         )
 
-        self.content = ft.Column(
+        self.text_to_speech_azure_col = ft.Column(
             controls=[
                 self.azure_subscription_key_textfield,
                 self.azure_region_textfield,
@@ -242,7 +236,15 @@ class TextToSpeechAzure(SettingsBase):
             ],
             visible=bool(self.page.client_storage.get("use_text_to_speech_azure")),
         )
+
+        self.content = self.text_to_speech_azure_col
         self.padding = ft.padding.only(left=30)
+
+        self.radio_group_dict["use_text_to_speech_azure"] = {
+            "elem": self.radio_use_text_to_speech_azure,
+            "toggle_elem": self.text_to_speech_azure_col,
+            "setting_key": "use_text_to_speech_azure",
+        }
 
     def handle_voice_locale_change(self, e):
         self.change_setting("azure_voice_locale", e.data)
