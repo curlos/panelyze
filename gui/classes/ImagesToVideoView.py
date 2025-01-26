@@ -18,8 +18,9 @@ class ImagesToVideoView(ft.Container):
         self.page = self.parent_gui.page
         self.bgcolor = "#3b4252"
         self.expand = True
-        self.speech_text_parser = None
-        self.tts = None
+        self.video_creator_from_images = VideoCreatorFromImages(
+            flet_page_client_storage=self.page.client_storage,
+        )
 
         self.pick_input_output_directories_container = PickInputAndOutputDirectories(
             on_submit=self.handle_create_videos,
@@ -61,6 +62,10 @@ class ImagesToVideoView(ft.Container):
                     next_path = os.path.join(current_path, key) if current_path else key
                     traverse_and_process(value, next_path)
 
+        self.video_creator_from_images.initialize_flet_client_storage_values(
+            self.page.client_storage
+        )
+
         # Start the traversal from the root of the structure
         traverse_and_process(files_directory_structure, base_path)
         open_directory(output_directory)
@@ -81,11 +86,7 @@ class ImagesToVideoView(ft.Container):
 
         print(f'Creating video "{series_name}/{chapter_name}.mp4"')
 
-        video_creator_from_images = VideoCreatorFromImages(
-            flet_page_client_storage=self.page.client_storage,
-        )
-
-        video_creator_from_images.create_video_from_images(
+        self.video_creator_from_images.create_video_from_images(
             input_directory,
             output_file,
             full_output_directory=full_output_directory,

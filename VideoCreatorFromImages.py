@@ -10,7 +10,7 @@ import os
 
 from TextToSpeech import TextToSpeech
 from SpeechTextParser import SpeechTextParser
-from draw_box_coords import draw_box_coords_box_list
+from draw_box_coords import DrawBoxCoords
 from magi_ch_55_frieren_essential_text import magi_ch_55_frieren_essential_text
 from magi_frieren_ch_55_panel_6_output import magi_frieren_ch_55_panel_6_output
 from magi_ch_55_frieren_panel_1_to_7_output import (
@@ -25,16 +25,12 @@ from utils import (
 
 
 class VideoCreatorFromImages:
-    def __init__(
-        self, flet_page_client_storage=None, speech_text_parser=None, tts=None
-    ):
+    def __init__(self, flet_page_client_storage=None):
         self.flet_page_client_storage = flet_page_client_storage
-        self.speech_text_parser = speech_text_parser or SpeechTextParser()
-        self.tts = tts or TextToSpeech(self.flet_page_client_storage)
+        self.speech_text_parser = SpeechTextParser()
+        self.tts = TextToSpeech(self.flet_page_client_storage)
+        self.draw_box_coords = DrawBoxCoords(self.flet_page_client_storage)
 
-        self.initialize_flet_client_storage_values()
-
-    def initialize_flet_client_storage_values(self):
         self.video_height = 1080
         self.image_displayed_duration = 3
 
@@ -52,6 +48,15 @@ class VideoCreatorFromImages:
 
         self.clean_up_images_with_highlighted_text_boxes_folder = False
         self.clean_up_tts_audio_files_folder = False
+
+        self.initialize_flet_client_storage_values()
+
+    def initialize_flet_client_storage_values(self, flet_page_client_storage=None):
+        if flet_page_client_storage:
+            self.flet_page_client_storage = flet_page_client_storage
+            self.draw_box_coords.initialize_flet_client_storage_values(
+                self.flet_page_client_storage
+            )
 
         if self.flet_page_client_storage:
             self.video_height = self.flet_page_client_storage.get("video_height")
@@ -203,11 +208,10 @@ class VideoCreatorFromImages:
                     if essential_text_arr[index]
                 ]
 
-                draw_box_coords_box_list(
+                self.draw_box_coords.draw_box_coords_box_list(
                     essential_text_matrix_boxes_coords,
                     image_file,
                     images_with_highlighted_text_boxes_folder,
-                    self.flet_page_client_storage,
                 )
 
         for index, panel_text_arr in enumerate(essential_text_in_images_matrix):
