@@ -125,9 +125,23 @@ class VideoCreatorFromImages:
 
         (essential_text_in_images_matrix, magi_output_data) = (
             self.get_essential_text_and_magi_data(
-                image_folder, "1-panel", full_output_directory
+                image_folder, "multiple-panels", full_output_directory
             )
         )
+
+        if images_with_highlighted_text_boxes_folder and os.path.exists(
+            images_with_highlighted_text_boxes_folder
+        ):
+            # Remove the directory and all its contents
+            shutil.rmtree(images_with_highlighted_text_boxes_folder)
+            print('Removed "images-with-highlighted-text-boxes" folders')
+
+        if full_audio_files_output_directory and os.path.exists(
+            full_audio_files_output_directory
+        ):
+            # Remove the directory and all its contents
+            shutil.rmtree(full_audio_files_output_directory)
+            print('Removed TTS "audio-files" folders')
 
         if self.use_text_to_speech_azure:
             images_duration_based_on_tts = self.get_images_duration_based_on_tts(
