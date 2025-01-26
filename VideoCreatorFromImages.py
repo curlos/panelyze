@@ -60,8 +60,8 @@ class VideoCreatorFromImages:
 
         if self.flet_page_client_storage:
             self.video_height = self.flet_page_client_storage.get("video_height")
-            self.image_displayed_duration = int(
-                self.flet_page_client_storage.get("image_displayed_duration")
+            self.image_displayed_duration = (
+                int(self.flet_page_client_storage.get("image_displayed_duration")) or 0
             )
             self.use_reading_speed_wpm = self.flet_page_client_storage.get(
                 "use_reading_speed_wpm"
@@ -69,15 +69,14 @@ class VideoCreatorFromImages:
             self.reading_speed_wpm = int(
                 self.flet_page_client_storage.get("reading_speed_wpm")
             )
-            self.image_displayed_duration = int(
-                self.flet_page_client_storage.get("image_displayed_duration") or 0
-            )
+
             self.use_minimum_image_duration = self.flet_page_client_storage.get(
                 "use_minimum_image_duration"
             )
             self.minimum_image_duration = int(
                 self.flet_page_client_storage.get("minimum_image_duration") or 0
             )
+
             self.use_text_to_speech_azure = self.flet_page_client_storage.get(
                 "use_text_to_speech_azure"
             )
@@ -87,9 +86,11 @@ class VideoCreatorFromImages:
             self.image_post_tts_audio_delay = int(
                 self.flet_page_client_storage.get("image_post_tts_audio_delay") or 0
             )
+
             self.highlight_text_boxes_in_images = self.flet_page_client_storage.get(
                 "highlight_text_boxes_in_images"
             )
+
             self.clean_up_images_with_highlighted_text_boxes_folder = (
                 self.flet_page_client_storage.get(
                     "clean_up_images_with_highlighted_text_boxes_folder"
@@ -122,18 +123,44 @@ class VideoCreatorFromImages:
         ]
         images = [os.path.join(image_folder, file) for file in files_that_are_images]
 
+        (essential_text_in_images_matrix, magi_output_data) = (
+            self.get_essential_text_and_magi_data(
+                image_folder, "1-panel", full_output_directory
+            )
+        )
+
         if self.use_text_to_speech_azure:
             images_duration_based_on_tts = self.get_images_duration_based_on_tts(
                 images,
                 images_with_highlighted_text_boxes_folder,
                 full_audio_files_output_directory,
-                image_folder,
-                full_output_directory,
+                essential_text_in_images_matrix,
+                magi_output_data,
             )
         elif self.use_reading_speed_wpm:
             images_duration_based_on_wpm = self.get_images_duration_based_on_wpm(
                 image_folder
             )
+        else:
+            if self.highlight_text_boxes_in_images:
+                # TODO: There is a very similar piece of code below this for TTS. A similar piece of code will be needed for WPM as well. Refactor this into a function that can be reused for these three.
+                for index, image_file in enumerate(images):
+                    magi_image_data = magi_output_data[index]
+                    text_matrix_boxes_coords = magi_image_data["texts"]
+                    essential_text_arr = magi_image_data["is_essential_text"]
+
+                    essential_text_matrix_boxes_coords = [
+                        box_coords
+                        for index, box_coords in enumerate(text_matrix_boxes_coords)
+                        if essential_text_arr[index]
+                    ]
+
+                    self.draw_box_coords.draw_box_coords_box_list(
+                        essential_text_matrix_boxes_coords,
+                        image_file,
+                        images_with_highlighted_text_boxes_folder,
+                        draw_all_box_coords_at_once=True,
+                    )
 
         # Ensure the output directory exists
         output_directory = os.path.dirname(output_file)
@@ -184,17 +211,10 @@ class VideoCreatorFromImages:
         images,
         images_with_highlighted_text_boxes_folder,
         full_audio_files_output_directory,
-        image_folder,
-        full_output_directory,
+        essential_text_in_images_matrix,
+        magi_output_data,
     ):
         images_duration_based_on_tts = []
-
-        # TODO: Move this up to the top later - this is a separate feature from TTS that should be able to be used with other options "Image Duration" and "Reading WPM (Seconds)".
-        (essential_text_in_images_matrix, magi_output_data) = (
-            self.get_essential_text_and_magi_data(
-                image_folder, "1-panel", full_output_directory
-            )
-        )
 
         if self.highlight_text_boxes_in_images:
             for index, image_file in enumerate(images):
@@ -212,6 +232,7 @@ class VideoCreatorFromImages:
                     essential_text_matrix_boxes_coords,
                     image_file,
                     images_with_highlighted_text_boxes_folder,
+                    draw_all_box_coords_at_once=False,
                 )
 
         for index, panel_text_arr in enumerate(essential_text_in_images_matrix):

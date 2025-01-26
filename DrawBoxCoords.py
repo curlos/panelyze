@@ -83,7 +83,7 @@ class DrawBoxCoords:
 
     def draw_box_coords_box(
         self,
-        box_coords,
+        box_coords_matrix,
         base_pil_image,
         input_file_path,
         index,
@@ -94,50 +94,49 @@ class DrawBoxCoords:
         subplot.imshow(base_pil_image)
         plt.axis("off")
 
-        width = box_coords[2] - box_coords[0]
-        height = box_coords[3] - box_coords[1]
-        top_left_box_coords = box_coords[:2]
+        for box_coords in box_coords_matrix:
+            width = box_coords[2] - box_coords[0]
+            height = box_coords[3] - box_coords[1]
+            top_left_box_coords = box_coords[:2]
 
-        border_color = (0, 0, 0, 0)
-        background_color = (0, 0, 0, 0)
+            border_color = (0, 0, 0, 0)
+            background_color = (0, 0, 0, 0)
 
-        if self.images_to_video_text_box_border_color != "transparent":
-            border_color = hex_to_rgb(self.images_to_video_text_box_border_color) + (
-                self.images_to_video_text_box_border_color_opacity,
+            if self.images_to_video_text_box_border_color != "transparent":
+                border_color = hex_to_rgb(
+                    self.images_to_video_text_box_border_color
+                ) + (self.images_to_video_text_box_border_color_opacity,)
+
+            if self.images_to_video_text_box_background_color != "transparent":
+                background_color = hex_to_rgb(
+                    self.images_to_video_text_box_background_color
+                ) + (self.images_to_video_text_box_background_color_opacity,)
+
+            rect = patches.Rectangle(
+                (
+                    top_left_box_coords[0]
+                    - self.images_to_video_text_box_padding,  # Move left by padding
+                    top_left_box_coords[1]
+                    - self.images_to_video_text_box_padding,  # Move up by padding
+                ),
+                width
+                + 2
+                * self.images_to_video_text_box_padding,  # Add padding to width on both sides
+                height
+                + 2
+                * self.images_to_video_text_box_padding,  # Add padding to height on top and bottom
+                linewidth=self.images_to_video_text_box_border_width,
+                edgecolor=border_color,
+                facecolor=background_color,
+                linestyle=self.images_to_video_text_box_border_style,
             )
 
-        if self.images_to_video_text_box_background_color != "transparent":
-            background_color = hex_to_rgb(
-                self.images_to_video_text_box_background_color
-            ) + (self.images_to_video_text_box_background_color_opacity,)
-
-        rect = patches.Rectangle(
-            (
-                top_left_box_coords[0]
-                - self.images_to_video_text_box_padding,  # Move left by padding
-                top_left_box_coords[1]
-                - self.images_to_video_text_box_padding,  # Move up by padding
-            ),
-            width
-            + 2
-            * self.images_to_video_text_box_padding,  # Add padding to width on both sides
-            height
-            + 2
-            * self.images_to_video_text_box_padding,  # Add padding to height on top and bottom
-            linewidth=self.images_to_video_text_box_border_width,
-            edgecolor=border_color,
-            facecolor=background_color,
-            linestyle=self.images_to_video_text_box_border_style,
-        )
-
-        subplot.add_patch(rect)
+            subplot.add_patch(rect)
 
         output_file_name = self.get_output_file_name(
             input_file_path, index, output_image_folder
         )
-
         figure.savefig(output_file_name, bbox_inches="tight", pad_inches=0)
-
         plt.close()
 
     @time_it()
@@ -161,14 +160,24 @@ class DrawBoxCoords:
         with Image.open(input_file_path) as base_pil_image:
             base_pil_image.load()  # Ensure the image is fully loaded into memory
 
-        for index, box_coords in enumerate(text_matrix_boxes_coords):
+        if draw_all_box_coords_at_once:
             self.draw_box_coords_box(
-                box_coords,
-                base_pil_image,
-                input_file_path,
-                index + 1,
-                output_image_folder,
+                box_coords_matrix=text_matrix_boxes_coords,
+                base_pil_image=base_pil_image,
+                input_file_path=input_file_path,
+                index=1,
+                output_image_folder=output_image_folder,
             )
+        else:
+            for index, box_coords in enumerate(text_matrix_boxes_coords):
+                box_coords_single_matrix = [box_coords]
+                self.draw_box_coords_box(
+                    box_coords_matrix=box_coords_single_matrix,
+                    base_pil_image=base_pil_image,
+                    input_file_path=input_file_path,
+                    index=index + 1,
+                    output_image_folder=output_image_folder,
+                )
 
     def get_output_file_name(self, input_file_path, index, output_image_folder):
         output_file_name = modify_filename(input_file_path, index)
