@@ -10,7 +10,7 @@ import os
 
 from TextToSpeech import TextToSpeech
 from SpeechTextParser import SpeechTextParser
-from draw_box_coords import DrawBoxCoords
+from DrawBoxCoords import DrawBoxCoords
 from magi_ch_55_frieren_essential_text import magi_ch_55_frieren_essential_text
 from magi_frieren_ch_55_panel_6_output import magi_frieren_ch_55_panel_6_output
 from magi_ch_55_frieren_panel_1_to_7_output import (
