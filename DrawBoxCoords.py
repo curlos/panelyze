@@ -145,7 +145,7 @@ class DrawBoxCoords:
         text_matrix_boxes_coords,
         input_file_path,
         output_image_folder,
-        draw_all_box_coords_at_once=False,
+        one_box_per_image=False,
     ):
         if len(text_matrix_boxes_coords) == 0:
             output_file_name = self.get_output_file_name(
@@ -160,15 +160,7 @@ class DrawBoxCoords:
         with Image.open(input_file_path) as base_pil_image:
             base_pil_image.load()  # Ensure the image is fully loaded into memory
 
-        if draw_all_box_coords_at_once:
-            self.draw_box_coords_box(
-                box_coords_matrix=text_matrix_boxes_coords,
-                base_pil_image=base_pil_image,
-                input_file_path=input_file_path,
-                index=1,
-                output_image_folder=output_image_folder,
-            )
-        else:
+        if one_box_per_image:
             for index, box_coords in enumerate(text_matrix_boxes_coords):
                 box_coords_single_matrix = [box_coords]
                 self.draw_box_coords_box(
@@ -178,6 +170,15 @@ class DrawBoxCoords:
                     index=index + 1,
                     output_image_folder=output_image_folder,
                 )
+
+        else:
+            self.draw_box_coords_box(
+                box_coords_matrix=text_matrix_boxes_coords,
+                base_pil_image=base_pil_image,
+                input_file_path=input_file_path,
+                index=1,
+                output_image_folder=output_image_folder,
+            )
 
     def get_output_file_name(self, input_file_path, index, output_image_folder):
         output_file_name = modify_filename(input_file_path, index)

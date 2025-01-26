@@ -156,25 +156,13 @@ class VideoCreatorFromImages:
                 image_folder
             )
         else:
-            if self.highlight_text_boxes_in_images:
-                # TODO: There is a very similar piece of code below this for TTS. A similar piece of code will be needed for WPM as well. Refactor this into a function that can be reused for these three.
-                for index, image_file in enumerate(images):
-                    magi_image_data = magi_output_data[index]
-                    text_matrix_boxes_coords = magi_image_data["texts"]
-                    essential_text_arr = magi_image_data["is_essential_text"]
-
-                    essential_text_matrix_boxes_coords = [
-                        box_coords
-                        for index, box_coords in enumerate(text_matrix_boxes_coords)
-                        if essential_text_arr[index]
-                    ]
-
-                    self.draw_box_coords.draw_box_coords_box_list(
-                        essential_text_matrix_boxes_coords,
-                        image_file,
-                        images_with_highlighted_text_boxes_folder,
-                        draw_all_box_coords_at_once=True,
-                    )
+            # For "Use Image Displayed Duration (sec.)"
+            self.draw_boxes_with_text_and_magi_data(
+                images,
+                images_with_highlighted_text_boxes_folder,
+                magi_output_data,
+                one_box_per_image=False,
+            )
 
         # Ensure the output directory exists
         output_directory = os.path.dirname(output_file)
@@ -229,25 +217,12 @@ class VideoCreatorFromImages:
         magi_output_data,
     ):
         images_duration_based_on_tts = []
-
-        if self.highlight_text_boxes_in_images:
-            for index, image_file in enumerate(images):
-                magi_image_data = magi_output_data[index]
-                text_matrix_boxes_coords = magi_image_data["texts"]
-                essential_text_arr = magi_image_data["is_essential_text"]
-
-                essential_text_matrix_boxes_coords = [
-                    box_coords
-                    for index, box_coords in enumerate(text_matrix_boxes_coords)
-                    if essential_text_arr[index]
-                ]
-
-                self.draw_box_coords.draw_box_coords_box_list(
-                    essential_text_matrix_boxes_coords,
-                    image_file,
-                    images_with_highlighted_text_boxes_folder,
-                    draw_all_box_coords_at_once=False,
-                )
+        self.draw_boxes_with_text_and_magi_data(
+            images,
+            images_with_highlighted_text_boxes_folder,
+            magi_output_data,
+            one_box_per_image=True,
+        )
 
         for index, panel_text_arr in enumerate(essential_text_in_images_matrix):
             image_path = images[index]
@@ -288,6 +263,32 @@ class VideoCreatorFromImages:
         return self.speech_text_parser.get_images_duration_based_on_wpm(
             image_folder, self.reading_speed_wpm
         )
+
+    def draw_boxes_with_text_and_magi_data(
+        self,
+        images,
+        images_with_highlighted_text_boxes_folder,
+        magi_output_data,
+        one_box_per_image=True,
+    ):
+        if self.highlight_text_boxes_in_images:
+            for index, image_file in enumerate(images):
+                magi_image_data = magi_output_data[index]
+                text_matrix_boxes_coords = magi_image_data["texts"]
+                essential_text_arr = magi_image_data["is_essential_text"]
+
+                essential_text_matrix_boxes_coords = [
+                    box_coords
+                    for index, box_coords in enumerate(text_matrix_boxes_coords)
+                    if essential_text_arr[index]
+                ]
+
+                self.draw_box_coords.draw_box_coords_box_list(
+                    essential_text_matrix_boxes_coords,
+                    image_file,
+                    images_with_highlighted_text_boxes_folder,
+                    one_box_per_image=one_box_per_image,
+                )
 
     def get_img_duration(
         self, images_duration_based_on_wpm, images_duration_based_on_tts, index
