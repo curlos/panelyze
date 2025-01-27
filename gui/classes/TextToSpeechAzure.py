@@ -238,7 +238,6 @@ class TextToSpeechAzure(SettingsBase):
         )
 
         self.content = self.text_to_speech_azure_col
-        self.padding = ft.padding.only(left=30)
 
         self.radio_group_dict["use_text_to_speech_azure"] = {
             "elem": self.radio_use_text_to_speech_azure,

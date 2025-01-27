@@ -86,6 +86,39 @@ class SettingsImagesToVideo(
         )
 
         self.inner_content = [
+            ft.Container(
+                content=ft.Column(
+                    controls=[
+                        ft.RadioGroup(
+                            content=ft.Column(
+                                controls=[
+                                    val["elem"]
+                                    for val in self.radio_group_dict.values()
+                                ]
+                            ),
+                            on_change=lambda e: self.handle_radio_group_change(
+                                e, self.radio_group_dict
+                            ),
+                            value=self.get_radio_group_init_value(
+                                radio_group_dict=self.radio_group_dict
+                            ),
+                        ),
+                        ft.Container(
+                            content=ft.Column(
+                                controls=[
+                                    self.reading_speed_wpm_col,
+                                    self.image_displayed_duration_col,
+                                    self.text_to_speech_azure_col,
+                                ]
+                            ),
+                            padding=ft.padding.only(left=30),
+                        ),
+                    ],
+                ),
+                padding=ft.padding.only(bottom=10),
+                margin=ft.margin.only(bottom=10),
+                border=ft.border.only(bottom=ft.border.BorderSide(2, "#5e81ac")),
+            ),
             self.video_height_textfield,
             ft.Checkbox(
                 label="Use Minimum Image Duration (sec.)",
@@ -98,20 +131,6 @@ class SettingsImagesToVideo(
             ),
             self.minimum_image_duration_col,
             HighlightTextBoxesInImages(self.page),
-            ft.RadioGroup(
-                content=ft.Column(
-                    controls=[val["elem"] for val in self.radio_group_dict.values()]
-                ),
-                on_change=lambda e: self.handle_radio_group_change(
-                    e, self.radio_group_dict
-                ),
-                value=self.get_radio_group_init_value(
-                    radio_group_dict=self.radio_group_dict
-                ),
-            ),
-            self.reading_speed_wpm_col,
-            self.image_displayed_duration_col,
-            self.text_to_speech_azure_col,
         ]
 
         self.content = self.get_full_content()
