@@ -67,11 +67,16 @@ class SettingsImagesToVideo(
             "Minimum Image Duration (seconds)", "minimum_image_duration"
         )
 
-        self.minimum_image_duration_col = ft.Column(
-            controls=[
-                self.minimum_image_duration_textfield,
-            ],
-            visible=bool(self.page.client_storage.get("use_minimum_image_duration")),
+        self.minimum_image_duration_col = ft.Container(
+            content=ft.Column(
+                controls=[
+                    self.minimum_image_duration_textfield,
+                ],
+                visible=bool(
+                    self.page.client_storage.get("use_minimum_image_duration")
+                ),
+            ),
+            padding=ft.padding.only(left=30),
         )
 
         self.page_num_textfield_dict = {
@@ -131,6 +136,13 @@ class SettingsImagesToVideo(
             ),
             self.minimum_image_duration_col,
             HighlightTextBoxesInImages(self.page),
+            ft.Checkbox(
+                label="Use Parent Folder Name",
+                value=self.page.client_storage.get("use_parent_folder_name"),
+                on_change=lambda e: self.change_setting(
+                    "use_parent_folder_name", e.data
+                ),
+            ),
         ]
 
         self.content = self.get_full_content()

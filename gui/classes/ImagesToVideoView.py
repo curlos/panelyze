@@ -81,8 +81,14 @@ class ImagesToVideoView(ft.Container):
         # Current path is a directory containing images
         input_directory = os.path.join(base_path, current_path)
         series_name, chapter_name = get_last_two_directories_obj(input_directory)
-        full_output_directory = f"{output_directory}/{series_name}"
-        output_file = f"{output_directory}/{series_name}/{chapter_name}.mp4"
+        full_output_directory = f"{output_directory}"
+        output_file = f"{output_directory}/{chapter_name}.mp4"
+
+        use_parent_folder_name = self.page.client_storage.get("use_parent_folder_name")
+
+        if use_parent_folder_name:
+            full_output_directory = f"{output_directory}/{series_name}"
+            output_file = f"{output_directory}/{series_name}/{chapter_name}.mp4"
 
         print(f'Creating video "{series_name}/{chapter_name}.mp4"')
 

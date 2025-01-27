@@ -125,7 +125,7 @@ class VideoCreatorFromImages:
 
         (essential_text_in_images_matrix, magi_output_data) = (
             self.get_essential_text_and_magi_data(
-                image_folder, "multiple-panels", full_output_directory
+                image_folder, "1-panel", full_output_directory
             )
         )
 
