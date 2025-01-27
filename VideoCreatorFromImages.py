@@ -152,8 +152,20 @@ class VideoCreatorFromImages:
                 magi_output_data,
             )
         elif self.use_reading_speed_wpm:
-            images_duration_based_on_wpm = self.get_images_duration_based_on_wpm(
-                image_folder
+            self.draw_boxes_with_text_and_magi_data(
+                images,
+                images_with_highlighted_text_boxes_folder,
+                magi_output_data,
+                one_box_per_image=True,
+            )
+
+            images_duration_based_on_wpm = (
+                self.speech_text_parser.get_images_duration_based_on_wpm(
+                    image_folder,
+                    self.reading_speed_wpm,
+                    one_text_str_at_a_time=self.highlight_text_boxes_in_images,
+                    essential_text_in_images_matrix=essential_text_in_images_matrix,
+                )
             )
         else:
             # For "Use Image Displayed Duration (sec.)"
@@ -258,11 +270,6 @@ class VideoCreatorFromImages:
                 images_duration_based_on_tts.append(panel_audio_file_duration)
 
         return images_duration_based_on_tts
-
-    def get_images_duration_based_on_wpm(self, image_folder):
-        return self.speech_text_parser.get_images_duration_based_on_wpm(
-            image_folder, self.reading_speed_wpm
-        )
 
     def draw_boxes_with_text_and_magi_data(
         self,

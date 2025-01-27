@@ -9,20 +9,39 @@ class SpeechTextParser:
     def __init__(self):
         self.magi = Magi()
 
-    def get_images_duration_based_on_wpm(self, images_directory, wpm):
+    def get_images_duration_based_on_wpm(
+        self,
+        images_directory,
+        wpm,
+        one_text_str_at_a_time=False,
+        essential_text_in_images_matrix=None,
+    ):
         images_duration_based_on_wpm = []
 
-        essential_text_list_in_image_list = self.get_essential_text_list_in_images(
-            images_directory
-        )
+        if essential_text_in_images_matrix:
+            essential_text_list_in_image_list = essential_text_in_images_matrix
+        else:
+            essential_text_list_in_image_list = self.get_essential_text_list_in_images(
+                images_directory
+            )
 
         for essential_text_list_in_image in essential_text_list_in_image_list:
-            duration_based_on_wpm = self.calculate_reading_time(
-                essential_text_list_in_image, wpm
-            )
-            print(f"Estimated reading time: {duration_based_on_wpm:.2f} seconds")
-
-            images_duration_based_on_wpm.append(duration_based_on_wpm)
+            if one_text_str_at_a_time:
+                if not essential_text_list_in_image:
+                    images_duration_based_on_wpm.append(1)
+                else:
+                    for text in essential_text_list_in_image:
+                        duration_based_on_wpm = self.calculate_reading_time([text], wpm)
+                        print(
+                            f"Estimated reading time: {duration_based_on_wpm:.2f} seconds"
+                        )
+                        images_duration_based_on_wpm.append(duration_based_on_wpm)
+            else:
+                duration_based_on_wpm = self.calculate_reading_time(
+                    essential_text_list_in_image, wpm
+                )
+                print(f"Estimated reading time: {duration_based_on_wpm:.2f} seconds")
+                images_duration_based_on_wpm.append(duration_based_on_wpm)
 
         return images_duration_based_on_wpm
 
