@@ -1,6 +1,6 @@
 import flet as ft
-from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
-from classes.SettingsPanelByPanel import SettingsPanelByPanel
+from gui_classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
+from gui_classes.SettingsPanelByPanel import SettingsPanelByPanel
 from utils import (
     input_and_output_dirs_are_valid,
     open_directory,

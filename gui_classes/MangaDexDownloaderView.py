@@ -1,7 +1,7 @@
 import flet as ft
 from utils import is_tool_installed, pip_install_or_uninstall_tool
 from download_from_mangadex import download_from_mangadex
-from classes.SettingsMangaDexDownloader import SettingsMangaDexDownloader
+from gui_classes.SettingsMangaDexDownloader import SettingsMangaDexDownloader
 
 
 class MangaDexDownloaderView(ft.Container):

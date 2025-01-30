@@ -1,6 +1,6 @@
 import flet as ft
-from classes.SettingsBase import SettingsBase
-from classes.DropdownTextOptions import DropdownTextOptions
+from gui_classes.SettingsBase import SettingsBase
+from gui_classes.DropdownTextOptions import DropdownTextOptions
 
 
 class HighlightTextBoxesInImages(SettingsBase):

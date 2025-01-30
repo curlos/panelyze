@@ -1,7 +1,7 @@
 import flet as ft
-from classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
+from gui_classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
 import os
-from classes.SettingsUpscaleImages import SettingsUpscaleImages
+from gui_classes.SettingsUpscaleImages import SettingsUpscaleImages
 from utils import (
     ProcessManager,
     get_last_two_directories,

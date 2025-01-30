@@ -4,17 +4,5 @@ venv
 outputs
 .DS_Store
 *.pyc
-google-colab
-local-test
-TESTING
-One Piece (Official Colored)
-videos
-test-output-2
-Sousou no Frieren
-wpm-test-ch-595
-panel_39.png
-tts-test-output
 *.wavtt
-tts-test-frieren-ch-55
-z-tts-test-output
-z-tts-test-output-2
+testing-output

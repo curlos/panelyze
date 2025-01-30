@@ -1,7 +1,8 @@
 import flet as ft
-from classes.SettingsBase import SettingsBase
-from classes.TextToSpeechAzure import TextToSpeechAzure
-from classes.HighlightTextBoxesInImages import HighlightTextBoxesInImages
+from gui_classes.SettingsBase import SettingsBase
+from gui_classes.TextToSpeechAzure import TextToSpeechAzure
+from gui_classes.HighlightTextBoxesInImages import HighlightTextBoxesInImages
+from gui_classes.DropdownTextOptions import DropdownTextOptions
 
 
 class SettingsImagesToVideo(
@@ -10,9 +11,21 @@ class SettingsImagesToVideo(
     def __init__(self, page):
         super().__init__()
         self.page = page
+        self.video_extensions = ["mp4", "mov", "avi"]
+        default_video_extension = self.page.client_storage.get("video_extension")
 
         self.video_height_textfield = self.get_number_textfield(
             "Video Height (px)", "video_height"
+        )
+
+        self.video_extensions_dropdown = DropdownTextOptions(
+            label="Video Extension",
+            options=[
+                ft.dropdown.Option(video_extension)
+                for video_extension in self.video_extensions
+            ],
+            value=default_video_extension,
+            on_change=lambda e: self.change_setting("video_extension", e.data),
         )
 
         # Reading Speed
@@ -125,6 +138,7 @@ class SettingsImagesToVideo(
                 border=ft.border.only(bottom=ft.border.BorderSide(2, "#5e81ac")),
             ),
             self.video_height_textfield,
+            # self.video_extensions_dropdown,
             ft.Checkbox(
                 label="Use Minimum Image Duration (sec.)",
                 value=self.page.client_storage.get("use_minimum_image_duration"),

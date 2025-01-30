@@ -5,12 +5,12 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import flet as ft
-from classes.AppBar import AppBar
-from classes.MangaDexDownloaderView import MangaDexDownloaderView
-from classes.TerminalOutput import TerminalOutput
-from classes.MagiPanelByPanelView import MagiPanelByPanelView
-from classes.UpscaleImagesView import UpscaleImagesView
-from classes.ImagesToVideoView import ImagesToVideoView
+from gui_classes.AppBar import AppBar
+from gui_classes.MangaDexDownloaderView import MangaDexDownloaderView
+from gui_classes.TerminalOutput import TerminalOutput
+from gui_classes.MagiPanelByPanelView import MagiPanelByPanelView
+from gui_classes.UpscaleImagesView import UpscaleImagesView
+from gui_classes.ImagesToVideoView import ImagesToVideoView
 from utils import get_all_mangadex_languages
 
 

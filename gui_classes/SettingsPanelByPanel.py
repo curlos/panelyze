@@ -1,5 +1,5 @@
 import flet as ft
-from classes.SettingsBase import SettingsBase
+from gui_classes.SettingsBase import SettingsBase
 
 
 class SettingsPanelByPanel(SettingsBase):

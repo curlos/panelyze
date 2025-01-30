@@ -1,6 +1,6 @@
 import flet as ft
 from utils import construct_directory_structure, format_size, get_last_directory
-from classes.SettingsUpscaleImages import SettingsUpscaleImages
+from gui_classes.SettingsUpscaleImages import SettingsUpscaleImages
 
 
 class PickInputAndOutputDirectories(ft.Container):
