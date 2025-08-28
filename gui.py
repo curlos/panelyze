@@ -10,7 +10,8 @@ from gui_classes.MangaDexDownloaderView import MangaDexDownloaderView
 from gui_classes.TerminalOutput import TerminalOutput
 from gui_classes.MagiPanelByPanelView import MagiPanelByPanelView
 from gui_classes.UpscaleImagesView import UpscaleImagesView
-from gui_classes.ImagesToVideoView import ImagesToVideoView
+
+# from gui_classes.ImagesToVideoView import ImagesToVideoView
 from utils import get_all_mangadex_languages
 
 
@@ -29,12 +30,12 @@ class GUI(ft.Page):
         self.set_client_storage_default_values()
         self.all_mangadex_languages = get_all_mangadex_languages()
 
-        self.current_view = "Images To Video"
+        self.current_view = "Upscale Images"
         self.terminal_output = TerminalOutput(self.page)
         self.MangaDexDownloaderView = MangaDexDownloaderView(self)
         self.MagiPanelByPanelView = MagiPanelByPanelView(self)
         self.UpscaleImagesView = UpscaleImagesView(self)
-        self.ImagesToVideoView = ImagesToVideoView(self)
+        # self.ImagesToVideoView = ImagesToVideoView(self)
 
         self.render_page_based_on_current_view()
 
@@ -67,8 +68,8 @@ class GUI(ft.Page):
             return self.MagiPanelByPanelView
         elif self.current_view == "Upscale Images":
             return self.UpscaleImagesView
-        elif self.current_view == "Images To Video":
-            return self.ImagesToVideoView
+        # elif self.current_view == "Images To Video":
+        #     return self.ImagesToVideoView
 
     def get_client_storage_default_values(self):
         client_storage_default_values = {
