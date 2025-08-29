@@ -6,3 +6,6 @@ outputs
 *.pyc
 *.wavtt
 testing-output
+image_downloader_pokemon_tcg_cards/full_art_pokemon_cards
+image_downloader_pokemon_tcg_cards/google_sheet_pokemon_cards
+image_downloader_pokemon_tcg_cards/google-cloud-credentials.json
