@@ -55,7 +55,7 @@ if __name__ == "__main__":
     google_sheets_image_url_output = "full_art_pokemon_cards"
 
     google_sheet_image_url_objects = google_sheet_pokemon_card_image_url_objects
-    google_sheet_image_url_output = "google_sheet_pokemon_cards"
+    google_sheet_image_url_output = "google_sheet_pokemon_cards_full_size"
 
     # download_images(full_art_image_url_objects, full_art_image_url_output)
     download_images(google_sheet_image_url_objects, google_sheet_image_url_output)
