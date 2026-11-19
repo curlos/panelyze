@@ -1,224 +1,16 @@
 from functools import wraps
+import io
 import re
+import tempfile
+import shutil
 import time
-import tkinter as tk
-from tkinter import filedialog
 import subprocess
 import sys
 import os
 import platform
 import flet as ft
-import select
-import pdb
 import math
 from dotenv import load_dotenv
-import wave
-
-
-def select_folder():
-    """
-    Create a "tk" window that will allow the user to select a folder and return the folder's path.
-    The "tk" window shows up on the top-left and above all other windows.
-    """
-
-    root = tk.Tk()
-    root.attributes("-topmost", True)
-
-    root.lift()
-    root.focus_force()
-
-    folder_path = filedialog.askdirectory(title="Select a Folder", parent=root)
-
-    if folder_path:
-        print(f"Selected folder: {folder_path}")
-    else:
-        print("No folder selected.")
-
-    # Clean Up
-    root.destroy()
-
-    return folder_path
-
-
-def pip_install_or_uninstall_tool(module_name: str, action: str):
-    """
-    Install or uninstall a Python module using pip.
-
-    Args:
-        module_name (str): The name of the module to manage.
-        action (str): The action to perform ('install' or 'uninstall').
-
-    Raises:
-        ValueError: If an invalid action is provided.
-    """
-    if action not in {"install", "uninstall"}:
-        raise ValueError("Invalid action. Use 'install' or 'uninstall'.")
-
-    try:
-        # Construct the pip command in a single list
-        pip_command = [
-            sys.executable,  # The python executable (like the venv/bin/python folder)
-            "-m",
-            "pip",
-            action,
-            (
-                "-y" if action == "uninstall" else ""
-            ),  # Automatically say "Yes" to any uninstall prompts instead of having to wait for manual user input.
-            module_name.replace("_", "-"),
-        ]
-
-        # Remove any empty strings from the command list
-        pip_command = [cmd for cmd in pip_command if cmd]
-
-        print(f"Attempting to {action} '{module_name}'...")
-
-        result = subprocess.run(
-            pip_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-        if result.returncode == 0:
-            print(f"'{module_name}' {action}ed successfully!")
-        else:
-            print(f"Failed to {action} '{module_name}'. Please try manually.")
-            print(result.stderr)
-            sys.exit(1)
-    except Exception as e:
-        print(f"An error occurred while trying to {action} '{module_name}': {e}")
-        sys.exit(1)
-
-
-def is_tool_installed(module_name: str) -> bool:
-    """
-    Check if a Python module is executable using `python3 -m`.
-
-    Args:
-        module_name (str): The name of the module to check.
-
-    Returns:
-        bool: True if the module can be executed, False otherwise.
-    """
-    try:
-        # Test invoking the module with `python3 -m module_name --help`
-        result = subprocess.run(
-            [sys.executable, "-m", module_name, "--help"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-        # Check if the error message indicates the module is not installed
-        if "No module named" in result.stderr:
-            return False
-
-        # Return True if no errors related to missing modules are found
-        return result.returncode == 0
-    except FileNotFoundError:
-        return False  # Python executable or module not found
-    except Exception as e:
-        print(f"An unexpected error occurred while checking {module_name}: {e}")
-        return False
-
-
-def convert_size(size_in_bytes, unit="KB"):
-    """
-    Convert a size in bytes to the specified unit.
-
-    Args:
-        size_in_bytes (int): The size in bytes.
-        unit (str): The desired unit for conversion ("B", "KB", "MB", "GB").
-
-    Returns:
-        float: The size converted to the specified unit, rounded to 2 decimal places.
-    """
-
-    unit = unit.upper()
-    if unit == "B":
-        return size_in_bytes
-    elif unit == "KB":
-        return round(size_in_bytes / 1024, 2)
-    elif unit == "MB":
-        return round(size_in_bytes / (1024**2), 2)
-    elif unit == "GB":
-        return round(size_in_bytes / (1024**3), 3)
-    else:
-        raise ValueError(f"Invalid unit '{unit}'. Use 'B', 'KB', 'MB', or 'GB'.")
-
-
-def get_dir_total_image_size(
-    directory: str = "./outputs/One Piece (Official Colored)/0427_Chapter.427",
-    unit: str = "KB",
-) -> int:
-    """
-    Calculate the total size of image files in a directory and return it in the specified unit.
-
-    Args:
-        directory (str): The path to the directory to analyze.
-        unit (str): The desired unit for the total size ("B", "KB", "MB", "GB").
-
-    Returns:
-        int: The total size of the images files in the specified unit.
-    """
-
-    total_size = 0
-
-    if not os.path.exists(directory):
-        print("Directory does not exist.")
-        return total_size
-
-    for file_name in os.listdir(directory):
-        file_path = os.path.join(directory, file_name)
-
-        file_is_an_image = file_name.lower().endswith(
-            (".png", ".jpg", ".jpeg", ".gif", ".bmp")
-        )
-
-        if file_is_an_image:
-            total_size += os.path.getsize(file_path)
-
-    total_size_in_unit = convert_size(total_size, unit)
-
-    print(f"{total_size_in_unit} {unit}")
-
-    return total_size_in_unit
-
-
-def get_last_two_directories(path):
-    """
-    Extracts and returns the last two directories from a given path string.
-
-    Args:
-        path (str): The directory path string.
-
-    Returns:
-        str: A string containing the last two directories.
-    """
-    # Normalize the path to handle different OS path separators
-    normalized_path = os.path.normpath(path)
-
-    # Split the path into components
-    path_parts = normalized_path.split(os.sep)
-
-    # Extract the last two directories
-    last_two = path_parts[-2:]
-
-    # Join them back into a string
-    return os.path.join(*last_two)
-
-
-def get_last_two_directories_obj(path):
-    # Normalize the path to handle different OS path separators
-    normalized_path = os.path.normpath(path)
-
-    # Split the path into components
-    path_parts = normalized_path.split(os.sep)
-
-    # Extract the last two directories
-    last_two = path_parts[-2:]
-
-    return last_two
 
 
 def open_directory(path):
@@ -235,30 +27,83 @@ def open_directory(path):
 def add_line_to_terminal_output_list_view(
     terminal_output_list_view, text, color="white"
 ):
-    if terminal_output_list_view:
-        # Add the line to the Flet ListView
+    # Imported here to avoid a circular import (gui_classes imports utils).
+    from gui_classes import AppOutput
+
+    # Normally everything goes through "AppOutput" so it's also saved to the log file and shown in the right order.
+    if AppOutput.current_app_output:
+        AppOutput.current_app_output.add_line(text, color)
+    elif terminal_output_list_view:
         terminal_output_list_view.controls.append(ft.Text(text, color=color))
-        terminal_output_list_view.update()  # Update the Flet UI
+        terminal_output_list_view.update()
 
 
 def get_last_directory(directory_path):
     return os.path.basename(directory_path.rstrip("/\\"))
 
 
+# 4K: the longest side an upscaled image can have when "Don't upscale past 4K" is on.
+MAX_UPSCALED_IMAGE_SIDE = 3840
+
+
+def get_capped_upscale_ratio(width, height, upscale_ratio, max_side=MAX_UPSCALED_IMAGE_SIDE):
+    """
+    The upscale ratio to actually run waifu2x with, so it doesn't waste time making an image far bigger than "max_side" (e.g. upscaling an 8000px image 16x would take forever for no visible gain).
+
+    Returns the smallest ratio (1, 2, 4, ... up to "upscale_ratio") that makes the longest side reach "max_side". The result can still be a bit bigger than "max_side" (e.g. 1000px x 4 = 4000px), so it's shrunk to "max_side" afterwards. An image that's already "max_side" or bigger isn't upscaled at all (ratio 1).
+    """
+    longest_side = max(width, height)
+    capped_ratio = 1
+
+    while capped_ratio < int(upscale_ratio) and longest_side * capped_ratio < max_side:
+        capped_ratio *= 2
+
+    return capped_ratio
+
+
+def copy_picked_images_to_folder(image_paths):
+    """
+    When individual images are picked instead of a folder, copy them into a new temporary folder so every tool can process them exactly like a picked folder.
+
+    The folder is named after the images (e.g. "Ch 1 - page_05" or "Ch 1 - 3 images"), so their output goes into its own folder and never overwrites the output of the whole chapter. Delete the returned folder's parent when done.
+    """
+    parent_folder_name = get_last_directory(os.path.dirname(image_paths[0]))
+
+    if len(image_paths) == 1:
+        image_name = os.path.splitext(os.path.basename(image_paths[0]))[0]
+        folder_name = f"{parent_folder_name} - {image_name}"
+    else:
+        folder_name = f"{parent_folder_name} - {len(image_paths)} images"
+
+    picked_images_folder = os.path.join(tempfile.mkdtemp(prefix="panelyze-"), folder_name)
+    os.makedirs(picked_images_folder)
+
+    for image_path in image_paths:
+        shutil.copy2(image_path, picked_images_folder)
+
+    return picked_images_folder
+
+
+def list_images(directory):
+    """
+    Full paths of the images directly inside "directory", in natural order (page_2 before page_10).
+    """
+    image_file_names = sorted(
+        (file_name for file_name in os.listdir(directory) if is_image_file(file_name)),
+        key=natural_sort_key,
+    )
+    return [os.path.join(directory, file_name) for file_name in image_file_names]
+
+
+IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
+
+
 def is_image_file(file_name):
-    # Add more extensions if needed
-    image_extensions = (".png", ".jpg", ".jpeg", ".webp")
-    return file_name.lower().endswith(image_extensions)
+    # Skip hidden files like macOS "._page_1.jpg" metadata files. They end in an image extension but aren't real images.
+    if file_name.startswith("."):
+        return False
 
-
-def format_size(size_bytes):
-    if size_bytes == 0:
-        return "0 B"
-    size_units = ["B", "KB", "MB", "GB", "TB", "PB"]
-    i = int(math.floor(math.log(size_bytes, 1024)))
-    p = math.pow(1024, i)
-    s = round(size_bytes / p, 2)
-    return f"{s} {size_units[i]}"
+    return file_name.lower().endswith(IMAGE_EXTENSIONS)
 
 
 def construct_directory_structure(path):
@@ -275,6 +120,10 @@ def construct_directory_structure(path):
         for entry in entries:
             entry_path = os.path.join(current_path, entry)
 
+            # Skip hidden files and folders (".DS_Store", "._page_1.jpg", ".git", etc.)
+            if entry.startswith("."):
+                continue
+
             if os.path.isdir(entry_path):
                 # Recursively traverse subdirectories
                 directory_content[entry] = traverse_directory(entry_path)
@@ -285,7 +134,7 @@ def construct_directory_structure(path):
 
         if images:
             # Sort images by their filenames
-            images.sort(key=lambda x: int("".join(filter(str.isdigit, x["name"])) or 0))
+            images.sort(key=lambda x: natural_sort_key(x["name"]))
             directory_content["__images__"] = images
 
         # Sort the keys of the current directory level
@@ -295,6 +144,12 @@ def construct_directory_structure(path):
     # Start traversal from the given path
     root_name = os.path.basename(path)
     return {root_name: traverse_directory(path)}
+
+
+def is_showing_all_output_in_app():
+    from gui_classes import AppOutput
+
+    return AppOutput.current_app_output is not None
 
 
 class ProcessManager:
@@ -320,65 +175,36 @@ class ProcessManager:
         self.process = subprocess.Popen(
             terminal_command,
             stdout=subprocess.PIPE,  # Redirected to a PIPE so that the parent process (this python file) can manipulate the output and error lines in the code below instead of in the terminal.
-            stderr=subprocess.PIPE,
-            text=True,  # Return the output and errors as strings (text mode) instead of in binary data (bytes). If this was not done, then I would have to decode the binary data myself below.
-            bufsize=1,  # Ensures that Python itself reads the output line-by-line from the pipe rather than waiting for the entire buffer to fill up. Only works in text mode (text = True)
+            stderr=subprocess.STDOUT,  # Merge errors into the same stream so they're read in order with the normal output.
+            bufsize=0,  # Don't wait for a buffer to fill up. Read the output as soon as it's written.
             env=env,  # Use the modified "env" variable so that it takes "PYTHONUNBUFFERED" which will give us access to each line output immediately instead of after the program is done executing.
+        )
+        # newline="" keeps "\r" as it is (instead of turning it into a new line), so progress bars that redraw themselves with "\r" show up as one live line instead of hundreds of lines.
+        process_output = io.TextIOWrapper(
+            self.process.stdout, encoding="utf-8", errors="replace", newline=""
         )
 
         try:
-            # Use `select` to monitor stdout and stderr
-            while True:
-                stdout_stream_id = self.process.stdout.fileno()
-                stderr_stream_id = self.process.stderr.fileno()
+            # Read line-by-line until the process closes its output. Unlike stopping as soon as the process exits, this never drops the last lines that were still sitting in the pipe.
+            for line in process_output:
+                # Printed output shows up in the real terminal, the app's terminal and the log file (see "AppOutput").
+                print(line, end="", flush=True)
 
-                reads = [stdout_stream_id, stderr_stream_id]
+                if not is_showing_all_output_in_app():
+                    add_line_to_terminal_output_list_view(
+                        terminal_output_list_view, line.strip()
+                    )
 
-                # "select.select()" basically subscribes to the "reads" array and the operating system will let select know when any new data is available on one of the monitored file descriptors. While this
-                # In this case, we are only interested in monitoring the rlist (read-list). The wlist and xlist are not needed, so they are empty.
-                ready_to_read_stream_ids = select.select(reads, [], [])
+                lines.append(line)
 
-                for stream_id in ready_to_read_stream_ids[0]:
-                    if stream_id == stdout_stream_id:
-                        line = self.process.stdout.readline()
-
-                        if line:
-                            # end="" - Removes the new line at the end of the print statement.
-                            # flush=True - Ensures immediate output to the terminal.
-                            print(line, end="", flush=True)
-
-                            add_line_to_terminal_output_list_view(
-                                terminal_output_list_view, line.strip()
-                            )
-
-                            lines.append(line)
-                    elif stream_id == stderr_stream_id:
-                        line = self.process.stderr.readline()
-
-                        if line:
-                            print(line, end="", flush=True)
-                            add_line_to_terminal_output_list_view(
-                                terminal_output_list_view, line.strip()
-                            )
-                            lines.append(line)
-
-                subprocess_has_finished = self.process.poll() is not None
-
-                if subprocess_has_finished:
-                    break  # Exit loop when process finishes
+            self.process.wait()
         except Exception as e:
             exception_str = f"An error occurred: {e}"
 
             print(exception_str)
-            add_line_to_terminal_output_list_view(
-                terminal_output_list_view, exception_str
-            )
         finally:
             if self.process.returncode == 0:
                 print("Command executed successfully!")
-                add_line_to_terminal_output_list_view(
-                    terminal_output_list_view, "Command executed successfully!"
-                )
 
                 if output_directory:
                     # Open the directory that contains the downloads.
@@ -386,10 +212,6 @@ class ProcessManager:
 
             else:
                 print(f"Command failed with return code {self.process.returncode}")
-                add_line_to_terminal_output_list_view(
-                    terminal_output_list_view,
-                    f"Command failed with return code {self.process.returncode}",
-                )
 
         return lines
 
@@ -400,53 +222,38 @@ class ProcessManager:
             print("Process terminated by user.")
 
 
-class StreamInterceptor:
-    def __init__(self, original_stdout, callback):
-        self.original_stdout = original_stdout
-        self.callback = callback
+def get_waifu2x_path():
+    """
+    Where the "waifu2x-ncnn-vulkan" program is: inside the packaged app (bundled by "build_mac_app.sh"), or on the PATH when running from source. None if it can't be found.
+    """
+    bundled_waifu2x_path = os.path.join(
+        getattr(sys, "_MEIPASS", ""), "waifu2x", "waifu2x-ncnn-vulkan"
+    )
 
-    def write(self, message):
-        # Write to the original stdout
-        self.original_stdout.write(message)
-        self.original_stdout.flush()  # Ensure immediate flushing
+    if is_running_as_packaged_app() and os.path.exists(bundled_waifu2x_path):
+        return bundled_waifu2x_path
 
-        # Call the callback with the message
-        if self.callback:
-            self.callback(message)
-
-    def flush(self):
-        self.original_stdout.flush()
+    return shutil.which("waifu2x-ncnn-vulkan")
 
 
-def remove_last_directory(path):
-    # Use os.path.dirname to remove the last directory
-    return os.path.dirname(path)
+def is_running_as_packaged_app():
+    """
+    True when running from an app packaged with "flet pack" (PyInstaller). In that case "sys.executable" is the app itself, not Python, so "sys.executable -m <module>" would open another copy of the app instead of running the module.
+    """
+    return getattr(sys, "frozen", False)
 
 
 def get_all_mangadex_languages():
-    terminal_command = [
-        sys.executable,
-        "-m",
-        "mangadex_downloader",
-        "--list-language",
-        "-ll",
-    ]
-
-    process_manager = ProcessManager()
-    all_lines = process_manager.monitor_terminal_output(terminal_command)
-
-    # Filter languages based on the pattern "name / code"
-    filtered_languages = [line.strip() for line in all_lines if " / " in line]
-
-    # If "MangaDex Downloader" somehow can't fetch the languages the first time around, then keep trying until we get the languages
-    while len(filtered_languages) == 0:
-        process_manager = ProcessManager()
-        all_lines = process_manager.monitor_terminal_output(terminal_command)
-        filtered_languages = [line.strip() for line in all_lines if " / " in line]
+    """
+    The languages MangaDex Downloader can download in, read straight from its code. This is instant and needs no internet (it used to run "mangadex-downloader --list-language" in a separate process on every startup).
+    """
+    from mangadex_downloader.language import Language
 
     mangadex_languages = [
-        {"name": lang.split(" / ")[0], "code": lang.split(" / ")[1]}
-        for lang in filtered_languages
+        {"name": language.name, "code": language.value}
+        for language in Language
+        # "Other" has no language code, so it can't be passed to "--language".
+        if language.value
     ]
 
     mangadex_languages_by_name = {lang["name"]: lang for lang in mangadex_languages}
@@ -476,27 +283,81 @@ def replace_extension(file_name: str, new_extension: str) -> str:
     return base_name + formatted_extension
 
 
-def input_and_output_dirs_are_valid(self):
-    input_directory = self.pick_input_output_directories_container.input_directory
-    output_directory = self.pick_input_output_directories_container.output_directory
-
+def get_input_and_output_error(input_directory, output_directory):
+    """
+    What's wrong with the picked input and output directories, or None if they're fine.
+    """
     if not input_directory and not output_directory:
-        self.parent_gui.terminal_output.update_terminal_with_error_message(
-            "ERROR: Please enter valid input and output directories."
-        )
-        return False
+        return "ERROR: Please enter valid input and output directories."
     elif not input_directory:
-        self.parent_gui.terminal_output.update_terminal_with_error_message(
-            "ERROR: Please enter a valid input directory."
-        )
-        return False
+        return "ERROR: Please enter a valid input directory."
     elif not output_directory:
-        self.parent_gui.terminal_output.update_terminal_with_error_message(
-            "ERROR: Please enter a valid output directory."
-        )
+        return "ERROR: Please enter a valid output directory."
+    elif not os.path.isdir(input_directory):
+        return f"ERROR: The input directory no longer exists: {input_directory}"
+    elif output_dir_would_overwrite_input(input_directory, output_directory):
+        return "ERROR: The output directory can't be inside the input directory or be its parent directory. Otherwise, the original images could be overwritten. Please pick a different output directory."
+
+    return None
+
+
+def get_image_folders(input_directory):
+    """
+    Every folder inside "input_directory" (including itself) that has images, as (folder path, list of its images), in natural order.
+    """
+    input_parent_directory = os.path.dirname(os.path.normpath(input_directory))
+
+    def walk(level, relative_path):
+        for key, value in level.items():
+            if key == "__images__":
+                yield os.path.join(input_parent_directory, relative_path), value
+            else:
+                yield from walk(value, os.path.join(relative_path, key) if relative_path else key)
+
+    yield from walk(construct_directory_structure(input_directory), "")
+
+
+def output_dir_would_overwrite_input(input_directory, output_directory):
+    """
+    Outputs are saved to "output_directory/<input folder name>/...". So, if the output directory is the input directory's parent, the output paths would be the exact same as the input paths and the original images would be overwritten. If the output directory is inside the input directory, then the outputs would get processed again the next time.
+    """
+    input_directory = os.path.realpath(input_directory)
+    output_directory = os.path.realpath(output_directory)
+
+    output_is_parent_of_input = output_directory == os.path.dirname(input_directory)
+
+    return output_is_parent_of_input or is_same_or_inside(
+        output_directory, input_directory
+    )
+
+
+def is_same_or_inside(path, parent_path):
+    """
+    Returns True if "path" is "parent_path" itself or somewhere inside it.
+    """
+    path = os.path.realpath(path)
+    parent_path = os.path.realpath(parent_path)
+
+    try:
+        return os.path.commonpath([path, parent_path]) == parent_path
+    except ValueError:
+        # On Windows, paths on different drives (C:\ vs D:\) have no common path.
         return False
 
-    return True
+
+def paths_overlap(path_a, path_b):
+    """
+    Returns True if the two paths are the same or one is inside the other.
+    """
+    return is_same_or_inside(path_a, path_b) or is_same_or_inside(path_b, path_a)
+
+
+def get_relative_output_path(chapter_directory, input_directory):
+    """
+    Get the path of "chapter_directory" relative to the parent of the selected "input_directory". For example, if the input directory is "/Manga/One Piece" and the chapter directory is "/Manga/One Piece/Vol 1/Ch 1", this returns "One Piece/Vol 1/Ch 1". This keeps outputs from different series apart, unlike only taking the last two directories.
+    """
+    input_parent_directory = os.path.dirname(os.path.normpath(input_directory))
+    return os.path.relpath(chapter_directory, input_parent_directory)
 
 
 def time_it(custom_execution_time_name=None):
@@ -537,29 +398,15 @@ def is_valid_number(value):
     Returns True if valid, False otherwise.
     """
     try:
-        # Try converting to float (covers both int and float cases)
-        float(value)
-        return True
-    except ValueError:
+        # Try converting to float (covers both int and float cases). "nan" and "inf" convert too, so reject them.
+        return math.isfinite(float(value))
+    except (ValueError, TypeError):
         return False
 
 
 def utils_load_dotenv():
     env_path = ".env"
     load_dotenv(env_path)
-
-
-def get_audio_file_duration(file_path):
-    # Open the .wav file
-    with wave.open(file_path, "rb") as wav_file:
-        # Get the frame rate (samples per second)
-        frame_rate = wav_file.getframerate()
-        # Get the number of frames
-        n_frames = wav_file.getnframes()
-        # Calculate duration in seconds
-        duration = n_frames / frame_rate
-
-    return duration
 
 
 def modify_filename(filepath, suffix):
@@ -574,25 +421,3 @@ def modify_filename(filepath, suffix):
     return os.path.join(directory, new_filename)
 
 
-def hex_to_rgb(hex_code):
-    """
-    Convert a hex color code to an RGBA tuple for Matplotlib.
-
-    Parameters:
-        hex_code (str): Hex color code in the format "#RRGGBB" or "RRGGBB".
-        alpha (float): Alpha (opacity) value between 0 (transparent) and 1 (opaque).
-
-    Returns:
-        tuple: A tuple (R, G, B, A) where R, G, B are normalized between 0 and 1, and A is the alpha value.
-    """
-
-    # Remove the "#" if present
-    hex_code = hex_code.lstrip("#")
-
-    # Convert the hex code to RGB values
-    r = int(hex_code[0:2], 16) / 255.0  # Red
-    g = int(hex_code[2:4], 16) / 255.0  # Green
-    b = int(hex_code[4:6], 16) / 255.0  # Blue
-
-    # Return the normalized RGBA tuple
-    return (r, g, b)

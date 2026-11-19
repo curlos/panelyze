@@ -1,225 +1,343 @@
+import asyncio
 import os
-import azure.cognitiveservices.speech as speechsdk
+import time
+from concurrent.futures import ThreadPoolExecutor
+from xml.sax.saxutils import escape
+
+import edge_tts
+from moviepy import AudioClip, AudioFileClip, concatenate_audioclips
 from utils import utils_load_dotenv
-from EmotionAnalyzer import EmotionAnalyzer
+
+DEFAULT_VOICE_LOCALE = "en-US"
+DEFAULT_VOICE_NAME = "en-US-AriaNeural"
+
+# "edge" is free (no key). "azure" is the paid Azure Speech service and needs your own key.
+TTS_ENGINE_OPTIONS = {
+    "edge": "Edge (Free, no key needed)",
+    "azure": "Azure (Your own subscription key)",
+}
+
+# The dropdowns in the GUI use readable names. edge-tts and Azure both want percentages (rate, volume) and Hz (pitch).
+VOICE_RATE_OPTIONS = {
+    "x-slow": "-50%",
+    "slow": "-25%",
+    "medium": "+0%",
+    "fast": "+25%",
+    "x-fast": "+50%",
+}
+VOICE_PITCH_OPTIONS = {
+    "x-low": "-20Hz",
+    "low": "-10Hz",
+    "medium": "+0Hz",
+    "high": "+10Hz",
+    "x-high": "+20Hz",
+}
+VOICE_VOLUME_OPTIONS = {
+    "x-soft": "-50%",
+    "soft": "-25%",
+    "medium": "+0%",
+    "loud": "+25%",
+    "x-loud": "+50%",
+}
+
+
+# Azure only: the speaking style of the voice (e.g. "cheerful" or "sad"). "auto" picks a style for each line from its emotion (see "EmotionAnalyzer.py"). Only some Azure voices have styles; other voices just ignore it.
+AZURE_VOICE_STYLE_OPTIONS = {
+    "none": "None",
+    "auto": "Auto (emotion of each line)",
+    "cheerful": "Cheerful",
+    "excited": "Excited",
+    "friendly": "Friendly",
+    "hopeful": "Hopeful",
+    "sad": "Sad",
+    "angry": "Angry",
+    "shouting": "Shouting",
+    "terrified": "Terrified",
+    "whispering": "Whispering",
+    "serious": "Serious",
+    "calm": "Calm",
+}
+
+# The styles each Azure voice has, fetched from Azure once per app run.
+_cached_azure_voice_styles = {}
+
+# The voice list only changes when Microsoft adds voices, so it's fetched once per app run and shared (instead of again for every new "TextToSpeech" or after "Reset All Settings").
+_cached_locale_voice_mapping = None
+
+
+def run_async(coroutine):
+    """
+    edge-tts is async. Run the coroutine in its own thread so this works whether or not an event loop is already running (Flet may have one running).
+    """
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(asyncio.run, coroutine).result()
 
 
 class TextToSpeech:
-    def __init__(self, flet_page_client_storage={}):
-        utils_load_dotenv()
-        self.subscription_key = os.getenv("AZURE_SUBSCRIPTION_KEY")
-        self.region = os.getenv("AZURE_REGION")
+    """
+    Text-To-Speech with one of two engines (the "tts_engine" setting):
+    - "edge" (default): Free. Uses Microsoft Edge's online neural voices through the "edge-tts" package. No API key or account needed.
+    - "azure": The paid Azure Speech service, for anyone with their own subscription key. Its package is only imported when it's used.
+    Both use the same voice names (Edge's voices are Azure voices) and need an internet connection.
+    """
 
+    def __init__(self, flet_page_client_storage=None):
         self.flet_page_client_storage = flet_page_client_storage
-        self.locale_voice_mapping = self.get_locale_voice_mapping()
-        self.emotion_analyzer = EmotionAnalyzer()
 
-    def get_all_voices(self):
-        subscription_key = (
-            self.flet_page_client_storage.get("azure_subscription_key")
-            or self.subscription_key
-        )
-        region = self.flet_page_client_storage.get("azure_region") or self.region
+    @property
+    def locale_voice_mapping(self):
+        # Fetched the first time it's needed instead of when this class is created, so that creating it never makes a network request.
+        global _cached_locale_voice_mapping
 
-        # Configure the Azure Speech SDK
-        speech_config = speechsdk.SpeechConfig(
-            subscription=subscription_key, region=region
-        )
+        if _cached_locale_voice_mapping is None:
+            _cached_locale_voice_mapping = self.get_locale_voice_mapping()
 
-        # Create the speech synthesizer
-        synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config)
-
-        # Fetch all available voices
-        results = synthesizer.get_voices_async().get()
-
-        return results
-
-    def get_all_voice_styles(self):
-        all_voices = self.get_all_voices()
-        all_voice_styles = {}
-
-        for voice in all_voices.voices:
-            for voice_style in voice.style_list:
-                if voice_style:
-                    all_voice_styles[voice_style] = True
-
-        return list(all_voice_styles.keys())
+        return _cached_locale_voice_mapping
 
     def get_locale_voice_mapping(self):
-        all_voices = self.get_all_voices()
+        """
+        Returns a dict like { "en-US": { "en-US-AriaNeural": {...voice info...}, ... }, ... }
+        """
+        all_voices = run_async(edge_tts.list_voices())
 
-        # Create a dictionary with locale as key and another dictionary as value
         locale_voice_mapping = {}
-        for voice in all_voices.voices:
-            if voice.locale not in locale_voice_mapping:
-                locale_voice_mapping[voice.locale] = {}
-            locale_voice_mapping[voice.locale][voice.short_name] = voice
+        for voice in all_voices:
+            locale_voice_mapping.setdefault(voice["Locale"], {})[
+                voice["ShortName"]
+            ] = voice
 
         return locale_voice_mapping
 
-    def generate_azure_audio(self, text_list, output_file):
-        """
-        Generate TTS audio with Azure and save it to a file.
-        """
-        subscription_key = (
-            self.flet_page_client_storage.get("azure_subscription_key")
-            or self.subscription_key
-        )
-        region = self.flet_page_client_storage.get("azure_region") or self.region
+    def get_setting(self, setting_key, default_value):
+        if not self.flet_page_client_storage:
+            return default_value
 
-        # Set up Azure Speech configuration
+        return self.flet_page_client_storage.get(setting_key) or default_value
+
+    def generate_audio(self, text_list, output_file):
+        """
+        Generate TTS audio (mp3) for a list of text and save it to "output_file". If a break time is set, each piece of text is generated separately with silence in between.
+        """
+        if isinstance(text_list, str):
+            text_list = [text_list]
+
+        text_list = [text.strip() for text in text_list if text and text.strip()]
+
+        if not text_list:
+            return
+
+        break_time_between_text = float(
+            self.get_setting("azure_break_time_between_text", 0)
+        )
+
+        # With Azure's "Auto" style, each line is read on its own so it can get its own style.
+        reads_each_line_separately = (
+            self.get_setting("tts_engine", "edge") == "azure"
+            and self.get_setting("azure_voice_style", "none") == "auto"
+        )
+
+        if (break_time_between_text <= 0 and not reads_each_line_separately) or len(text_list) == 1:
+            self.generate_audio_for_text(" ".join(text_list), output_file)
+        else:
+            self.generate_audio_with_breaks(
+                text_list, output_file, break_time_between_text
+            )
+
+        print(f"Audio saved to {output_file}")
+
+    def generate_audio_with_breaks(
+        self, text_list, output_file, break_time_between_text
+    ):
+        part_files = []
+        audio_clips = []
+
+        try:
+            for index, text in enumerate(text_list):
+                part_file = f"{output_file}.part-{index + 1}.mp3"
+                self.generate_audio_for_text(text, part_file)
+                part_files.append(part_file)
+
+                audio_clips.append(AudioFileClip(part_file))
+
+                is_last_text = index == len(text_list) - 1
+
+                if not is_last_text and break_time_between_text > 0:
+                    audio_clips.append(
+                        AudioClip(lambda t: 0, duration=break_time_between_text, fps=44100)
+                    )
+
+            concatenate_audioclips(audio_clips).write_audiofile(
+                output_file, logger=None
+            )
+        finally:
+            for audio_clip in audio_clips:
+                audio_clip.close()
+
+            for part_file in part_files:
+                if os.path.exists(part_file):
+                    os.remove(part_file)
+
+    def generate_audio_for_text(self, text, output_file, max_attempts=3):
+        if self.get_setting("tts_engine", "edge") == "azure":
+            self.generate_azure_audio_for_text(text, output_file)
+            return
+
+        voice_name = self.get_voice_name()
+        rate = VOICE_RATE_OPTIONS.get(self.get_setting("azure_voice_rate", "medium"))
+        pitch = VOICE_PITCH_OPTIONS.get(
+            self.get_setting("azure_voice_pitch", "medium")
+        )
+        volume = VOICE_VOLUME_OPTIONS.get(
+            self.get_setting("azure_voice_volume", "medium")
+        )
+
+        # The service can occasionally fail or rate limit, so wait a bit and try again before giving up.
+        for attempt in range(1, max_attempts + 1):
+            try:
+                # A new "Communicate" is needed for each attempt. edge-tts can only use each one once.
+                communicate = edge_tts.Communicate(
+                    text,
+                    voice_name,
+                    rate=rate or "+0%",
+                    pitch=pitch or "+0Hz",
+                    volume=volume or "+0%",
+                )
+                run_async(communicate.save(output_file))
+                return
+            except Exception as error:
+                if attempt == max_attempts:
+                    raise RuntimeError(
+                        f"Text-To-Speech failed after {max_attempts} attempts (check your internet connection): {error}"
+                    ) from error
+
+                print(f"Text-To-Speech failed ({error}). Retrying in {attempt * 2}s...")
+                time.sleep(attempt * 2)
+
+    def generate_azure_audio_for_text(self, text, output_file):
+        """
+        Same as the Edge version but with the paid Azure Speech service. The key and region come from the settings, or from "AZURE_SUBSCRIPTION_KEY" and "AZURE_REGION" in a ".env" file.
+        """
+        try:
+            import azure.cognitiveservices.speech as speechsdk
+        except ImportError as error:
+            raise RuntimeError(
+                'Azure Text-To-Speech needs its package. Install it with: pip install azure-cognitiveservices-speech'
+            ) from error
+
+        utils_load_dotenv()
+        subscription_key = self.get_setting(
+            "azure_subscription_key", os.getenv("AZURE_SUBSCRIPTION_KEY")
+        )
+        region = self.get_setting("azure_region", os.getenv("AZURE_REGION"))
+
+        if not subscription_key or not region:
+            raise RuntimeError(
+                "Azure Text-To-Speech needs a subscription key and a region. Add them in the Text-To-Speech settings."
+            )
+
         speech_config = speechsdk.SpeechConfig(
             subscription=subscription_key, region=region
         )
-        audio_config = speechsdk.AudioConfig(filename=output_file)
+        voice_styles = []
+        if self.get_setting("azure_voice_style", "none") != "none":
+            voice_styles = self.get_azure_voice_styles(speechsdk, speech_config)
 
-        ssml_text = self.get_ssml_text(text_list)
-
-        # Generate audio
+        # mp3, the same as edge-tts, so the rest of the video code doesn't need to know which engine made the audio.
+        speech_config.set_speech_synthesis_output_format(
+            speechsdk.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3
+        )
+        audio_config = speechsdk.audio.AudioOutputConfig(filename=output_file)
         synthesizer = speechsdk.SpeechSynthesizer(
             speech_config=speech_config, audio_config=audio_config
         )
 
-        result = synthesizer.speak_ssml_async(ssml_text).get()
+        result = synthesizer.speak_ssml_async(self.get_azure_ssml(text, voice_styles)).get()
 
-        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-            print(f"Audio saved to {output_file}")
-        else:
-            print(f"Azure TTS failed: {result.reason}")
-
-    def get_ssml_text(self, text_list):
-        azure_voice_locale = "en-US"
-        azure_voice_name = "en-US-AriaNeural"
-
-        azure_voice_volume = "x-loud"
-        azure_voice_rate = "medium"
-        azure_voice_pitch = "medium"
-        azure_break_time_between_text = 0.00
-        azure_voice_style = ""
-        azure_voice_style_degree = 2.00
-
-        if self.flet_page_client_storage:
-            azure_voice_locale = self.flet_page_client_storage.get("azure_voice_locale")
-            azure_voice_name = self.flet_page_client_storage.get("azure_voice_name")
-
-            azure_voice_volume = self.flet_page_client_storage.get("azure_voice_volume")
-            azure_voice_rate = self.flet_page_client_storage.get("azure_voice_rate")
-            azure_voice_pitch = self.flet_page_client_storage.get("azure_voice_pitch")
-            azure_break_time_between_text = float(
-                self.flet_page_client_storage.get("azure_break_time_between_text")
+        if result.reason != speechsdk.ResultReason.SynthesizingAudioCompleted:
+            error_details = getattr(result, "cancellation_details", None)
+            raise RuntimeError(
+                f"Azure Text-To-Speech failed: {getattr(error_details, 'error_details', result.reason)}"
             )
 
-            temp_azure_voice_style = self.flet_page_client_storage.get(
-                "azure_voice_style"
+    def get_azure_voice_styles(self, speechsdk, speech_config):
+        """
+        The speaking styles the chosen Azure voice has (e.g. ["angry", "cheerful", ...]). Many voices have none.
+        """
+        voice_name = self.get_setting("azure_voice_name", DEFAULT_VOICE_NAME)
+
+        if voice_name not in _cached_azure_voice_styles:
+            locale = "-".join(voice_name.split("-")[:2])
+            voices = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
+            result = voices.get_voices_async(locale).get()
+
+            # Don't remember a failed lookup (wrong key, no internet, etc.) as "this voice has no styles". Try again next time.
+            if result.reason != speechsdk.ResultReason.VoicesListRetrieved:
+                print(f"Couldn't get the voice styles from Azure ({result.reason}). Using the normal voice style.")
+                return []
+
+            _cached_azure_voice_styles[voice_name] = next(
+                (
+                    [style for style in voice.style_list if style]
+                    for voice in result.voices
+                    if voice.short_name == voice_name
+                ),
+                [],
             )
 
-            if temp_azure_voice_style and temp_azure_voice_style != "No Style":
-                azure_voice_style = temp_azure_voice_style
+        return _cached_azure_voice_styles[voice_name]
 
-            azure_voice_style_degree = float(
-                self.flet_page_client_storage.get("azure_voice_style_degree")
-            )
+    def get_azure_voice_style(self, text, voice_styles):
+        """
+        The style to read "text" in, or "" for the voice's normal style.
+        """
+        style = self.get_setting("azure_voice_style", "none")
 
-        azure_voice = self.locale_voice_mapping[azure_voice_locale][azure_voice_name]
-        has_voice_styles = len(azure_voice.style_list) > 0
+        # A voice without styles can't use one, so don't even load the emotion model.
+        if style == "none" or not voice_styles:
+            return ""
 
-        if azure_voice_style == "Dynamic-Style (Emotion-By-Text)" and has_voice_styles:
-            azure_voice_style_list_dict = {}
+        if style == "auto":
+            from EmotionAnalyzer import get_emotion_analyzer
 
-            for voice_style in azure_voice.style_list:
-                azure_voice_style_list_dict[voice_style] = True
+            return get_emotion_analyzer().get_voice_style(text, voice_styles)
 
-            # Dynamic style applied to each text individually
-            ssml_text = f"""
-            <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang='{azure_voice_locale}'>
-                <voice name='{azure_voice_name}'>
-                    <prosody pitch="{azure_voice_pitch}" rate="{azure_voice_rate}" volume="{azure_voice_volume}">
-            """
+        # A fixed style the voice doesn't have would just be ignored by Azure.
+        return style if style in voice_styles else ""
 
-            # Add text from the array with individual styles
-            for line in text_list:
-                emotion, _ = self.emotion_analyzer.get_emotion(line)
-                emotion_voice_styles = self.emotion_analyzer.azure_emotion_dict[emotion]
-                voice_style_to_use_for_line = ""
+    def get_azure_ssml(self, text, voice_styles=()):
+        # Use the saved voice as is. Checking it against Edge's voice list would make Azure depend on Edge's online service, and Azure has voices that Edge doesn't.
+        voice_name = self.get_setting("azure_voice_name", DEFAULT_VOICE_NAME)
+        rate = VOICE_RATE_OPTIONS.get(self.get_setting("azure_voice_rate", "medium"))
+        pitch = VOICE_PITCH_OPTIONS.get(
+            self.get_setting("azure_voice_pitch", "medium")
+        )
+        volume = VOICE_VOLUME_OPTIONS.get(
+            self.get_setting("azure_voice_volume", "medium")
+        )
+        locale = "-".join(voice_name.split("-")[:2])
+        spoken_text = f"""<prosody rate='{rate or "+0%"}' pitch='{pitch or "+0Hz"}' volume='{volume or "+0%"}'>{escape(text)}</prosody>"""
 
-                for voice_style in emotion_voice_styles:
-                    current_voice_has_voice_style = (
-                        voice_style in azure_voice_style_list_dict
-                    )
+        style = self.get_azure_voice_style(text, voice_styles)
+        if style:
+            # How strong the style is, from 0.01 (barely) to 2 (twice as strong).
+            style_degree = self.get_setting("azure_voice_style_degree", 1)
+            spoken_text = f"<mstts:express-as style='{style}' styledegree='{style_degree}'>{spoken_text}</mstts:express-as>"
 
-                    if current_voice_has_voice_style:
-                        voice_style_to_use_for_line = voice_style
-                        break
+        return f"""<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='{locale}'>
+    <voice name='{voice_name}'>
+        {spoken_text}
+    </voice>
+</speak>"""
 
-                ssml_text += f"""
-                        <mstts:express-as style='{voice_style_to_use_for_line}' styledegree='{azure_voice_style_degree}'>
-                            {line}
-                        </mstts:express-as>
-                        <break time='{azure_break_time_between_text}s'/>
-                """
+    def get_voice_name(self):
+        voice_name = self.get_setting("azure_voice_name", DEFAULT_VOICE_NAME)
 
-            # Close SSML tags
-            ssml_text += """
-                    </prosody>
-                </voice>
-            </speak>
-            """
-        else:
-            # Single style applied around all text
-            ssml_text = f"""
-            <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang='{azure_voice_locale}'>
-                <voice name='{azure_voice_name}'>
-                    <mstts:express-as style='{azure_voice_style}' styledegree='{azure_voice_style_degree}'>
-                        <prosody pitch="{azure_voice_pitch}" rate="{azure_voice_rate}" volume="{azure_voice_volume}">
-            """
+        # A voice saved from the old Azure settings might not exist in edge-tts. Fall back to the default voice instead of failing.
+        voice_exists = any(
+            voice_name in voices for voices in self.locale_voice_mapping.values()
+        )
+        if not voice_exists:
+            print(f'Voice "{voice_name}" is not available. Using "{DEFAULT_VOICE_NAME}".')
+            return DEFAULT_VOICE_NAME
 
-            # Add all text together with pauses
-            for line in text_list:
-                ssml_text += f"""
-                            {line}
-                            <break time='{azure_break_time_between_text}s'/>
-                """
-
-            # Close SSML tags
-            ssml_text += """
-                        </prosody>
-                    </mstts:express-as>
-                </voice>
-            </speak>
-            """
-
-        return ssml_text
-
-
-is_running_as_main_program = __name__ == "__main__"
-
-if is_running_as_main_program:
-    tts = TextToSpeech()
-
-    os.makedirs("tts-test-output", exist_ok=True)
-
-    one_piece_ch_595_panel_39_and_40_essential_text_matrix = [
-        [
-            "Red Line: Holy Land of Mariejoa",
-            "vanished...?",
-            "Yeah. That's what happened.",
-            "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
-            "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
-            "This is no joking matter!!!",
-        ],
-        [
-            "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
-            "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
-            "And you call this doing your job, do you...?!!!",
-        ],
-    ]
-
-    for index, panel_text_arr in enumerate(
-        one_piece_ch_595_panel_39_and_40_essential_text_matrix
-    ):
-        all_panel_text_str = " ".join(panel_text_arr)
-        output_file = f"z-tts-test-output/panel_{index + 1}.wav"
-
-        if all_panel_text_str:
-            print(all_panel_text_str)
-            tts.generate_azure_audio(all_panel_text_str, output_file)
+        return voice_name

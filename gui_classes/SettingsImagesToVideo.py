@@ -3,6 +3,7 @@ from gui_classes.SettingsBase import SettingsBase
 from gui_classes.TextToSpeechAzure import TextToSpeechAzure
 from gui_classes.HighlightTextBoxesInImages import HighlightTextBoxesInImages
 from gui_classes.DropdownTextOptions import DropdownTextOptions
+from gui_classes.ReadingDirectionSetting import get_reading_direction_dropdown
 
 
 class SettingsImagesToVideo(
@@ -11,15 +12,29 @@ class SettingsImagesToVideo(
     def __init__(self, page):
         super().__init__()
         self.page = page
-        self.video_extensions = ["mp4", "mov", "avi"]
-        default_video_extension = self.page.client_storage.get("video_extension")
+        self.video_extensions = ["mp4", "mov"]
+        default_video_extension = self.get_setting_value("video_extension")
 
+        # Saved as "video_height" (its old name), but it's the resolution: the shorter side of the video.
         self.video_height_textfield = self.get_number_textfield(
-            "Video Height (px)", "video_height"
+            "Video Resolution (px, e.g. 1080 = 1080p)", "video_height"
+        )
+
+        self.video_aspect_ratio_dropdown = DropdownTextOptions(
+            label="Video Shape",
+            options=[
+                ft.dropdown.Option(key="16:9", text="16:9 Landscape (YouTube)"),
+                ft.dropdown.Option(
+                    key="9:16", text="9:16 Vertical (TikTok, Shorts, Reels)"
+                ),
+                ft.dropdown.Option(key="1:1", text="1:1 Square"),
+            ],
+            value=self.get_setting_value("video_aspect_ratio"),
+            on_change=lambda e: self.change_setting("video_aspect_ratio", e.data),
         )
 
         self.video_extensions_dropdown = DropdownTextOptions(
-            label="Video Extension",
+            label="Video Format",
             options=[
                 ft.dropdown.Option(video_extension)
                 for video_extension in self.video_extensions
@@ -92,15 +107,9 @@ class SettingsImagesToVideo(
             padding=ft.padding.only(left=30),
         )
 
-        self.page_num_textfield_dict = {
-            "video_height": self.video_height_textfield,
-            "reading_speed_wpm": self.reading_speed_wpm_textfield,
-            "image_displayed_duration": self.image_displayed_duration_textfield,
-            "minimum_image_duration": self.minimum_image_duration_textfield,
-        }
 
         self.text_to_speech_azure_col = TextToSpeechAzure(
-            page, self.page_num_textfield_dict, self.radio_group_dict
+            page, self.radio_group_dict
         )
 
         self.inner_content = [
@@ -137,8 +146,10 @@ class SettingsImagesToVideo(
                 margin=ft.margin.only(bottom=10),
                 border=ft.border.only(bottom=ft.border.BorderSide(2, "#5e81ac")),
             ),
+            get_reading_direction_dropdown(self.page),
+            self.video_aspect_ratio_dropdown,
             self.video_height_textfield,
-            # self.video_extensions_dropdown,
+            self.video_extensions_dropdown,
             ft.Checkbox(
                 label="Use Minimum Image Duration (sec.)",
                 value=self.page.client_storage.get("use_minimum_image_duration"),
@@ -150,13 +161,6 @@ class SettingsImagesToVideo(
             ),
             self.minimum_image_duration_col,
             HighlightTextBoxesInImages(self.page),
-            ft.Checkbox(
-                label="Use Parent Folder Name",
-                value=self.page.client_storage.get("use_parent_folder_name"),
-                on_change=lambda e: self.change_setting(
-                    "use_parent_folder_name", e.data
-                ),
-            ),
         ]
 
         self.content = self.get_full_content()

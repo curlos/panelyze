@@ -5,23 +5,47 @@ from moviepy import (
     concatenate_videoclips,
     AudioFileClip,
     CompositeAudioClip,
+    CompositeVideoClip,
 )
 import os
 
 from TextToSpeech import TextToSpeech
 from SpeechTextParser import SpeechTextParser
 from DrawBoxCoords import DrawBoxCoords
-from magi_ch_55_frieren_essential_text import magi_ch_55_frieren_essential_text
-from magi_frieren_ch_55_panel_6_output import magi_frieren_ch_55_panel_6_output
-from magi_ch_55_frieren_panel_1_to_7_output import (
-    magi_ch_55_frieren_panel_1_to_7_output,
-)
 from utils import (
-    get_last_two_directories_obj,
-    natural_sort_key,
-    select_folder,
-    get_audio_file_duration,
+    list_images,
 )
+
+# Which codecs to use for each video format. MoviePy can't figure these out by itself for formats like ".mov".
+VIDEO_CODECS_BY_EXTENSION = {
+    "mp4": {"codec": "libx264", "audio_codec": "aac"},
+    "mov": {"codec": "libx264", "audio_codec": "aac"},
+}
+
+# Video shapes as (width, height) ratios.
+VIDEO_ASPECT_RATIOS = {
+    "16:9": (16, 9),  # Landscape (YouTube)
+    "9:16": (9, 16),  # Vertical (TikTok, YouTube Shorts, Instagram Reels)
+    "1:1": (1, 1),  # Square
+}
+
+
+def get_audio_duration(audio_file_path):
+    audio_clip = AudioFileClip(audio_file_path)
+    duration = audio_clip.duration
+    audio_clip.close()
+
+    return duration
+
+
+def get_number_setting(flet_page_client_storage, setting_key, default_value):
+    """
+    Settings are saved as strings (or can be empty), so convert them to a number safely.
+    """
+    try:
+        return float(flet_page_client_storage.get(setting_key))
+    except (TypeError, ValueError):
+        return default_value
 
 
 class VideoCreatorFromImages:
@@ -32,6 +56,7 @@ class VideoCreatorFromImages:
         self.draw_box_coords = DrawBoxCoords(self.flet_page_client_storage)
 
         self.video_height = 1080
+        self.video_aspect_ratio = "16:9"
         self.image_displayed_duration = 3
 
         self.use_reading_speed_wpm = True
@@ -59,32 +84,38 @@ class VideoCreatorFromImages:
             )
 
         if self.flet_page_client_storage:
-            self.video_height = self.flet_page_client_storage.get("video_height")
-            self.image_displayed_duration = (
-                int(self.flet_page_client_storage.get("image_displayed_duration")) or 0
+            storage = self.flet_page_client_storage
+
+            self.video_height = int(get_number_setting(storage, "video_height", 1080))
+            self.video_aspect_ratio = storage.get("video_aspect_ratio") or "16:9"
+            self.speech_text_parser.reading_direction = (
+                storage.get("reading_direction") or "rtl"
+            )
+            self.image_displayed_duration = get_number_setting(
+                storage, "image_displayed_duration", 3
             )
             self.use_reading_speed_wpm = self.flet_page_client_storage.get(
                 "use_reading_speed_wpm"
             )
-            self.reading_speed_wpm = int(
-                self.flet_page_client_storage.get("reading_speed_wpm")
+            self.reading_speed_wpm = get_number_setting(
+                storage, "reading_speed_wpm", 150
             )
 
             self.use_minimum_image_duration = self.flet_page_client_storage.get(
                 "use_minimum_image_duration"
             )
-            self.minimum_image_duration = int(
-                self.flet_page_client_storage.get("minimum_image_duration") or 0
+            self.minimum_image_duration = get_number_setting(
+                storage, "minimum_image_duration", 0
             )
 
             self.use_text_to_speech_azure = self.flet_page_client_storage.get(
                 "use_text_to_speech_azure"
             )
-            self.image_pre_tts_audio_delay = int(
-                self.flet_page_client_storage.get("image_pre_tts_audio_delay") or 0
+            self.image_pre_tts_audio_delay = get_number_setting(
+                storage, "image_pre_tts_audio_delay", 0
             )
-            self.image_post_tts_audio_delay = int(
-                self.flet_page_client_storage.get("image_post_tts_audio_delay") or 0
+            self.image_post_tts_audio_delay = get_number_setting(
+                storage, "image_post_tts_audio_delay", 0
             )
 
             self.highlight_text_boxes_in_images = self.flet_page_client_storage.get(
@@ -113,19 +144,11 @@ class VideoCreatorFromImages:
         )
         full_audio_files_output_directory = f"{full_output_directory}/audio-files"
 
-        sorted_chapter_directory = sorted(
-            os.listdir(image_folder), key=natural_sort_key
-        )
-        files_that_are_images = [
-            file
-            for file in sorted_chapter_directory
-            if file.lower().endswith((".png", ".jpg", ".jpeg"))
-        ]
-        images = [os.path.join(image_folder, file) for file in files_that_are_images]
+        images = list_images(image_folder)
 
         (essential_text_in_images_matrix, magi_output_data) = (
             self.get_essential_text_and_magi_data(
-                image_folder, "1-panel", full_output_directory
+                image_folder, full_output_directory, image_count=len(images)
             )
         )
 
@@ -198,7 +221,11 @@ class VideoCreatorFromImages:
             fps = 5
 
         # "fps" is set to 1 as the images being saved are typically going to be Manga Panels and will have no smooth transitions between panels so no need to create extra frames for nothing. Just show the same frame for the specified duration.
-        video.write_videofile(output_file, fps=fps)
+        video_extension = os.path.splitext(output_file)[1].lstrip(".").lower()
+        codecs = VIDEO_CODECS_BY_EXTENSION.get(
+            video_extension, VIDEO_CODECS_BY_EXTENSION["mp4"]
+        )
+        video.write_videofile(output_file, fps=fps, **codecs)
 
         if (
             self.highlight_text_boxes_in_images
@@ -240,7 +267,7 @@ class VideoCreatorFromImages:
             image_path = images[index]
             base_name, _ = os.path.splitext(os.path.basename(image_path))
 
-            audio_output_file = f"{full_audio_files_output_directory}/{base_name}.wav"
+            audio_output_file = f"{full_audio_files_output_directory}/{base_name}.mp3"
             panel_audio_file_duration = 1
 
             os.makedirs(full_audio_files_output_directory, exist_ok=True)
@@ -248,22 +275,27 @@ class VideoCreatorFromImages:
             if panel_text_arr and len(panel_text_arr) > 0:
                 if self.highlight_text_boxes_in_images:
                     for index, text_str in enumerate(panel_text_arr):
-                        highlight_text_audio_output_file = f"{full_audio_files_output_directory}/{base_name}-{index + 1}.wav"
-                        self.tts.generate_azure_audio(
+                        highlight_text_audio_output_file = f"{full_audio_files_output_directory}/{base_name}-{index + 1}.mp3"
+                        self.tts.generate_audio(
                             [text_str], highlight_text_audio_output_file
                         )
 
-                        panel_audio_file_duration = get_audio_file_duration(
-                            highlight_text_audio_output_file
-                        )
+                        # No audio file is created for blank text.
+                        panel_audio_file_duration = 1
+                        if os.path.exists(highlight_text_audio_output_file):
+                            panel_audio_file_duration = get_audio_duration(
+                                highlight_text_audio_output_file
+                            )
 
                         images_duration_based_on_tts.append(panel_audio_file_duration)
                 else:
-                    self.tts.generate_azure_audio(panel_text_arr, audio_output_file)
+                    self.tts.generate_audio(panel_text_arr, audio_output_file)
 
-                    panel_audio_file_duration = get_audio_file_duration(
-                        audio_output_file
-                    )
+                    # No audio file is created if all of the text is blank.
+                    if os.path.exists(audio_output_file):
+                        panel_audio_file_duration = get_audio_duration(
+                            audio_output_file
+                        )
 
                     images_duration_based_on_tts.append(panel_audio_file_duration)
             else:
@@ -303,10 +335,7 @@ class VideoCreatorFromImages:
         final_image_duration = self.image_displayed_duration
 
         if self.use_text_to_speech_azure:
-            if self.highlight_text_boxes_in_images:
-                final_image_duration = float(images_duration_based_on_tts[index])
-            else:
-                final_image_duration = float(images_duration_based_on_tts[index])
+            final_image_duration = float(images_duration_based_on_tts[index])
         elif self.use_reading_speed_wpm:
             final_image_duration = float(images_duration_based_on_wpm[index])
 
@@ -316,85 +345,87 @@ class VideoCreatorFromImages:
 
         return final_image_duration
 
+    def get_video_frame_size(self):
+        """
+        The "video_height" setting is the video's resolution, like "1080p": it's the length of the shorter side. So 1080 gives 1920x1080 for 16:9, 1080x1920 for 9:16 and 1080x1080 for 1:1. The width and height must be even numbers for most video codecs.
+        """
+        ratio_width, ratio_height = VIDEO_ASPECT_RATIOS.get(
+            self.video_aspect_ratio, VIDEO_ASPECT_RATIOS["16:9"]
+        )
+        shorter_side = int(self.video_height)
+        if shorter_side < 2:
+            shorter_side = 1080
+        scale = shorter_side / min(ratio_width, ratio_height)
+
+        video_width = round(ratio_width * scale) // 2 * 2
+        video_height = round(ratio_height * scale) // 2 * 2
+
+        return (video_width, video_height)
+
+    def get_image_clip_fit_to_video_frame(self, image_path):
+        """
+        Scale the image so that it fits inside the video frame and center it on a black background. Without this, one very wide or very tall panel would change the size of the whole video.
+        """
+        video_width, video_height = self.get_video_frame_size()
+        image_clip = ImageClip(image_path)
+
+        scale = min(video_width / image_clip.w, video_height / image_clip.h)
+        image_clip = image_clip.resized(scale)
+
+        return CompositeVideoClip(
+            [image_clip.with_position("center")],
+            size=(video_width, video_height),
+            bg_color=(0, 0, 0),
+        )
+
     def get_essential_text_and_magi_data(
-        self, image_folder, testing_type, full_output_directory
+        self, image_folder, full_output_directory, image_count=None
     ):
-        essential_text_in_images_matrix = None
+        # A fixed duration per image without text-to-speech or highlighting doesn't use the text at all, so don't spend time loading and running Magi.
+        text_is_needed = (
+            self.use_text_to_speech_azure
+            or self.use_reading_speed_wpm
+            or self.highlight_text_boxes_in_images
+        )
+        if not text_is_needed:
+            return ([[] for _ in range(image_count or 0)], None)
+
         magi_output_data = None
+        essential_text_from_transcript = self.get_essential_text_from_transcript(
+            full_output_directory
+        )
 
-        read_from_transcript = True
-        essential_text_from_transcript = None
+        # Only reuse a saved transcript if it still matches the images. If the number of images changed, the text would end up on the wrong images (or crash).
+        # When highlighting text boxes, each line of text has to match one of Magi's text boxes exactly, so a hand-edited transcript can't be used there either.
+        transcript_does_not_match_images = (
+            essential_text_from_transcript is not None
+            and image_count is not None
+            and len(essential_text_from_transcript) != image_count
+        )
 
-        if read_from_transcript:
-            essential_text_from_transcript = self.get_essential_text_from_transcript(
-                full_output_directory
-            )
+        if transcript_does_not_match_images or (
+            essential_text_from_transcript and self.highlight_text_boxes_in_images
+        ):
+            if transcript_does_not_match_images:
+                print(
+                    "The saved transcript doesn't match the number of images. Reading the text with Magi instead."
+                )
 
-        if testing_type == "1-panel":
-            essential_text_in_images_matrix = essential_text_from_transcript or [
-                [
-                    "A battle between images is akin to a rock- paper-scissors match, after all.",
-                    "Albert a rock-paper- scissors match",
-                    "that is extremely complex, difficult to read and involves a myriad of moves.",
-                ],
-            ]
-            magi_output_data = magi_frieren_ch_55_panel_6_output
+            essential_text_from_transcript = None
 
-        elif testing_type == "multiple-panels":
-            # essential_text_in_images_matrix = [
-            #     [
-            #         "Red Line: Holy Land of Mariejoa",
-            #         "vanished...?",
-            #         "Yeah. That's what happened.",
-            #         "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
-            #         "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
-            #         "This is no joking matter!!!",
-            #     ],
-            #     [
-            #         "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
-            #         "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
-            #         "And you call this doing your job, do you...?!!!",
-            #     ],
-            # ]
-
-            essential_text_in_images_matrix = essential_text_from_transcript or [
-                [],
-                [],
-                [
-                    "I more or less get the picture now.",
-                    'You people are buying time for Friedman to defeat this "Spiegel", the "Reflective Water Demon".',
-                    "Well, for the clones, we've already dealt with three of them.",
-                    "It seems this discussion will be quick then.",
-                    "In that case-",
-                ],
-                [
-                    "..... Oh my.",
-                    "It seems Sense-san's clone got crushed just now.",
-                    "...This mama. The one who took it down must be libel, the third- class mage.",
-                ],
-                [
-                    "What a surprising outcome.",
-                    "You think? That match-up's pretty off.",
-                ],
-                [
-                    "A battle between images is akin to a rock- paper-scissors match, after all.",
-                    "Albert a rock-paper- scissors match",
-                    "that is extremely complex, difficult to read and involves a myriad of moves.",
-                ],
-                [
-                    "So you would like to increase the number of available moves we have, by how- ever little it may be.",
-                    "Very well. I'll help you hold back the clones.",
-                ],
-            ]
-            magi_output_data = magi_ch_55_frieren_panel_1_to_7_output
+        if essential_text_from_transcript:
+            essential_text_in_images_matrix = essential_text_from_transcript
         else:
-            # Default that should be used when not testing.
-            essential_text_in_images_matrix = essential_text_from_transcript or (
+            essential_text_in_images_matrix = (
                 self.speech_text_parser.get_essential_text_list_in_images(image_folder)
             )
+            magi_output_data = self.speech_text_parser.last_magi_data
 
-            # TODO: Need to add logic somewhere here to get dynamic magi data for highlighted text. Probably should only call it when "highlight_text_boxes_in_images" is True too.
-            magi_output_data = None
+        # The text was read from an existing transcript so Magi didn't run. Highlighting the text boxes needs the box positions from Magi though.
+        if self.highlight_text_boxes_in_images and magi_output_data is None:
+            magi_output_data = self.speech_text_parser.magi.get_data_from_images(
+                image_folder, self.speech_text_parser.reading_direction
+            )
 
         self.save_essential_text_to_transcript(
             essential_text_in_images_matrix, full_output_directory
@@ -449,7 +480,8 @@ class VideoCreatorFromImages:
                 loaded_arrays.append(current_array)  # Append the current array
                 current_array = []  # Reset for the next array
             else:
-                current_array.append(line)  # Add line to the current array
+                if line:  # Skip blank lines (there's nothing to read out loud)
+                    current_array.append(line)  # Add line to the current array
 
         # Add the last array if the file doesn't end with the separator
         if current_array:
@@ -470,25 +502,13 @@ class VideoCreatorFromImages:
         image_paths_to_use = images
 
         if self.highlight_text_boxes_in_images:
-            sorted_images_from_highlighted_text = sorted(
-                os.listdir(images_with_highlighted_text_boxes_folder),
-                key=natural_sort_key,
-            )
-            files_that_are_images = [
-                file
-                for file in sorted_images_from_highlighted_text
-                if file.lower().endswith((".png", ".jpg", ".jpeg"))
-            ]
-            image_paths_to_use = [
-                os.path.join(images_with_highlighted_text_boxes_folder, file)
-                for file in files_that_are_images
-            ]
+            image_paths_to_use = list_images(images_with_highlighted_text_boxes_folder)
 
         for index, img in enumerate(image_paths_to_use):
             # Extract base name of the image (e.g., panel_1.png -> panel_1)
             base_name, _ = os.path.splitext(os.path.basename(img))
-            wav_path = os.path.join(
-                full_output_directory, f"audio-files/{base_name}.wav"
+            audio_path = os.path.join(
+                full_output_directory, f"audio-files/{base_name}.mp3"
             )
 
             img_duration = self.get_img_duration(
@@ -497,23 +517,26 @@ class VideoCreatorFromImages:
                 index=index,
             )
 
-            image_clip = (
-                ImageClip(img)
-                .resized(height=int(self.video_height))
-                .with_duration(img_duration)
+            image_clip = self.get_image_clip_fit_to_video_frame(img).with_duration(
+                img_duration
             )
 
-            # Check if the corresponding .wav file exists
-            if os.path.exists(wav_path):
+            # Check if the corresponding audio file exists
+            if os.path.exists(audio_path):
                 # Get the actual duration of the audio file
-                audio_clip = AudioFileClip(wav_path)
+                audio_clip = AudioFileClip(audio_path)
                 audio_duration = audio_clip.duration
 
-                # Adjust the duration to avoid exceeding the audio duration
-                adjusted_duration = min(img_duration, audio_duration)
+                # When each line of text gets its own highlighted image, the image should only last as long as its line of audio. Otherwise, keep the full image duration (which includes the minimum image duration).
+                if self.highlight_text_boxes_in_images:
+                    adjusted_duration = audio_duration
+                else:
+                    adjusted_duration = max(img_duration, audio_duration)
 
-                # Subclip the audio to match the adjusted duration
-                audio_clip = audio_clip.subclipped(0, adjusted_duration)
+                # Make sure the audio never runs longer than the image.
+                audio_clip = audio_clip.subclipped(
+                    0, min(audio_duration, adjusted_duration)
+                )
 
                 combined_audio_clips = audio_clip
 
@@ -521,7 +544,7 @@ class VideoCreatorFromImages:
 
                 # Check if the image can use "Pre-TTS"
                 if self.highlight_text_boxes_in_images:
-                    current_panel_num = int(base_name.split("-")[1])
+                    current_panel_num = int(base_name.rsplit("-", 1)[1])
                     is_first_base_panel_image = current_panel_num == 1
 
                     if not is_first_base_panel_image:
@@ -555,10 +578,11 @@ class VideoCreatorFromImages:
                             os.path.basename(next_image_path)
                         )
 
-                        current_panel_starting_base_name = base_name.split("-")[0]
-                        next_panel_starting_base_name = next_panel_base_name.split("-")[
-                            0
-                        ]
+                        # Highlighted images are named "<original name>-<line number>". Use "rsplit" in case the original name has a "-" in it too.
+                        current_panel_starting_base_name = base_name.rsplit("-", 1)[0]
+                        next_panel_starting_base_name = next_panel_base_name.rsplit(
+                            "-", 1
+                        )[0]
 
                         last_highlighted_text_image_for_panel = (
                             current_panel_starting_base_name
@@ -580,27 +604,3 @@ class VideoCreatorFromImages:
             clips.append(image_clip)
 
         return clips
-
-
-is_running_as_main_program = __name__ == "__main__"
-
-
-if is_running_as_main_program:
-    video_creator_from_images = VideoCreatorFromImages()
-
-    print("Select Input Directory:")
-    input_directory = select_folder()
-
-    print("Select Output Directory:")
-    output_directory = select_folder()
-
-    series_name, chapter_name = get_last_two_directories_obj(input_directory)
-    full_output_directory = f"{output_directory}/{series_name}"
-    output_file = f"{full_output_directory}/{chapter_name}.mp4"
-
-    print(f'Creating video "{series_name}/{chapter_name}.mp4"')
-    video_creator_from_images.create_video_from_images(
-        image_folder=input_directory,
-        output_file=output_file,
-        full_output_directory=full_output_directory,
-    )

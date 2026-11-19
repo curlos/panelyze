@@ -32,29 +32,20 @@ class HighlightTextBoxesInImages(SettingsBase):
         self.border_style_list = ["solid", "dotted", "dashed", "dashdot"]
 
         default_images_to_video_text_box_border_width = int(
-            float(self.get_setting_value("images_to_video_text_box_border_width", 1))
+            float(self.get_setting_value("images_to_video_text_box_border_width"))
         )
         default_images_to_video_text_box_padding = int(
-            float(self.get_setting_value("images_to_video_text_box_padding", 15))
+            float(self.get_setting_value("images_to_video_text_box_padding"))
         )
         default_images_to_video_text_box_background_color_opacity = float(
-            self.get_setting_value(
-                "images_to_video_text_box_background_color_opacity", 1
-            )
+            self.get_setting_value("images_to_video_text_box_background_color_opacity")
         )
         default_images_to_video_text_box_border_color_opacity = float(
-            self.get_setting_value("images_to_video_text_box_border_color_opacity", 1)
+            self.get_setting_value("images_to_video_text_box_border_color_opacity")
         )
-        default_images_to_video_text_box_border_style = self.get_setting_value(
-            "images_to_video_text_box_border_style", "solid"
-        )
-        default_images_to_video_text_box_border_color = self.get_setting_value(
-            "images_to_video_text_box_border_color", "#ef4444"
-        )
-        default_images_to_video_text_box_background_color = self.get_setting_value(
-            "images_to_video_text_box_background_color",
-            "#eab308",  # Yellow is the default color.
-        )
+        default_images_to_video_text_box_border_style = self.get_setting_value("images_to_video_text_box_border_style")
+        default_images_to_video_text_box_border_color = self.get_setting_value("images_to_video_text_box_border_color")
+        default_images_to_video_text_box_background_color = self.get_setting_value("images_to_video_text_box_background_color")
 
         self.text_box_border_color_dropdown = DropdownTextOptions(
             label="Border Color",

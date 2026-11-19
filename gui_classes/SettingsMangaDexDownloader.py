@@ -41,12 +41,6 @@ class SettingsMangaDexDownloader(SettingsBase):
             visible=bool(self.page.client_storage.get("use_start_and_end_chapters")),
         )
 
-        self.page_num_textfield_dict = {
-            "start_page": self.start_page_textfield,
-            "end_page": self.end_page_textfield,
-            "start_chapter": self.start_chapter_textfield,
-            "end_chapter": self.end_chapter_textfield,
-        }
 
         self.content = ft.Column(
             controls=[

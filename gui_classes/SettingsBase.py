@@ -1,6 +1,6 @@
 import flet as ft
-import pdb
 
+from default_settings import DEFAULT_SETTINGS
 from utils import is_valid_number
 
 
@@ -12,28 +12,21 @@ class SettingsBase(ft.Container):
         self.width = 350
 
     def change_setting(self, setting_key, setting_value):
-        final_setting_value = setting_value
+        # Checkboxes send "true"/"false" as text.
+        if setting_value in ("true", "false"):
+            setting_value = setting_value == "true"
 
-        if setting_value == "true" or setting_value == "false":
-            final_setting_value = {"true": True, "false": False}.get(
-                setting_value.lower(), False
-            )
+        self.page.client_storage.set(setting_key, setting_value)
 
-        if (
-            hasattr(self, "page_num_textfield_dict")
-            and setting_key in self.page_num_textfield_dict
-        ):
-            page_num_textfield = self.page_num_textfield_dict[setting_key]
-
-            if setting_value and not is_valid_number(setting_value):
-                page_num_textfield.error_text = "Please enter a valid number."
-            else:
-                page_num_textfield.error_text = ""
-                self.page.client_storage.set(setting_key, final_setting_value)
-
-            page_num_textfield.update()
+    def change_number_setting(self, textfield, setting_key, setting_value):
+        # Only save valid numbers (or an empty box). Otherwise, show an error under the box.
+        if setting_value and not is_valid_number(setting_value):
+            textfield.error_text = "Please enter a valid number."
         else:
-            self.page.client_storage.set(setting_key, final_setting_value)
+            textfield.error_text = ""
+            self.page.client_storage.set(setting_key, setting_value)
+
+        textfield.update()
 
     def get_number_textfield(self, label, client_storage_key):
         return ft.TextField(
@@ -41,7 +34,9 @@ class SettingsBase(ft.Container):
             border_color="#5e81ac",
             keyboard_type=ft.KeyboardType.NUMBER,
             value=self.page.client_storage.get(client_storage_key),
-            on_change=lambda e: self.change_setting(client_storage_key, e.data),
+            on_change=lambda e: self.change_number_setting(
+                e.control, client_storage_key, e.data
+            ),
         )
 
     def toggle_setting_element_visibility(self, e, view_element, setting_key):
@@ -89,10 +84,14 @@ class SettingsBase(ft.Container):
             if is_checked:
                 return setting_key
 
-    def get_setting_value(self, setting_key, default_setting_value):
+    def get_setting_value(self, setting_key):
+        """
+        The saved value of a setting, or its default (from "default_settings.py") if it was never saved.
+        """
         setting_value = self.page.client_storage.get(setting_key)
 
-        if setting_value == None or setting_value == "":
-            self.page.client_storage.set(setting_key, default_setting_value)
+        if setting_value is None or setting_value == "":
+            setting_value = DEFAULT_SETTINGS[setting_key]
+            self.page.client_storage.set(setting_key, setting_value)
 
-        return self.page.client_storage.get(setting_key)
+        return setting_value

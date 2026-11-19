@@ -1,0 +1,153 @@
+"""
+A quick check that everything Panelyze needs works, with no window: "python gui.py --self-test" (or "Panelyze.app/Contents/MacOS/Panelyze --self-test").
+
+"build_mac_app.sh" runs it on the freshly built app, so a broken bundle (e.g. a missing library, Magi files or waifu2x) is caught before it's zipped and shared. Nothing here needs the internet.
+"""
+import os
+import subprocess
+import sys
+import tempfile
+import traceback
+
+from PIL import Image, ImageDraw
+
+
+def make_test_page(path):
+    """
+    A simple drawn manga page with 3 panels (no real manga page can be shipped with the app).
+    """
+    page = Image.new("RGB", (800, 1200), "white")
+    draw = ImageDraw.Draw(page)
+
+    for x1, y1, x2, y2 in [(30, 30, 390, 580), (410, 30, 770, 580), (30, 600, 770, 1170)]:
+        draw.rectangle((x1, y1, x2, y2), outline="black", width=8)
+        for i in range(6):
+            draw.line((x1 + 40 + i * 40, y1 + 60, x1 + 120 + i * 30, y2 - 60), fill="black", width=4)
+        draw.ellipse((x1 + 60, y1 + 80, x1 + 220, y1 + 200), outline="black", width=4)
+
+    page.save(path)
+
+
+def check_magi_panels(work_directory):
+    import numpy
+    from magi import Magi
+
+    page_path = os.path.join(work_directory, "page_1.png")
+    make_test_page(page_path)
+    panels = Magi().predict_panels([numpy.array(Image.open(page_path))])[0]["panels"]
+
+    assert len(panels) == 3, f"expected 3 panels, found {len(panels)}"
+    return "3 panels found"
+
+
+def check_waifu2x(work_directory):
+    from utils import ProcessManager, get_waifu2x_path
+    from waifu2x import upscale_with_waifu2x
+
+    assert get_waifu2x_path(), "waifu2x-ncnn-vulkan not found"
+
+    input_image = os.path.join(work_directory, "small.png")
+    output_image = os.path.join(work_directory, "small_2x.png")
+    Image.new("RGB", (40, 30), "white").save(input_image)
+    upscale_with_waifu2x(
+        input_image, output_image, upscale_ratio=2, noise_level=0, process_manager=ProcessManager()
+    )
+
+    assert Image.open(output_image).size == (80, 60), "wrong upscaled size"
+    return "upscaled 40x30 to 80x60"
+
+
+def check_video(work_directory):
+    from VideoCreatorFromImages import VideoCreatorFromImages
+
+    images_folder = os.path.join(work_directory, "panels")
+    os.makedirs(images_folder)
+    Image.new("RGB", (300, 400), "white").save(os.path.join(images_folder, "panel_1.png"))
+    Image.new("RGB", (400, 300), "gray").save(os.path.join(images_folder, "panel_2.png"))
+
+    settings = {
+        "use_reading_speed_wpm": False,
+        "use_image_displayed_duration": True,
+        "image_displayed_duration": "1",
+        "use_minimum_image_duration": False,
+        "video_height": "240",
+    }
+    video_creator = VideoCreatorFromImages(settings)
+    video_creator.initialize_flet_client_storage_values(settings)
+    video_file = os.path.join(work_directory, "video.mp4")
+    video_creator.create_video_from_images(
+        images_folder, video_file, full_output_directory=os.path.join(work_directory, "video")
+    )
+
+    assert os.path.getsize(video_file) > 0, "empty video"
+    return "made a 2-panel video"
+
+
+def check_mangadex_downloader(work_directory):
+    from download_from_mangadex import get_mangadex_downloader_command
+
+    result = subprocess.run(
+        get_mangadex_downloader_command() + ["--list-language"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert "English" in result.stdout, f"no language list: {result.stdout[-300:]}{result.stderr[-300:]}"
+    return "mangadex-downloader runs"
+
+
+def check_text_to_speech_libraries(work_directory):
+    import azure.cognitiveservices.speech as speechsdk
+    import edge_tts
+
+    assert edge_tts.Communicate
+
+    # Creating a config loads Azure's native library (without contacting Azure).
+    speechsdk.SpeechConfig(subscription="self-test", region="eastus")
+    return "edge-tts and Azure Speech load"
+
+
+CHECKS = [
+    check_magi_panels,
+    check_waifu2x,
+    check_video,
+    check_mangadex_downloader,
+    check_text_to_speech_libraries,
+]
+
+
+# A packaged app may have nowhere to print to, so the results are also saved here.
+REPORT_FILE_PATH = os.path.expanduser("~/Library/Logs/Panelyze/self-test.log")
+
+
+def run_self_test():
+    """
+    Run every check and print the results. Returns the exit code: 0 if everything passed, 1 otherwise.
+    """
+    report_lines = []
+    failed_checks = 0
+
+    for check in CHECKS:
+        with tempfile.TemporaryDirectory(prefix="panelyze-self-test-") as work_directory:
+            try:
+                report_lines.append(f"PASS {check.__name__}: {check(work_directory)}")
+            except Exception:
+                failed_checks += 1
+                report_lines.append(f"FAIL {check.__name__}:\n{traceback.format_exc()}")
+        print(report_lines[-1], flush=True)
+
+    report_lines.append(
+        "SELF-TEST PASSED" if failed_checks == 0 else f"SELF-TEST FAILED ({failed_checks} failed)"
+    )
+    print(report_lines[-1], flush=True)
+
+    os.makedirs(os.path.dirname(REPORT_FILE_PATH), exist_ok=True)
+    with open(REPORT_FILE_PATH, "w") as report_file:
+        report_file.write("\n".join(report_lines) + "\n")
+
+    return 0 if failed_checks == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(run_self_test())

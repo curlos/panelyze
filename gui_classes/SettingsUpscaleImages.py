@@ -26,9 +26,16 @@ class SettingsUpscaleImages(SettingsBase):
             visible=bool(self.page.client_storage.get("use_custom_panel_image_height")),
         )
 
-        self.page_num_textfield_dict = {
-            "custom_panel_image_height": self.custom_panel_image_height_textfield,
-        }
+        self.max_image_width_textfield = self.get_number_textfield(
+            "Max Image Width (px)", "max_image_width"
+        )
+        self.max_image_width_col = ft.Column(
+            controls=[
+                self.max_image_width_textfield,
+            ],
+            visible=bool(self.page.client_storage.get("use_max_image_width")),
+        )
+
 
         self.inner_content = [
             ft.Dropdown(
@@ -78,6 +85,12 @@ class SettingsUpscaleImages(SettingsBase):
                 max_menu_height=300,
                 on_change=lambda e: self.change_setting("image_format", e.data),
             ),
+            # Upscaling an already big image (e.g. 8000px at 16x) would take forever for no visible gain.
+            ft.Checkbox(
+                label="Don't upscale past 4K (3840px on the longest side)",
+                value=self.page.client_storage.get("limit_upscale_to_4k"),
+                on_change=lambda e: self.change_setting("limit_upscale_to_4k", e.data),
+            ),
             ft.Checkbox(
                 label="Use Custom Panel Image Height",
                 value=self.page.client_storage.get("use_custom_panel_image_height"),
@@ -88,6 +101,17 @@ class SettingsUpscaleImages(SettingsBase):
                 ),
             ),
             self.custom_panel_image_height_col,
+            # Big images like colorspreads can balloon to 100+ MB after a 4x upscale, so this caps how wide they can get.
+            ft.Checkbox(
+                label="Use Max Image Width",
+                value=self.page.client_storage.get("use_max_image_width"),
+                on_change=lambda e: self.toggle_setting_element_visibility(
+                    e,
+                    self.max_image_width_col,
+                    "use_max_image_width",
+                ),
+            ),
+            self.max_image_width_col,
         ]
 
         self.content = self.get_full_content()

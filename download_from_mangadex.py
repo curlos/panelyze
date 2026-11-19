@@ -1,13 +1,9 @@
 import sys
-from rename_folders_to_chapter_format import rename_folders_to_chapter_format
 from utils import (
-    select_folder,
-    is_tool_installed,
-    pip_install_or_uninstall_tool,
     ProcessManager,
+    is_running_as_packaged_app,
 )
 import flet as ft
-import pdb
 
 all_options_with_terminal_command = {
     "use_chapter_title": "--use-chapter-title",
@@ -40,7 +36,6 @@ def get_additional_terminal_options(flet_page_client_storage):
 
         print(f"{key}: {storage_value}")
 
-        # pdb.set_trace()
 
         if key == "language":
             additional_terminal_options.extend(["--language", storage_value["code"]])
@@ -67,6 +62,17 @@ def get_additional_terminal_options(flet_page_client_storage):
     return additional_terminal_options
 
 
+def get_mangadex_downloader_command():
+    """
+    How to start "mangadex-downloader" in its own process (so it can be cancelled and its output shown line by line).
+    """
+    # In the packaged app, "sys.executable" is Panelyze itself, not Python. Panelyze runs only the downloader when it's started with "--run-mangadex" (see the top of "gui.py").
+    if is_running_as_packaged_app():
+        return [sys.executable, "--run-mangadex"]
+
+    return [sys.executable, "-m", "mangadex_downloader"]
+
+
 def download_from_mangadex(
     mangadex_url_to_download_from: str = "",
     output_directory: str = "",
@@ -83,10 +89,7 @@ def download_from_mangadex(
         flet_page_client_storage
     )
 
-    terminal_command = [
-        sys.executable,
-        "-m",
-        "mangadex_downloader",
+    terminal_command = get_mangadex_downloader_command() + [
         mangadex_url_to_download_from,
         "-d",
         output_directory,
@@ -102,20 +105,3 @@ def download_from_mangadex(
     process_manager.monitor_terminal_output(
         terminal_command, terminal_output_list_view, output_directory
     )
-
-
-is_running_as_main_program = __name__ == "__main__"
-
-if is_running_as_main_program:
-    mangadex_downloader_module_name = "mangadex_downloader"
-
-    if not is_tool_installed(mangadex_downloader_module_name):
-        print(f"Error: {mangadex_downloader_module_name} is not installed.")
-        pip_install_or_uninstall_tool(mangadex_downloader_module_name, "install")
-
-    mangadex_url_to_download_from = input("\nEnter a Manga Dex URL: ")
-
-    print("\nSelect an output directory: ")
-    output_directory = select_folder()
-
-    download_from_mangadex(mangadex_url_to_download_from, output_directory)

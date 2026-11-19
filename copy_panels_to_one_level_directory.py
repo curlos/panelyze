@@ -1,6 +1,5 @@
 import os
 import shutil
-from utils import select_folder
 
 
 def copy_panels_to_one_level_directory(
@@ -69,17 +68,5 @@ def extract_panel_num(panel_str: str) -> int:
     """
     Extract the numerical part from a string in the format 'panel_x.[extension]'. For example, 'panel_2.png' will return '2'.
     """
-    panel_num = panel_str.split("_")[1].split(".")[0]
+    panel_num = int(panel_str.split("_")[1].split(".")[0])
     return panel_num
-
-
-is_running_as_main_program = __name__ == "__main__"
-
-if is_running_as_main_program:
-    print("Select a directory to group panels from:")
-    input_directory = select_folder()
-
-    print("Select a directory save the grouped panels to:")
-    output_directory = select_folder()
-
-    copy_panels_to_one_level_directory(input_directory, output_directory)

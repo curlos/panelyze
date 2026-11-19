@@ -1,131 +1,108 @@
-from pprint import pprint
-from transformers import pipeline
+EMOTION_MODEL_NAME = "j-hartmann/emotion-english-distilroberta-base"
+
+# For each emotion the model can find, the Azure voice styles that fit it, best first. Not every Azure voice has every style, so the first one the voice actually has is used.
+AZURE_STYLES_BY_EMOTION = {
+    "anger": ["angry", "shouting", "disgruntled", "unfriendly", "envious"],
+    "disgust": ["disgruntled", "unfriendly", "embarrassed", "envious"],
+    "fear": ["terrified", "fearful", "shouting", "sorry", "shy", "whispering", "envious"],
+    "joy": [
+        "cheerful",
+        "excited",
+        "affectionate",
+        "gentle",
+        "friendly",
+        "relieved",
+        "hopeful",
+        "empathetic",
+        "sports-commentary-excited",
+        "lyrical",
+    ],
+    "neutral": [
+        "calm",
+        "serious",
+        "chat",
+        "newscast",
+        "assistant",
+        "customerservice",
+        "narration-professional",
+        "newscast-casual",
+        "newscast-formal",
+        "conversation",
+        "poetry-reading",
+        "chat-casual",
+        "narration-relaxed",
+        "sports-commentary",
+        "documentary-narration",
+        "livecommercial",
+        "story",
+        "advertisement-upbeat",
+    ],
+    "sadness": ["depressed", "sad", "sorry", "shy"],
+    "surprise": ["excited", "embarrassed", "sports-commentary-excited"],
+}
+
+
+# How sure the model has to be before a line gets a voice style. Plain, emotionless sentences often get a low-confidence guess (e.g. "The meeting starts at noon." was 43% "fear"), and those are better read in the normal voice.
+MIN_EMOTION_CONFIDENCE = 0.5
 
 
 class EmotionAnalyzer:
-    def __init__(self):
-        # Load the emotion analysis model
-        self.emotion_pipeline = pipeline(
-            "text-classification", model="j-hartmann/emotion-english-distilroberta-base"
-        )
+    """
+    Finds the emotion of a line of text (anger, joy, sadness, etc.) so Azure Text-To-Speech can read it in a matching voice style. Only used with Azure's "Auto (emotion of each line)" voice style.
 
-        self.azure_emotion_dict = {
-            "anger": [
-                "angry",
-                "shouting",
-                "disgruntled",
-                "unfriendly",
-                "envious",
-            ],
-            "disgust": [
-                "disgruntled",
-                "unfriendly",
-                "embarrassed",
-                "envious",
-            ],
-            "fear": [
-                "terrified",
-                "fearful",
-                "shouting",
-                "sorry",
-                "shy",
-                "whispering",
-                "envious",
-            ],
-            "joy": [
-                "cheerful",
-                "excited",
-                "affectionate",
-                "gentle",
-                "friendly",
-                "relieved",
-                "hopeful",
-                "empathetic",
-                "sports-commentary-excited",
-                "lyrical",
-            ],
-            "neutral": [
-                "calm",
-                "serious",
-                "chat",
-                "newscast",
-                "assistant",
-                "customerservice",
-                "narration-professional",
-                "newscast-casual",
-                "newscast-formal",
-                "conversation",
-                "poetry-reading",
-                "chat-casual",
-                "narration-relaxed",
-                "sports-commentary",
-                "documentary-narration",
-                "livecommercial",
-                "story",
-                "advertisement-upbeat",
-            ],
-            "sadness": [
-                "depressed",
-                "sad",
-                "sorry",
-                "shy",
-            ],
-            "surprise": [
-                "excited",
-                "embarrassed",
-                "sports-commentary-excited",
-            ],
-        }
+    The emotion model (about 330 MB) is only loaded the first time it's needed. The first time ever, it's downloaded from Hugging Face automatically.
+    """
+
+    def __init__(self):
+        self._emotion_pipeline = None
+
+    @property
+    def emotion_pipeline(self):
+        if self._emotion_pipeline is None:
+            # Imported here so that transformers only loads when emotions are actually used.
+            from transformers import pipeline
+
+            print(
+                "Loading the emotion model (the first time, this downloads about 330 MB)..."
+            )
+            self._emotion_pipeline = pipeline("text-classification", model=EMOTION_MODEL_NAME)
+
+        return self._emotion_pipeline
 
     def get_emotion(self, text):
         """
-        Analyze emotions using j-hartmann/emotion-english-distilroberta-base.
-        Returns the top emotion and its confidence score.
+        The text's strongest emotion and how sure the model is (0 to 1).
         """
-        result = self.emotion_pipeline(text)
+        # The model only reads about 512 words at a time. Longer text is cut off instead of raising an error.
+        result = self.emotion_pipeline(text, truncation=True)
         return result[0]["label"], result[0]["score"]
 
-    def get_emotions_from_text_matrix(self, text_matrix):
-        text_obj_matrix = []
+    def get_voice_style(self, text, voice_styles):
+        """
+        The best Azure voice style for the text's emotion that the voice has (one of "voice_styles"), or "" (the normal voice) if none fits or the model isn't sure about the emotion.
+        """
+        emotion, confidence = self.get_emotion(text)
 
-        for text_arr in text_matrix:
-            new_text_obj_arr = []
+        if confidence < MIN_EMOTION_CONFIDENCE:
+            return ""
 
-            for text in text_arr:
-                result = self.get_emotion(text)
-                emotion, confidence = result
+        for style in AZURE_STYLES_BY_EMOTION.get(emotion, []):
+            if style in voice_styles:
+                return style
 
-                new_text_obj_arr.append(
-                    {"text": text, "emotion": emotion, "confidence": confidence}
-                )
-
-            text_obj_matrix.append(new_text_obj_arr)
-
-        return text_obj_matrix
+        return ""
 
 
-is_running_as_main_program = __name__ == "__main__"
+_shared_emotion_analyzer = None
 
-if is_running_as_main_program:
-    emotion_analyzer = EmotionAnalyzer()
 
-    essential_text_in_images_matrix = [
-        [
-            "Red Line: Holy Land of Mariejoa",
-            "vanished...?",
-            "Yeah. That's what happened.",
-            "I don't mean just like a figure of speech, either. He literally vanished into thin air!!",
-            "Fuffuffu... it sure took me by surprise, I'll tell you that. Does the Kage Kage no mi have that kind of power?",
-            "This is no joking matter!!!",
-        ],
-        [
-            "Ahh, don't worry... He was half-dead already. There was no saving him, no matter where he went.",
-            "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
-            "And you call this doing your job, do you...?!!!",
-        ],
-    ]
+def get_emotion_analyzer():
+    """
+    The one EmotionAnalyzer the app shares, so its model is only loaded once.
+    """
+    global _shared_emotion_analyzer
 
-    result = emotion_analyzer.get_emotions_from_text_matrix(
-        essential_text_in_images_matrix
-    )
-    pprint(result)
+    if _shared_emotion_analyzer is None:
+        _shared_emotion_analyzer = EmotionAnalyzer()
+
+    return _shared_emotion_analyzer

@@ -1,4 +1,6 @@
+import os
 import subprocess
+from utils import get_waifu2x_path
 
 
 def upscale_with_waifu2x(
@@ -11,8 +13,11 @@ def upscale_with_waifu2x(
     process_manager=None,
 ):
 
+    # The real file, even if the one on the PATH is a shortcut (symlink), so its models folder is found next to it.
+    waifu2x_path = os.path.realpath(get_waifu2x_path())
+
     terminal_command = [
-        "waifu2x-ncnn-vulkan",  # Path to the binary
+        waifu2x_path,
         "-i",
         input_image,
         "-o",
@@ -23,6 +28,9 @@ def upscale_with_waifu2x(
         str(noise_level),
         "-f",
         str(image_format),
+        # The model that comes with waifu2x, next to the program (so it's found no matter which folder the app runs from).
+        "-m",
+        os.path.join(os.path.dirname(waifu2x_path), "models-cunet"),
     ]
 
     if process_manager and terminal_output_list_view:

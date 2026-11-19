@@ -1,13 +1,19 @@
-import pytesseract
-from PIL import Image
-
-from magi import Magi
 from utils import time_it
 
 
 class SpeechTextParser:
     def __init__(self):
-        self.magi = Magi()
+        # "rtl" (manga, right to left) or "ltr" (comics, left to right). Decides the order the text is read in.
+        self.reading_direction = "rtl"
+        # The full Magi data from the last run. It's needed for drawing highlighted text boxes.
+        self.last_magi_data = None
+
+    @property
+    def magi(self):
+        # Imported here so that torch and transformers only load when Magi is actually used, not when the app starts.
+        from magi import get_magi
+
+        return get_magi()
 
     def get_images_duration_based_on_wpm(
         self,
@@ -47,7 +53,10 @@ class SpeechTextParser:
 
     @time_it()
     def get_essential_text_list_in_images(self, images_directory):
-        magi_data_from_images = self.magi.get_data_from_images(images_directory)
+        magi_data_from_images = self.magi.get_data_from_images(
+            images_directory, self.reading_direction
+        )
+        self.last_magi_data = magi_data_from_images
 
         essential_text_list_in_images = []
 
@@ -85,19 +94,3 @@ class SpeechTextParser:
         reading_time_seconds = word_count / (wpm / 60)
 
         return reading_time_seconds
-
-
-is_running_as_main_program = __name__ == "__main__"
-
-if is_running_as_main_program:
-    speech_text_parser = SpeechTextParser()
-
-    essential_text = [
-        "Ahh, don't worry... he was half-dead already. There was no saving him, no matter where he went.",
-        "Well... unless he managed to resurrect himself as a zombie, of course... Fuffuffuffuffuffuffuffuffuffuffuffuffuffuffuffu! Hey, it serves him right.",
-        "And you call this doing your job, do you...?!!!",
-    ]
-
-    wpm = 250  # Adjust WPM as needed
-    time_required = speech_text_parser.calculate_reading_time(essential_text, wpm)
-    print(f"Estimated reading time: {time_required:.2f} seconds")

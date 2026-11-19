@@ -1,63 +1,31 @@
 import flet as ft
-from gui_classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
-from gui_classes.SettingsPanelByPanel import SettingsPanelByPanel
-from utils import (
-    input_and_output_dirs_are_valid,
-    open_directory,
-    remove_last_directory,
-)
-import os
-from magi import Magi
+from gui_classes.JobView import JobView
+from gui_classes.ReadingDirectionSetting import get_reading_direction_dropdown
 
 
-class MagiPanelByPanelView(ft.Container):
+class MagiPanelByPanelView(JobView):
+    loading_text = "Converting to Panel-By-Panel..."
+    finished_text = "Panel-By-Panel conversion finished!"
+    failed_text = "Panel-By-Panel conversion failed."
+    open_output_directory_when_finished = True
+
     def __init__(self, parent_gui):
-        super().__init__()
-        self.parent_gui = parent_gui
-        self.bgcolor = "#3b4252"
-        self.expand = True
-        self.magi = None
-
-        self.pick_input_output_directories_container = PickInputAndOutputDirectories(
-            on_submit=self.handle_convert_to_panel_by_panel,
-            parent_gui=parent_gui,
-            settings_container=SettingsPanelByPanel(self.parent_gui.page),
+        super().__init__(
+            parent_gui,
+            settings_container=ft.Container(
+                content=get_reading_direction_dropdown(parent_gui.page),
+                width=350,
+                padding=ft.padding.only(left=10, top=5, right=10),
+            ),
         )
 
-        self.content = self.pick_input_output_directories_container
+    def process_image_folder(self, image_folder, images, input_directory, output_directory):
+        # Imported here so that torch and transformers only load when Magi is actually used, not when the app starts.
+        from magi import get_magi
 
-    def handle_convert_to_panel_by_panel(self, e):
-        if not input_and_output_dirs_are_valid(self):
-            return
-
-        if not self.magi:
-            self.magi = Magi()
-
-        input_directory = self.pick_input_output_directories_container.input_directory
-        output_directory = self.pick_input_output_directories_container.output_directory
-
-        files_directory_structure = (
-            self.pick_input_output_directories_container.files_directory_structure
+        get_magi().get_panels_for_chapter(
+            image_folder,
+            output_directory,
+            selected_input_directory=input_directory,
+            reading_direction=self.parent_gui.page.client_storage.get("reading_direction"),
         )
-        base_path = remove_last_directory(input_directory)
-
-        def traverse_and_process(level, current_path):
-            for key, value in level.items():
-                if key == "__images__":
-                    # Current path is a directory containing images
-                    input_directory = os.path.join(base_path, current_path)
-
-                    # Call the processing function
-                    self.magi.get_panels_for_chapter(
-                        input_directory, output_directory, self.page.client_storage
-                    )
-                else:
-                    # Traverse nested directories
-                    next_path = os.path.join(current_path, key) if current_path else key
-                    traverse_and_process(value, next_path)
-
-        # Start the traversal from the root of the structure
-        traverse_and_process(files_directory_structure, base_path)
-
-        # After all pages have been converted to panel-by-panel format, open the output directory.
-        open_directory(output_directory)

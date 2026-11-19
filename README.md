@@ -1,44 +1,20 @@
-<!-- PROJECT LOGO -->
-<br />
 <p align="center">
-  <a href="[https://github.com/Curlos/Rock-Paper-Scissors](https://github.com/curlos/YouTube-Timestamp-Bookmark-Chrome-Extension)">
-    <img src="/assets/no-face.png" alt="Logo" width="80" height="80">
-  </a>
+  <img src="/assets/no-face.png" alt="Panelyze logo" width="96" height="96">
 
-  <h3 align="center">Manga Panel Splitter</h3>
+  <h1 align="center">Panelyze</h1>
+  <p align="center">Turn manga pages into easy-to-read panels, upscale them, and make videos from them. All on your Mac, no terminal needed.</p>
+
+  <p align="center">
+    <a href="https://github.com/curlos/manga-panel-splitter/releases/latest"><b>⬇ Download for Mac (Apple Silicon)</b></a>
+  </p>
 </p>
 
+Manga is made for bigger formats, so reading a full page on a phone means a lot of zooming. Panelyze splits each page into one image per panel, in reading order, so you can read panel by panel instead.
 
-
-<!-- TABLE OF CONTENTS -->
-<details open="open">
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
-    </li>
-    <li><a href="#features">Features</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#acknowledgements">Acknowledgements</a></li>
-  </ol>
-</details>
-
-
-
-<!-- ABOUT THE PROJECT -->
-## About The Project
-
-Manga Panel Splitter is a desktop app that allows you to take a manga page and convert it into separate images for each panel on the page. This is most useful for scenarios where reading a normal manga page can be difficult such as reading on your phone. Sometimes it can be a bit difficult to read manga on a phone as manga is typically made for bigger formats so this will let you read panel-by-panel instead.
-
-- Manga Page:
 <div>
   <img src="https://github.com/user-attachments/assets/03c2f979-4305-4050-8739-c6e14ab0f9c4" height="400" />
 </div>
 
-- Manga Page Converted Into Separate Images For Each Panel:
 <div>
   <img src="https://github.com/user-attachments/assets/02b85b61-b373-4b4a-890f-e56d68ccca8e" height="300" />
   <img src="https://github.com/user-attachments/assets/72885e7d-bffe-496e-96eb-d3ed7fe0607c" height="300" />
@@ -48,29 +24,38 @@ Manga Panel Splitter is a desktop app that allows you to take a manga page and c
   <img src="https://github.com/user-attachments/assets/dd88d0b1-151c-44a3-9a8e-21fc25635081" height="300" />
 </div>
 
+## What it does
 
-
-
-### Built With
-
-* Python
-* [Flet](https://flet.dev/)
-* [Magi AI Model](https://github.com/ragavsachdeva/magi)
-* [MangaDex Downloader](https://github.com/mansuf/mangadex-downloader)
-
-## Features
-- Select a directory of manga chapters or pages and go through all of the pages in that directory and convert all of them into panel-by-panel format.
+- **Split pages into panels:** an AI model finds every panel and saves each as its own image, in reading order (right to left for manga, left to right for comics). About 1–2 seconds per page.
   - <img src="https://github.com/user-attachments/assets/d0eb6fbd-c1d6-435a-b775-4bd488512d70" height="400" />
-- Download Manga from MangaDex using a basic GUI wrapper.
+- **Download from MangaDex:** pick a language, chapters and pages. No account needed.
   - <img src="https://github.com/user-attachments/assets/9b5ab7fd-666e-4ad0-882c-e2fdf13cce81" height="400" />
+- **Upscale images** with waifu2x (2x, 4x, ...), with a limit so a huge image doesn't take forever.
+- **Make videos** from your panels, timed by reading speed or read aloud with text-to-speech (free voices, or Azure with your own key). Choose YouTube (16:9), TikTok / Shorts / Reels (9:16) or square (1:1).
+- **Run it all at once:** tick the steps you want (download → split → upscale → video) and run them in a row.
 
+Works on a whole folder, or just a few images.
 
-<!-- LICENSE -->
+## Install
+
+1. Download `Panelyze-macOS-AppleSilicon.zip` from the [latest release](https://github.com/curlos/manga-panel-splitter/releases/latest).
+2. Double-click the zip to unzip it, then drag **Panelyze** into your **Applications** folder.
+3. Double-click Panelyze. The first time, macOS says it can't check the app for malicious software (it isn't signed with a paid Apple Developer account). Click **Done**, then open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to "Panelyze was blocked". You only do this once.
+
+Everything is built in, including the panel-finding AI model and the upscaler. The only download: the first time a video reads the text of your pages, an AI model (about 2 GB) is downloaded automatically.
+
+## Good to know
+
+- **Mac with Apple Silicon only** (M1 or newer) for now. Windows is planned.
+- **For personal, non-commercial use.** The Magi AI model that finds the panels is free only for personal, research and non-commercial use (see its [model page](https://huggingface.co/ragavsachdeva/magiv2)).
+- Everything the app does is saved to `~/Library/Logs/Panelyze/panelyze.log` (Settings → Open Log File). Send it along if something goes wrong.
+
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License.
 
-
-<!-- ACKNOWLEDGEMENTS -->
 ## Acknowledgements
-* <div>Icons made by <a href="https://www.freepik.com" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a></div>
+
+- [Magi](https://github.com/ragavsachdeva/magi) by Ragav Sachdeva (panel and text detection)
+- [MangaDex Downloader](https://github.com/mansuf/mangadex-downloader), [waifu2x-ncnn-vulkan](https://github.com/nihui/waifu2x-ncnn-vulkan), [Flet](https://flet.dev/), [MoviePy](https://github.com/Zulko/moviepy) and [edge-tts](https://github.com/rany2/edge-tts)
+- Icons made by <a href="https://www.freepik.com" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a>
