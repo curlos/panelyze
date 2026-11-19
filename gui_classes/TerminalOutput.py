@@ -1,5 +1,6 @@
 import threading
 import flet as ft
+from gui_classes import Nord
 from gui_classes.ProgressPanel import ProgressPanel
 from utils import add_line_to_terminal_output_list_view
 
@@ -21,7 +22,7 @@ class TerminalOutput(ft.Container):
         self.resize_handle = ft.GestureDetector(
             content=ft.Container(
                 height=6,
-                border=ft.border.only(top=ft.border.BorderSide(2, "#5e81ac")),
+                border=ft.border.only(top=ft.border.BorderSide(2, Nord.BLUE)),
             ),
             mouse_cursor=ft.MouseCursor.RESIZE_UP_DOWN,
             on_vertical_drag_update=self.handle_resize_drag,
@@ -51,15 +52,16 @@ class TerminalOutput(ft.Container):
         self.terminal_arrow_icon = ft.IconButton(
             ft.Icons.KEYBOARD_ARROW_DOWN,
             on_click=self.toggle_terminal_visibility,
-            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=4), padding=1),
+            tooltip="Show or hide the terminal",
+            style=ft.ButtonStyle(shape=Nord.SQUARE, side=Nord.get_focus_border(), padding=1),
         )
 
         self.title_text = ft.Text(
-            value="Terminal Output", color="#8fbcbb", weight=ft.FontWeight.BOLD
+            value="Terminal Output", color=Nord.TEAL, weight=ft.FontWeight.BOLD
         )
-        self.command_text = ft.Text(value="", color="gray", visible=False)
+        self.command_text = ft.Text(value="", color=Nord.TEXT_MUTED, visible=False)
         self.progress_ring = ft.ProgressRing(width=14, height=14, visible=False)
-        self.success_icon = ft.Icon(ft.Icons.CHECK_CIRCLE, color="green", visible=False)
+        self.success_icon = ft.Icon(ft.Icons.CHECK_CIRCLE, color=Nord.GREEN, visible=False)
 
         self.content = ft.Column(
             controls=[
@@ -72,7 +74,7 @@ class TerminalOutput(ft.Container):
             ],
             spacing=0,
         )
-        self.bgcolor = "#3b4252"
+        self.bgcolor = Nord.SURFACE
         self.height = DEFAULT_TERMINAL_HEIGHT
 
     def get_header_and_output_column(self):
@@ -115,7 +117,13 @@ class TerminalOutput(ft.Container):
             (self.progress_tab_button, self.progress_panel.visible),
             (self.raw_output_tab_button, not self.progress_panel.visible),
         ]:
-            button.style = ft.ButtonStyle(color="#8fbcbb" if is_selected else "white")
+            # The selected tab is the bright one.
+            button.style = ft.ButtonStyle(
+                color=Nord.ACCENT if is_selected else Nord.TEXT_MUTED,
+                text_style=ft.TextStyle(weight=ft.FontWeight.BOLD if is_selected else None),
+                shape=Nord.SQUARE,
+                side=Nord.get_focus_border(),
+            )
 
     def handle_resize_drag(self, e):
         # Dragging up (negative "delta_y") makes the terminal taller. Keep some room for the view above it.
@@ -193,5 +201,5 @@ class TerminalOutput(ft.Container):
 
     def update_terminal_with_error_message(self, error_message):
         add_line_to_terminal_output_list_view(
-            self.terminal_output_list_view, error_message, color=ft.Colors.RED
+            self.terminal_output_list_view, error_message, color=Nord.RED_TEXT
         )

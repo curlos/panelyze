@@ -1,14 +1,16 @@
 import flet as ft
+from gui_classes import Nord
 from default_settings import get_output_directory
 from download_from_mangadex import download_from_mangadex
 from gui_classes.SettingsMangaDexDownloader import SettingsMangaDexDownloader
 from utils import get_newest_subfolder
+from gui_classes.ResponsiveColumns import ResponsiveColumns
 
 
 class MangaDexDownloaderView(ft.Container):
     def __init__(self, parent_gui):
         super().__init__()
-        self.bgcolor = "#3b4252"
+        self.bgcolor = Nord.BACKGROUND
 
         self.parent_gui = parent_gui
         self.page = self.parent_gui.page
@@ -18,29 +20,30 @@ class MangaDexDownloaderView(ft.Container):
         # Downloads go to the saved output folder (the default one unless it was changed).
         self.output_directory_text = ft.Text(
             get_output_directory(self.page.client_storage, "output_directory_mangadex"),
-            color="white",
+            color=Nord.TEXT,
             expand=True,
         )
 
         self.mangadex_url_text_field = ft.TextField(
+            border_radius=0,
             label="Enter a MangaDex Page URL",
-            border_color="#5e81ac",
+            border_color=Nord.BLUE,
+            # Pressing Enter in the box starts the download.
+            on_submit=lambda e: self.handle_download(e),
         )
 
         self.expand = True
 
         self.download_button = ft.FilledTonalButton(
+            style=Nord.button_style("primary"),
             text="Download",
-            color="white",
-            bgcolor="#5e81ac",
             on_click=self.handle_download,
         )
 
         # The Cancel button gets its click handler when a download starts (see "download_from_mangadex").
         self.cancel_button = ft.FilledTonalButton(
+            style=Nord.button_style("danger"),
             text="Cancel",
-            color="white",
-            bgcolor="red",
             visible=False,
         )
 
@@ -48,45 +51,44 @@ class MangaDexDownloaderView(ft.Container):
             self.page, self.parent_gui.all_mangadex_languages
         )
 
-        top_container = ft.Container(
-            content=ft.Row(
-                controls=[
-                    ft.Container(
-                        content=ft.Column(
+        self.responsive_columns = ResponsiveColumns(
+            main=ft.Container(
+                content=ft.Column(
+                    controls=[
+                        self.mangadex_url_text_field,
+                        ft.Row(
                             controls=[
-                                self.mangadex_url_text_field,
-                                ft.Row(
-                                    controls=[
-                                        ft.Text("Save to:", color="white"),
-                                        self.output_directory_text,
-                                        ft.IconButton(
-                                            ft.Icons.FOLDER_OPEN,
-                                            icon_color="white",
-                                            tooltip="Pick a different output folder",
-                                            on_click=lambda e: self.pick_files_dialog.get_directory_path(),
-                                        ),
-                                        ft.IconButton(
-                                            ft.Icons.RESTART_ALT,
-                                            icon_color="white",
-                                            tooltip="Use the default output folder",
-                                            on_click=lambda e: self.set_output_directory(""),
-                                        ),
-                                    ]
+                                ft.Text("Save to:", color=Nord.TEXT),
+                                self.output_directory_text,
+                                ft.IconButton(
+                                    ft.Icons.FOLDER_OPEN,
+                                    icon_color=Nord.TEXT,
+                                    style=Nord.icon_button_style(),
+                                    tooltip="Pick a different output folder",
+                                    on_click=lambda e: self.pick_files_dialog.get_directory_path(),
                                 ),
-                                self.download_button,
-                                self.cancel_button,
-                            ],
-                            expand=True,
+                                ft.IconButton(
+                                    ft.Icons.RESTART_ALT,
+                                    icon_color=Nord.TEXT,
+                                    style=Nord.icon_button_style(),
+                                    tooltip="Use the default output folder",
+                                    on_click=lambda e: self.set_output_directory(""),
+                                ),
+                            ]
                         ),
-                        padding=15,
-                        expand=True,
-                    ),
-                    ft.Container(content=ft.Column(controls=[self.settings])),
-                ]
+                        self.download_button,
+                        self.cancel_button,
+                    ],
+                    expand=True,
+                ),
             ),
+            settings=self.settings,
+            main_fills_height=False,
         )
+        self.content = self.responsive_columns
 
-        self.content = top_container
+    def set_narrow(self, is_narrow):
+        self.responsive_columns.set_narrow(is_narrow)
 
     def set_output_directory(self, output_directory):
         # An empty one means the default folder.

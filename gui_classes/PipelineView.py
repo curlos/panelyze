@@ -1,6 +1,7 @@
 import os
 import shutil
 import flet as ft
+from gui_classes import Nord
 from gui_classes.AppBar import TAB_ICONS
 from gui_classes.WrappingCheckbox import WrappingCheckbox
 from default_settings import get_output_directory
@@ -42,10 +43,10 @@ FINAL_RESULT_DESCRIPTIONS = {
     "Images To Video": "The videos",
 }
 
-LABEL_COLOR = "#8fbcbb"
-DETAIL_COLOR = "#d8dee9"
-MUTED_COLOR = "#8c97ab"
-PATH_COLOR = "#a3be8c"
+LABEL_COLOR = Nord.TEAL
+DETAIL_COLOR = Nord.TEXT
+MUTED_COLOR = Nord.TEXT_MUTED
+PATH_COLOR = Nord.GREEN
 
 
 def get_section(label, controls):
@@ -171,7 +172,7 @@ class PipelineView(ft.Container):
         super().__init__()
         self.parent_gui = parent_gui
         # Use "self.parent_gui.page", not "self.page": Flet sets "self.page" to None when this view is not on screen.
-        self.bgcolor = "#3b4252"
+        self.bgcolor = Nord.BACKGROUND
         self.expand = True
         self.padding = 20
 
@@ -193,8 +194,9 @@ class PipelineView(ft.Container):
         }
 
         self.mangadex_url_text_field = ft.TextField(
+            border_radius=0,
             label="Enter a MangaDex Page URL",
-            border_color="#5e81ac",
+            border_color=Nord.BLUE,
             visible=False,
         )
 
@@ -209,19 +211,21 @@ class PipelineView(ft.Container):
         self.parent_gui.page.overlay.append(self.input_directory_picker)
         self.parent_gui.page.overlay.append(self.output_directory_picker)
 
-        self.input_directory_text = ft.Text("No input directory picked", color="white")
-        self.output_directory_text = ft.Text(self.output_directory, color="white")
+        self.input_directory_text = ft.Text("No input directory picked", color=Nord.TEXT)
+        self.output_directory_text = ft.Text(self.output_directory, color=Nord.TEXT)
 
         self.input_directory_row = ft.Row(
             wrap=True,
             controls=[
                 ft.ElevatedButton(
                     "Pick Input Folder",
+                    style=Nord.button_style("secondary"),
                     icon=ft.Icons.FOLDER_OPEN,
                     on_click=lambda e: self.input_directory_picker.get_directory_path(),
                 ),
                 ft.ElevatedButton(
                     "Pick Input Image(s)",
+                    style=Nord.button_style("secondary"),
                     icon=ft.Icons.IMAGE,
                     on_click=lambda e: self.input_images_picker.pick_files(
                         allow_multiple=True,
@@ -237,9 +241,8 @@ class PipelineView(ft.Container):
         self.review_column = ft.Column(spacing=14)
 
         self.run_button = ft.FilledTonalButton(
+            style=Nord.button_style("primary"),
             text="Run Pipeline",
-            color="white",
-            bgcolor="#5e81ac",
             on_click=self.handle_run_pipeline,
         )
 
@@ -248,7 +251,7 @@ class PipelineView(ft.Container):
                 ft.Text("Pipeline", size=24, weight=ft.FontWeight.BOLD),
                 ft.Text(
                     "Pick the steps to run. They always run in this order, and each step uses the settings saved in its own tab.",
-                    color="white",
+                    color=Nord.TEXT,
                 ),
                 ft.Column(controls=list(self.step_checkboxes.values()), spacing=0),
                 self.mangadex_url_text_field,
@@ -258,12 +261,14 @@ class PipelineView(ft.Container):
                     controls=[
                         ft.ElevatedButton(
                             "Change Output Folder",
+                            style=Nord.button_style("secondary"),
                             icon=ft.Icons.FOLDER_OPEN,
                             on_click=lambda e: self.output_directory_picker.get_directory_path(),
                         ),
                         ft.IconButton(
                             ft.Icons.RESTART_ALT,
-                            icon_color="white",
+                            icon_color=Nord.TEXT,
+                            style=Nord.icon_button_style(),
                             tooltip="Use the default output folder",
                             on_click=lambda e: self.set_output_directory(""),
                         ),
@@ -272,11 +277,13 @@ class PipelineView(ft.Container):
                 ),
                 ft.Text("Review", size=18, weight=ft.FontWeight.BOLD),
                 self.review_column,
-                self.run_button,
             ],
             spacing=15,
             scroll=ft.ScrollMode.AUTO,
+            expand=True,
         )
+        # The Run button stays under the part that scrolls, so it's always on screen.
+        self.content = ft.Column(controls=[self.content, self.run_button], spacing=15)
 
         self.refresh_review()
 
@@ -311,9 +318,9 @@ class PipelineView(ft.Container):
             controls=[
                 ft.Row(
                     controls=[
-                        ft.Text(f"{step_number}.", weight=ft.FontWeight.BOLD, color="white"),
-                        ft.Icon(TAB_ICONS[step], size=18, color="white"),
-                        ft.Text(step, weight=ft.FontWeight.BOLD, color="white"),
+                        ft.Text(f"{step_number}.", weight=ft.FontWeight.BOLD, color=Nord.TEXT),
+                        ft.Icon(TAB_ICONS[step], size=18, color=Nord.TEXT),
+                        ft.Text(step, weight=ft.FontWeight.BOLD, color=Nord.TEXT),
                     ],
                     spacing=6,
                 )
@@ -328,8 +335,8 @@ class PipelineView(ft.Container):
                 controls=[
                     ft.Row(
                         controls=[
-                            ft.Icon(TAB_ICONS[step], size=18, color="white"),
-                            ft.Text(step, weight=ft.FontWeight.BOLD, color="white", expand=True),
+                            ft.Icon(TAB_ICONS[step], size=18, color=Nord.TEXT),
+                            ft.Text(step, weight=ft.FontWeight.BOLD, color=Nord.TEXT, expand=True),
                         ],
                         spacing=6,
                         width=230,
@@ -351,7 +358,7 @@ class PipelineView(ft.Container):
                 controls=[
                     ft.Text(
                         f"{FINAL_RESULT_DESCRIPTIONS[last_step]} will be saved in:",
-                        color="white",
+                        color=Nord.TEXT,
                     ),
                     ft.Text(
                         get_step_output_directory(self.output_directory, last_step),
@@ -366,8 +373,7 @@ class PipelineView(ft.Container):
                 ],
                 spacing=4,
             ),
-            border=ft.border.all(1, "#5e81ac"),
-            border_radius=ft.border_radius.all(10),
+            border=ft.border.all(1, Nord.BLUE),
             padding=10,
         )
 
@@ -535,7 +541,7 @@ class PipelineView(ft.Container):
         add_line_to_terminal_output_list_view(
             self.parent_gui.terminal_output.terminal_output_list_view,
             message,
-            color="#a3be8c",
+            color=Nord.GREEN,
         )
 
     def run_step(self, step, step_input_directory, step_output_directory):

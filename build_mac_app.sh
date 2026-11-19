@@ -70,7 +70,8 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET_DIR" -o "$BUILD_ASSETS_DIR/Panelyze.icns"
 
-# 4. Package. "--onedir" (passed through to PyInstaller) makes a normal app folder, which opens much faster than a single file that has to unpack itself (torch alone is hundreds of MB) every time it's opened.
+# 4. Package. "flet_web" (only used to run the app in a browser while developing) is left out of the app.
+# "--onedir" (passed through to PyInstaller) makes a normal app folder, which opens much faster than a single file that has to unpack itself (torch alone is hundreds of MB) every time it's opened.
 rm -rf "$PACK_DIR" "$APP_PATH"
 mkdir -p "$PACK_DIR"
 (
@@ -98,6 +99,7 @@ mkdir -p "$PACK_DIR"
         --pyinstaller-build-args=--collect-all=spandrel \
         --pyinstaller-build-args=--collect-all=coremltools \
         --pyinstaller-build-args=--hidden-import=magi_model.modelling_magiv2 \
+        --pyinstaller-build-args=--exclude-module=flet_web \
         --yes
 )
 

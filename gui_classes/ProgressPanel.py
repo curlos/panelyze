@@ -1,4 +1,5 @@
 import flet as ft
+from gui_classes import Nord
 
 # The "ProgressPanel" that's currently shown, if any. Jobs report to it with "report_progress", so the code that does the work doesn't need to know about the GUI.
 current_progress_panel = None
@@ -15,7 +16,7 @@ PROGRESS_FIELDS = (
 )
 
 IDLE_TEXT = "Ready. Pick your folders and press Submit."
-MUTED_COLOR = "#8c97ab"
+MUTED_COLOR = Nord.TEXT_MUTED
 
 # What the panel is showing. "idle" is before anything runs, then "running", and then "finished" or "failed".
 IDLE, RUNNING, FINISHED, FAILED = "idle", "running", "finished", "failed"
@@ -47,12 +48,12 @@ class ProgressPanel(ft.Container):
         self.status_icon = ft.Icon(size=22)
         self.running_ring = ft.ProgressRing(width=20, height=20, stroke_width=2.5)
         self.title_text = ft.Text(size=15)
-        self.status_text = ft.Text(color="#d8dee9")
+        self.status_text = ft.Text(color=Nord.TEXT)
         self.progress_bar = ft.ProgressBar(
-            color="#5e81ac", bgcolor="#4c566a", visible=False
+            color=Nord.BLUE, bgcolor=Nord.SURFACE_HIGH, visible=False
         )
 
-        self.bgcolor = "#3b4252"
+        self.bgcolor = Nord.SURFACE
         self.padding = ft.padding.only(left=10, right=10, top=10)
         self.content = ft.Column(
             controls=[
@@ -130,7 +131,7 @@ class ProgressPanel(ft.Container):
 
     def render(self):
         self.title_text.value = f"{self.prefix} · {self.title}" if self.prefix else self.title
-        self.title_text.color = MUTED_COLOR if self.state == IDLE else "white"
+        self.title_text.color = MUTED_COLOR if self.state == IDLE else Nord.TEXT
         self.status_text.value = self.get_status_text()
         self.progress_bar.value = self.get_bar_value()
         self.progress_bar.visible = self.state in (RUNNING, FINISHED)
@@ -140,8 +141,8 @@ class ProgressPanel(ft.Container):
         self.status_icon.visible = self.state != RUNNING
         self.status_icon.name, self.status_icon.color = {
             IDLE: (ft.Icons.PLAY_CIRCLE_OUTLINE, MUTED_COLOR),
-            FINISHED: (ft.Icons.CHECK_CIRCLE, "#a3be8c"),
-            FAILED: (ft.Icons.ERROR, "#bf616a"),
+            FINISHED: (ft.Icons.CHECK_CIRCLE, Nord.GREEN),
+            FAILED: (ft.Icons.ERROR, Nord.RED_TEXT),
         }.get(self.state, (ft.Icons.PLAY_CIRCLE_OUTLINE, MUTED_COLOR))
 
         # Never let a GUI problem break the job that's reporting.

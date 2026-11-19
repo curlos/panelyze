@@ -46,6 +46,7 @@ echo 'export PATH=$PATH:~/Downloads/waifu2x-ncnn-vulkan' >> ~/.zshrc
 
 - `python gui.py` (with the venv activated).
 - `flet run -r gui.py` restarts the app every time a file in the repo is saved.
+- `flet run --web --port 8577 gui.py` opens the app in your web browser instead of a window. Handy for checking how it looks, including at phone sizes (make the browser window narrow). Its settings are separate from the window's.
 - `python gui.py --self-test` checks that Magi, waifu2x, video, MangaDex Downloader and text-to-speech all work, without opening the window.
 
 ## Tests

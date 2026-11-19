@@ -1,4 +1,5 @@
 import flet as ft
+from gui_classes import Nord
 
 from default_settings import DEFAULT_SETTINGS
 from utils import is_valid_number
@@ -7,7 +8,7 @@ from utils import is_valid_number
 class SettingsBase(ft.Container):
     def __init__(self):
         super().__init__()
-        self.bgcolor = "#3b4252"
+        self.bgcolor = Nord.BACKGROUND
         self.expand = True
         self.width = 350
 
@@ -30,8 +31,9 @@ class SettingsBase(ft.Container):
 
     def get_number_textfield(self, label, client_storage_key):
         return ft.TextField(
+            border_radius=0,
             label=label,
-            border_color="#5e81ac",
+            border_color=Nord.BLUE,
             keyboard_type=ft.KeyboardType.NUMBER,
             value=self.page.client_storage.get(client_storage_key),
             on_change=lambda e: self.change_number_setting(
@@ -57,7 +59,8 @@ class SettingsBase(ft.Container):
             controls=[
                 ft.Container(
                     content=ft.Column(controls=self.inner_content),
-                    padding=ft.padding.only(left=10, top=5, right=10),
+                    # More room on the right, so the scrollbar (drawn over this edge) doesn't touch the settings.
+                    padding=ft.padding.only(left=10, top=5, right=20),
                 )
             ],
             expand=True,

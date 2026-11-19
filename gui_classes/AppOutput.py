@@ -4,12 +4,13 @@ import sys
 import threading
 import time
 import flet as ft
+from gui_classes import Nord
 
 LOG_FILE_PATH = os.path.expanduser("~/Library/Logs/Panelyze/panelyze.log")
 MAX_LOG_FILE_SIZE = 10 * 1024 * 1024
 MAX_LINES_IN_APP = 2000
 UPDATE_INTERVAL_SECONDS = 0.2
-STREAM_COLORS = {"stdout": "white", "stderr": "#ebcb8b"}
+STREAM_COLORS = {"stdout": Nord.TEXT, "stderr": Nord.YELLOW}
 
 # The "AppOutput" that's currently showing everything printed, if any.
 current_app_output = None
@@ -76,7 +77,7 @@ class AppOutput:
         if live_line is not None:
             live_line.value = text
         elif text.strip() or finished:
-            live_line = self.add_text_control(text, STREAM_COLORS.get(stream_name, "white"))
+            live_line = self.add_text_control(text, STREAM_COLORS.get(stream_name, Nord.TEXT))
 
         if finished:
             self.live_line.pop(key, None)
@@ -95,7 +96,7 @@ class AppOutput:
             self.lines_to_remove.append(live_line)
         self.needs_update = True
 
-    def add_line(self, text, color="white"):
+    def add_line(self, text, color=Nord.TEXT):
         """
         Add a whole line (e.g. an error message from the app itself) to the app's terminal and the log file.
         """

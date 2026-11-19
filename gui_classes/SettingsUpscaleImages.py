@@ -1,4 +1,5 @@
 import flet as ft
+from gui_classes import Nord
 from gui_classes.WrappingCheckbox import WrappingCheckbox
 from gui_classes.SettingsBase import SettingsBase
 
@@ -48,6 +49,7 @@ class SettingsUpscaleImages(SettingsBase):
 
         self.inner_content = [
             ft.Dropdown(
+                border_radius=0,
                 label="Upscale Model",
                 options=[
                     ft.dropdown.Option(key=model, text=text)
@@ -55,15 +57,16 @@ class SettingsUpscaleImages(SettingsBase):
                 ],
                 value=self.page.client_storage.get("upscale_model"),
                 text_style=ft.TextStyle(
-                    color="white",  # Text color of the selected item
+                    color=Nord.TEXT,  # Text color of the selected item
                     size=14,  # Font size
                 ),
-                fill_color="#3b4252",  # Background color of the dropdown
-                border_color="#5e81ac",
+                fill_color=Nord.SURFACE,  # Background color of the dropdown
+                border_color=Nord.BLUE,
                 max_menu_height=300,
                 on_change=lambda e: self.change_setting("upscale_model", e.data),
             ),
             ft.Dropdown(
+                border_radius=0,
                 label="Upscale Ratio",
                 options=[
                     ft.dropdown.Option(upscale_ratio)
@@ -71,30 +74,32 @@ class SettingsUpscaleImages(SettingsBase):
                 ],
                 value=self.default_upscale_ratio,
                 text_style=ft.TextStyle(
-                    color="white",  # Text color of the selected item
+                    color=Nord.TEXT,  # Text color of the selected item
                     size=14,  # Font size
                 ),
-                fill_color="#3b4252",  # Background color of the dropdown
-                border_color="#5e81ac",
+                fill_color=Nord.SURFACE,  # Background color of the dropdown
+                border_color=Nord.BLUE,
                 max_menu_height=300,
                 on_change=lambda e: self.change_setting("upscale_ratio", e.data),
             ),
             ft.Dropdown(
+                border_radius=0,
                 label="Noise Level",
                 options=[
                     ft.dropdown.Option(noise_level) for noise_level in self.noise_levels
                 ],
                 value=self.default_noise_level,
                 text_style=ft.TextStyle(
-                    color="white",  # Text color of the selected item
+                    color=Nord.TEXT,  # Text color of the selected item
                     size=14,  # Font size
                 ),
-                fill_color="#3b4252",  # Background color of the dropdown
-                border_color="#5e81ac",
+                fill_color=Nord.SURFACE,  # Background color of the dropdown
+                border_color=Nord.BLUE,
                 max_menu_height=300,
                 on_change=lambda e: self.change_setting("noise_level", e.data),
             ),
             ft.Dropdown(
+                border_radius=0,
                 label="Image Format",
                 options=[
                     ft.dropdown.Option(image_format)
@@ -102,11 +107,11 @@ class SettingsUpscaleImages(SettingsBase):
                 ],
                 value=self.default_image_format,
                 text_style=ft.TextStyle(
-                    color="white",  # Text color of the selected item
+                    color=Nord.TEXT,  # Text color of the selected item
                     size=14,  # Font size
                 ),
-                fill_color="#3b4252",  # Background color of the dropdown
-                border_color="#5e81ac",
+                fill_color=Nord.SURFACE,  # Background color of the dropdown
+                border_color=Nord.BLUE,
                 max_menu_height=300,
                 on_change=lambda e: self.change_setting("image_format", e.data),
             ),

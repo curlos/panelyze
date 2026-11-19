@@ -1,12 +1,14 @@
 import os
 import shutil
 import flet as ft
+from gui_classes import Nord
 from default_settings import get_output_directory
 from utils import (
     IMAGE_EXTENSIONS,
     copy_picked_images_to_folder,
     get_last_directory,
 )
+from gui_classes.ResponsiveColumns import ResponsiveColumns
 
 
 class PickInputAndOutputDirectories(ft.Container):
@@ -50,14 +52,14 @@ class PickInputAndOutputDirectories(ft.Container):
                 ft.TextButton(
                     text="Pick Input Folder",
                     icon=ft.Icons.FOLDER_OPEN,
-                    style=ft.ButtonStyle(color="white"),
+                    style=ft.ButtonStyle(color=Nord.TEXT, shape=Nord.SQUARE, side=Nord.get_focus_border()),
                     on_click=self.open_input_files_picker_dialog,
                 ),
-                ft.Text("or", color="white", size=14),
+                ft.Text("or", color=Nord.TEXT, size=14),
                 ft.TextButton(
                     text="Pick Input Image(s)",
                     icon=ft.Icons.IMAGE,
-                    style=ft.ButtonStyle(color="white"),
+                    style=ft.ButtonStyle(color=Nord.TEXT, shape=Nord.SQUARE, side=Nord.get_focus_border()),
                     on_click=lambda e: self.pick_input_images_dialog.pick_files(
                         allow_multiple=True,
                         file_type=ft.FilePickerFileType.CUSTOM,
@@ -72,11 +74,11 @@ class PickInputAndOutputDirectories(ft.Container):
             controls=[
                 ft.Icon(
                     ft.Icons.UPLOAD,
-                    color="white",
+                    color=Nord.TEXT,
                 ),
                 ft.Text(
                     "Pick Output Directory",
-                    color="white",
+                    color=Nord.TEXT,
                     size=14,
                 ),
             ],
@@ -86,7 +88,7 @@ class PickInputAndOutputDirectories(ft.Container):
 
         self.output_directory_row_text = ft.Text(
             self.output_directory,
-            color="white",
+            color=Nord.TEXT,
             size=14,
             expand=True,
         )
@@ -102,7 +104,7 @@ class PickInputAndOutputDirectories(ft.Container):
                                         controls=[
                                             ft.Icon(
                                                 ft.Icons.FILE_OPEN,
-                                                color="white",
+                                                color=Nord.TEXT,
                                             ),
                                             ft.Text(
                                                 "Output Directory",
@@ -117,13 +119,15 @@ class PickInputAndOutputDirectories(ft.Container):
                                                 controls=[
                                                     ft.IconButton(
                                                         ft.Icons.FOLDER_OPEN,
-                                                        icon_color="white",
+                                                        icon_color=Nord.TEXT,
+                                                        style=Nord.icon_button_style(),
                                                         tooltip="Pick a different output folder",
                                                         on_click=self.open_output_files_picker_dialog,
                                                     ),
                                                     ft.IconButton(
                                                         ft.Icons.RESTART_ALT,
-                                                        icon_color="white",
+                                                        icon_color=Nord.TEXT,
+                                                        style=Nord.icon_button_style(),
                                                         tooltip="Use the default output folder",
                                                         on_click=self.handle_clear_output_directory,
                                                     ),
@@ -137,15 +141,11 @@ class PickInputAndOutputDirectories(ft.Container):
                             ),
                             alignment=ft.alignment.top_left,
                         ),
-                        bgcolor="#3b4252",
-                        border=ft.border.all(1, "#5e81ac"),
-                        border_radius=ft.border_radius.all(10),
+                        bgcolor=Nord.SURFACE,
+                        border=ft.border.all(1, Nord.BLUE),
                         alignment=ft.alignment.center,
                         padding=10,
                     ),
-                    bgcolor="#444c5e",
-                    padding=5,
-                    border_radius=ft.border_radius.all(10),
                     expand=True,
                     alignment=ft.alignment.top_left,
                 )
@@ -164,7 +164,7 @@ class PickInputAndOutputDirectories(ft.Container):
 
         self.input_directory_row_text = ft.Text(
             self.input_directory,
-            color="white",
+            color=Nord.TEXT,
             size=14,
         )
 
@@ -179,7 +179,7 @@ class PickInputAndOutputDirectories(ft.Container):
                                         controls=[
                                             ft.Icon(
                                                 ft.Icons.FILE_OPEN,
-                                                color="white",
+                                                color=Nord.TEXT,
                                             ),
                                             ft.Text(
                                                 "Input Directory",
@@ -192,7 +192,9 @@ class PickInputAndOutputDirectories(ft.Container):
                                             self.input_directory_row_text,
                                             ft.IconButton(
                                                 ft.Icons.CLOSE,
-                                                icon_color="white",
+                                                icon_color=Nord.TEXT,
+                                                style=Nord.icon_button_style(),
+                                                tooltip="Clear the input",
                                                 on_click=self.handle_clear_input_directory,
                                             ),
                                         ],
@@ -202,15 +204,11 @@ class PickInputAndOutputDirectories(ft.Container):
                             ),
                             alignment=ft.alignment.top_left,
                         ),
-                        bgcolor="#3b4252",
-                        border=ft.border.all(1, "#5e81ac"),
-                        border_radius=ft.border_radius.all(10),
+                        bgcolor=Nord.SURFACE,
+                        border=ft.border.all(1, Nord.BLUE),
                         alignment=ft.alignment.center,
                         padding=10,
                     ),
-                    bgcolor="#444c5e",
-                    padding=5,
-                    border_radius=ft.border_radius.all(10),
                     expand=True,
                     alignment=ft.alignment.top_left,
                 )
@@ -221,50 +219,43 @@ class PickInputAndOutputDirectories(ft.Container):
 
         self.settings_container = settings_container
         self.submit_button = ft.FilledTonalButton(
+            style=Nord.button_style("primary"),
             text="Submit",
-            color="white",
-            bgcolor="#5e81ac",
             expand=True,
             on_click=self.handle_submit,
         )
 
-        self.content = ft.Row(
-            controls=[
-                ft.Column(
-                    controls=[
-                        ft.Column(
-                            controls=[
-                                self.pick_input_directory_column,
-                                self.selected_input_directory_row,
-                                self.pick_output_directory_column,
-                                self.selected_output_directory_row,
-                            ],
-                            expand=True,
-                        ),
-                        ft.Row(
-                            controls=[
-                                ft.FilledTonalButton(
-                                    text="Clear",
-                                    color="white",
-                                    bgcolor="#444c5e",
-                                    expand=True,
-                                    on_click=self.handle_clear_all_directories,
-                                ),
-                                self.submit_button,
-                            ]
-                        ),
-                    ],
-                    expand=True,
-                    spacing=10,
-                    alignment=ft.MainAxisAlignment.START,
-                ),
-                ft.Column(controls=[self.settings_container]),
-            ],
-            expand=True,
-            spacing=5,
+        self.responsive_columns = ResponsiveColumns(
+            main=ft.Column(
+                controls=[
+                    ft.Column(
+                        controls=[
+                            self.pick_input_directory_column,
+                            self.selected_input_directory_row,
+                            self.pick_output_directory_column,
+                            self.selected_output_directory_row,
+                        ],
+                        expand=True,
+                    ),
+                    ft.Row(
+                        controls=[
+                            ft.FilledTonalButton(
+                                style=Nord.button_style("secondary"),
+                                text="Clear",
+                                expand=True,
+                                on_click=self.handle_clear_all_directories,
+                            ),
+                            self.submit_button,
+                        ]
+                    ),
+                ],
+                spacing=10,
+                alignment=ft.MainAxisAlignment.START,
+            ),
+            settings=self.settings_container,
         )
+        self.content = self.responsive_columns
 
-        self.margin = ft.margin.symmetric(horizontal=10)
 
     def open_input_files_picker_dialog(self, e):
         self.pick_input_files_dialog.get_directory_path()
@@ -426,21 +417,21 @@ class PickInputAndOutputDirectories(ft.Container):
     def get_pick_directory_container(self, controls, on_click):
         return ft.Container(
             content=ft.Container(
+                # The buttons go onto more lines when the window is too narrow for them.
                 content=ft.Row(
                     controls=controls,
                     alignment=ft.MainAxisAlignment.CENTER,
+                    wrap=True,
                 ),
-                bgcolor="#3b4252",
-                border=ft.border.all(1, "#5e81ac"),
-                border_radius=ft.border_radius.all(10),
+                bgcolor=Nord.SURFACE,
+                border=ft.border.all(1, Nord.BLUE),
                 alignment=ft.alignment.center,
                 expand=True,
                 padding=10,
             ),
-            bgcolor="#444c5e",
             on_click=on_click,
-            padding=5,
-            border_radius=ft.border_radius.all(10),
+            # Lets a clickable box be picked with the keyboard too (Tab to it, then Enter).
+            ink=on_click is not None,
             alignment=ft.alignment.center,
             expand=True,
         )

@@ -18,7 +18,8 @@ if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
     sys.exit(run_self_test())
 
 import flet as ft
-from gui_classes.AppBar import AppBar
+from gui_classes.AppBar import AppBar, SHORTCUT_KEYS, TAB_LIST_KEYS, TAB_NAMES
+from gui_classes import Nord
 from gui_classes.MangaDexDownloaderView import MangaDexDownloaderView
 from gui_classes.TerminalOutput import TerminalOutput
 from gui_classes.MagiPanelByPanelView import MagiPanelByPanelView
@@ -31,11 +32,13 @@ from gui_classes.AppOutput import show_all_output_in_app
 from utils import get_all_mangadex_languages
 
 
-# The window opens at the default size. It can't be made smaller than the minimum size, because the views don't fit in less space.
+# The window opens at the default size. It can't be made smaller than the minimum size (about a phone's width), because the views don't fit in less space.
 DEFAULT_WINDOW_WIDTH = 1100
 DEFAULT_WINDOW_HEIGHT = 750
-MIN_WINDOW_WIDTH = 800
+MIN_WINDOW_WIDTH = 360
 MIN_WINDOW_HEIGHT = 600
+# When the window is narrower than this, each tab's settings go under it instead of on its right, and the tabs at the top only show their icons.
+NARROW_WINDOW_WIDTH = 760
 
 
 class GUI:
@@ -44,18 +47,22 @@ class GUI:
         self.set_window_size()
 
         self.page.theme_mode = "dark"
-        self.page.theme = ft.Theme(color_scheme_seed="#5e81ac")
-        self.page.dark_theme = ft.Theme(color_scheme_seed="#5e81ac")
+        self.page.theme = self.page.dark_theme = Nord.get_theme()
         self.page.padding = 0
 
         self.page.title = "Panelyze"
-        self.page.bgcolor = "#3b4252"
+        self.page.bgcolor = Nord.BACKGROUND
+        self.page.on_resized = self.handle_resized
+        self.page.on_keyboard_event = self.handle_keyboard_shortcut
 
         self.set_client_storage_default_values()
         self.all_mangadex_languages = get_all_mangadex_languages()
 
-        self.current_view = "Panel-By-Panel"
+        self.current_view = self.get_start_tab()
         self.is_job_running = False
+        self.is_narrow = self.get_is_narrow()
+        # The tab in the app bar that's focused with the keyboard (None when the focus is somewhere else).
+        self.focused_tab = None
         self.app_bar_slot = None
         self.view_slot = None
         self.terminal_output = TerminalOutput(self.page)
@@ -79,6 +86,51 @@ class GUI:
         self.ImagesToVideoView = ImagesToVideoView(self)
         self.PipelineView = PipelineView(self)
         self.AppSettingsView = AppSettingsView(self)
+        self.set_views_narrow()
+
+    def get_start_tab(self):
+        # The tab picked in Settings. Panel-By-Panel if it isn't one of the tabs (e.g. a tab that was renamed).
+        start_tab = self.page.client_storage.get("start_tab")
+        return start_tab if start_tab in TAB_NAMES else "Panel-By-Panel"
+
+    def get_is_narrow(self):
+        return (self.page.width or DEFAULT_WINDOW_WIDTH) < NARROW_WINDOW_WIDTH
+
+    def set_views_narrow(self):
+        # The tabs with settings on their right. (Pipeline and Settings are one column, so they already fit.)
+        for view in [
+            self.MangaDexDownloaderView,
+            self.MagiPanelByPanelView,
+            self.UpscaleImagesView,
+            self.ImagesToVideoView,
+        ]:
+            view.set_narrow(self.is_narrow)
+
+    def handle_resized(self, e):
+        is_narrow = self.get_is_narrow()
+        if is_narrow == self.is_narrow:
+            return
+
+        self.is_narrow = is_narrow
+        self.set_views_narrow()
+        # Re-rendering also builds a new app bar, with or without the tab names.
+        self.render_page_based_on_current_view()
+        self.page.update()
+
+    def handle_keyboard_shortcut(self, e):
+        # While a tab is focused, the arrow keys (and Home and End) open the tabs around it.
+        if self.focused_tab and e.key in TAB_LIST_KEYS and not (e.ctrl or e.meta or e.alt or e.shift):
+            self.app_bar.move_to_tab(e.key)
+            return
+
+        # Ctrl or ⌘ + a tab's key (see "SHORTCUT_KEYS") opens that tab.
+        if not (e.ctrl or e.meta):
+            return
+
+        for view_name, key in SHORTCUT_KEYS.items():
+            if e.key == key:
+                self.app_bar.change_view(view_name)
+                return
 
     def reset_settings_to_default(self):
         """

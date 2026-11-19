@@ -1,5 +1,6 @@
 import threading
 import flet as ft
+from gui_classes import Nord
 from gui_classes.WrappingCheckbox import WrappingCheckbox
 from TextToSpeech import (
     AZURE_VOICE_STYLE_OPTIONS,
@@ -100,7 +101,7 @@ class TextToSpeechAzure(SettingsBase):
                 ft.Text(
                     'Auto reads each line in a style that fits its emotion. The emotion model (about 330 MB) downloads automatically the first time it\'s used.',
                     size=12,
-                    color="white",
+                    color=Nord.TEXT,
                 ),
                 ft.Text("Voice Style Strength:"),
                 ft.Slider(
@@ -236,8 +237,9 @@ class TextToSpeechAzure(SettingsBase):
 
     def get_text_setting_textfield(self, label, setting_key, password=False):
         return ft.TextField(
+            border_radius=0,
             label=label,
-            border_color="#5e81ac",
+            border_color=Nord.BLUE,
             value=self.page.client_storage.get(setting_key) or "",
             password=password,
             can_reveal_password=password,

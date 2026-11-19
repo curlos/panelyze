@@ -49,6 +49,8 @@ DEFAULT_SETTINGS = {
         "output_directory_pipeline": "",
         # Also save the panels (Panel-By-Panel) and upscaled images (Upscale) of each chapter as a comic file to read in comic reader apps: "" (don't), "small" (for phones and tablets) or "full".
         "save_as_cbz": "",
+        # The tab that's open when Panelyze starts (one of the tabs at the top, picked in Settings).
+        "start_tab": "Panel-By-Panel",
         # MangaDex Downloader
         "language": {"name": "English", "code": "en"},
         "use_start_and_end_pages": False,

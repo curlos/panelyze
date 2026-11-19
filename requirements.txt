@@ -42,3 +42,7 @@ python-dotenv==1.0.1
 
 # Tests
 pytest==9.2.0
+
+# Running the app in a web browser (only for testing, see DEVELOPING.md). FastAPI is kept at the version that works with flet-web 0.25.2 (newer ones break it).
+flet-web==0.25.2
+fastapi==0.115.6

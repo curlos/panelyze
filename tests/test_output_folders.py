@@ -137,7 +137,7 @@ def test_the_settings_page_scrolls_when_it_does_not_fit(make_gui):
     settings = make_gui().AppSettingsView
 
     assert settings.expand
-    assert settings.content.scroll == ft.ScrollMode.AUTO
+    assert settings.content.scroll == ft.ScrollMode.ALWAYS
 
 
 def test_the_panelyze_folder_cannot_change_while_a_job_runs(make_gui, tmp_path):

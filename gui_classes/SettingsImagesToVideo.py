@@ -1,4 +1,5 @@
 import flet as ft
+from gui_classes import Nord
 from gui_classes.WrappingCheckbox import WrappingCheckbox
 from gui_classes.SettingsBase import SettingsBase
 from gui_classes.TextToSpeechAzure import TextToSpeechAzure
@@ -162,7 +163,7 @@ class SettingsImagesToVideo(
                 ),
                 padding=ft.padding.only(bottom=10),
                 margin=ft.margin.only(bottom=10),
-                border=ft.border.only(bottom=ft.border.BorderSide(2, "#5e81ac")),
+                border=ft.border.only(bottom=ft.border.BorderSide(2, Nord.BLUE)),
             ),
             get_reading_direction_dropdown(self.page),
             self.video_aspect_ratio_dropdown,

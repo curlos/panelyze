@@ -1,6 +1,7 @@
 import os
 import traceback
 import flet as ft
+from gui_classes import Nord
 from gui_classes.AppOutput import write_to_log_file_only
 from gui_classes.ProgressPanel import report_progress
 from gui_classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
@@ -25,7 +26,7 @@ class JobView(ft.Container):
     def __init__(self, parent_gui, settings_container, output_setting_key=None):
         super().__init__()
         self.parent_gui = parent_gui
-        self.bgcolor = "#3b4252"
+        self.bgcolor = Nord.BACKGROUND
         self.expand = True
 
         self.pick_input_output_directories_container = PickInputAndOutputDirectories(
@@ -35,6 +36,9 @@ class JobView(ft.Container):
             output_setting_key=output_setting_key,
         )
         self.content = self.pick_input_output_directories_container
+
+    def set_narrow(self, is_narrow):
+        self.pick_input_output_directories_container.responsive_columns.set_narrow(is_narrow)
 
     def handle_submit(self, input_directory, output_directory):
         if not self.start_job(input_directory, output_directory):

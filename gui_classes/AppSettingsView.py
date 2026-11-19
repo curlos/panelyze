@@ -1,5 +1,7 @@
 import os
 import flet as ft
+from gui_classes import Nord
+from gui_classes.AppBar import TAB_NAMES
 from default_settings import PANELYZE_FOLDER, get_panelyze_folder_inside
 from gui_classes.AppOutput import LOG_FILE_PATH
 from utils import open_directory
@@ -19,7 +21,7 @@ class AppSettingsView(ft.Container):
 
         self.panelyze_folder_text = ft.Text(
             self.parent_gui.page.client_storage.get("panelyze_folder"),
-            color="white",
+            color=Nord.TEXT,
             selectable=True,
         )
         self.pick_panelyze_folder_dialog = ft.FilePicker(
@@ -30,19 +32,30 @@ class AppSettingsView(ft.Container):
         self.content = ft.Column(
             controls=[
                 ft.Text("Settings", size=24, weight=ft.FontWeight.BOLD),
+                ft.Dropdown(
+                    border_radius=0,
+                    border_color=Nord.BLUE,
+                    label="Tab to open when Panelyze starts",
+                    options=[ft.dropdown.Option(tab_name) for tab_name in TAB_NAMES],
+                    value=self.parent_gui.get_start_tab(),
+                    on_change=lambda e: self.parent_gui.page.client_storage.set("start_tab", e.data),
+                ),
                 ft.Text(
                     "Everything Panelyze makes is saved in this folder, with a folder inside it for each tool. A tab can still save somewhere else if you pick a folder there.",
-                    color="white",
+                    color=Nord.TEXT,
                 ),
                 self.panelyze_folder_text,
                 ft.Row(
+                    wrap=True,
                     controls=[
                         ft.ElevatedButton(
+                            style=Nord.button_style("secondary"),
                             text="Change Folder",
                             icon=ft.Icons.FOLDER_OPEN,
                             on_click=lambda e: self.pick_panelyze_folder_dialog.get_directory_path(),
                         ),
                         ft.ElevatedButton(
+                            style=Nord.button_style("secondary"),
                             text="Use Default Folder",
                             icon=ft.Icons.RESTART_ALT,
                             on_click=lambda e: self.parent_gui.change_panelyze_folder(
@@ -52,6 +65,8 @@ class AppSettingsView(ft.Container):
                     ]
                 ),
                 ft.Dropdown(
+                    border_radius=0,
+                    border_color=Nord.BLUE,
                     label="Also save each chapter as a comic file (.cbz)",
                     options=[
                         ft.dropdown.Option(key="", text="No"),
@@ -63,31 +78,35 @@ class AppSettingsView(ft.Container):
                 ),
                 ft.Text(
                     "Comic files are made for the panels (Panel-By-Panel) and upscaled images (Upscale). Open them in a comic reader app like Panels (iPhone and iPad) or Mihon (Android).",
-                    color="white",
+                    color=Nord.TEXT,
                 ),
                 ft.Text(
                     "Set every setting in every tab back to its default value. Your Azure key and region are kept.",
-                    color="white",
+                    color=Nord.TEXT,
                 ),
                 ft.ElevatedButton(
+                    style=Nord.button_style("danger"),
                     text="Reset All Settings",
                     icon=ft.Icons.RESTART_ALT,
-                    bgcolor="#bf616a",
-                    color="white",
                     on_click=lambda e: self.parent_gui.reset_settings_to_default(),
                 ),
                 ft.Text(
                     "Everything shown in the Terminal Output is also saved to a log file. It's useful to send along when something goes wrong.",
-                    color="white",
+                    color=Nord.TEXT,
                 ),
                 ft.ElevatedButton(
+                    style=Nord.button_style("secondary"),
                     text="Open Log File",
                     icon=ft.Icons.DESCRIPTION,
                     on_click=lambda e: self.open_log_file(),
                 ),
             ],
             spacing=15,
-            scroll=ft.ScrollMode.AUTO,
+        )
+        # The scrollbar is always shown, so it's clear there's more below when the window is short. It's drawn over the right edge of what scrolls, so the settings leave room for it on the right.
+        self.content = ft.Column(
+            controls=[ft.Container(content=self.content, padding=ft.padding.only(right=20))],
+            scroll=ft.ScrollMode.ALWAYS,
         )
 
     def pick_panelyze_folder_result(self, e):

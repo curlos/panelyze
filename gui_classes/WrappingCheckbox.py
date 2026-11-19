@@ -1,4 +1,5 @@
 import flet as ft
+from gui_classes import Nord
 
 
 class WrappingCheckbox(ft.Row):
@@ -14,7 +15,7 @@ class WrappingCheckbox(ft.Row):
         self.controls = [
             self.checkbox,
             # An optional icon between the checkbox and the label.
-            *([ft.Icon(icon, size=18, color="white"), ft.Container(width=6)] if icon else []),
+            *([ft.Icon(icon, size=18, color=Nord.TEXT), ft.Container(width=6)] if icon else []),
             # Clicking the label toggles the checkbox, the same as with a normal one.
             ft.Container(
                 content=ft.Text(label, style=label_style),
