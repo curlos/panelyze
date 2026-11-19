@@ -58,6 +58,12 @@ class SpeechTextParser:
         )
         self.last_magi_data = magi_data_from_images
 
+        return self.get_essential_text_list_from_magi_data(magi_data_from_images)
+
+    def get_essential_text_list_from_magi_data(self, magi_data_from_images):
+        """
+        The dialogue on each image, from data Magi already found (so Magi doesn't have to run again).
+        """
         essential_text_list_in_images = []
 
         for magi_image_data in magi_data_from_images:

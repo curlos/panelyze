@@ -23,6 +23,10 @@ tqdm==4.67.1
 numpy==2.2.6
 Pillow==11.1.0
 
+# Upscale Images "Best" model (MangaJaNai and IllustrationJaNai, see janai.py). spandrel loads the models. coremltools runs them on Apple's Neural Engine and GPU (Mac only).
+spandrel==0.4.2
+coremltools==8.1; sys_platform == "darwin"
+
 # MangaDex Downloader
 mangadex-downloader==3.1.4
 # Newer versions make "requests" print a warning on every download.

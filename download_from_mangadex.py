@@ -1,12 +1,19 @@
+import os
+import re
 import sys
+from gui_classes.ProgressPanel import report_progress
 from utils import (
     ProcessManager,
     is_running_as_packaged_app,
 )
 import flet as ft
 
+# Each manga is saved in its own folder, and each chapter in a folder named like "Vol. 1 Ch. 3 - Boss and The Panda". These are the downloader's own placeholders. Plain "-d <folder>" would replace its default manga folder, and "--use-chapter-title" doesn't change these folder names.
+MANGA_FOLDER_NAME = "{manga.title}"
+CHAPTER_FOLDER_NAME_WITH_TITLE = "{chapter.simple_name} - {chapter.title}"
+
 all_options_with_terminal_command = {
-    "use_chapter_title": "--use-chapter-title",
+    "use_chapter_title": ["--filename-chapter", CHAPTER_FOLDER_NAME_WITH_TITLE],
     "no_group_name": "--no-group-name",
     "language": ["--language", "en"],
     "start_page": 1,
@@ -22,7 +29,7 @@ all_options_with_terminal_command = {
 
 def get_additional_terminal_options(flet_page_client_storage):
     if not flet_page_client_storage:
-        return ["--use-chapter-title", "--no-group-name", ""]
+        return ["--filename-chapter", CHAPTER_FOLDER_NAME_WITH_TITLE, "--no-group-name"]
 
     additional_terminal_options = []
 
@@ -62,6 +69,43 @@ def get_additional_terminal_options(flet_page_client_storage):
     return additional_terminal_options
 
 
+def get_download_folder(output_directory):
+    """
+    The "-d" value: the manga's own folder inside the output folder. The braces of the placeholder are the downloader's, so any braces in the output folder's own name are escaped.
+    """
+    escaped_output_directory = output_directory.replace("{", "{{").replace("}", "}}")
+
+    return os.path.join(escaped_output_directory, MANGA_FOLDER_NAME)
+
+
+def get_tidy_chapter_folder_name(folder_name):
+    """
+    A chapter without a title is named "Vol. 1 Ch. 3 - " by the chapter name template. This drops the dash that has nothing after it.
+    """
+    return re.sub(r"\s*-\s*$", "", folder_name)
+
+
+def tidy_chapter_folder_names(output_directory):
+    """
+    Rename the chapter folders (<output>/<manga>/<chapter>) that end with a dash and no title. A folder that would end up with the same name as one that's already there is left alone.
+    """
+    if not os.path.isdir(output_directory):
+        return
+
+    for manga_folder_name in os.listdir(output_directory):
+        manga_directory = os.path.join(output_directory, manga_folder_name)
+
+        if not os.path.isdir(manga_directory):
+            continue
+
+        for chapter_folder_name in os.listdir(manga_directory):
+            tidy_name = get_tidy_chapter_folder_name(chapter_folder_name)
+            new_path = os.path.join(manga_directory, tidy_name)
+
+            if tidy_name != chapter_folder_name and tidy_name and not os.path.exists(new_path):
+                os.rename(os.path.join(manga_directory, chapter_folder_name), new_path)
+
+
 def get_mangadex_downloader_command():
     """
     How to start "mangadex-downloader" in its own process (so it can be cancelled and its output shown line by line).
@@ -71,6 +115,52 @@ def get_mangadex_downloader_command():
         return [sys.executable, "--run-mangadex"]
 
     return [sys.executable, "-m", "mangadex_downloader"]
+
+
+def parse_mangadex_progress_line(line):
+    """
+    What a line of "mangadex-downloader" output says about its progress: ("page", chapter name, page number) when it starts a page, ("finished", chapter number) when a chapter is done, or None for any other line. It doesn't say how many pages or chapters there will be, so only what's been done so far can be shown.
+    """
+    page_match = re.search(r"Downloading (.+) page (\d+)\s*$", line)
+    if page_match:
+        # The scanlation group, like "[Some Scans]", isn't needed.
+        chapter_name = re.sub(r"^\[.*?\]\s*", "", page_match.group(1))
+        return ("page", chapter_name, int(page_match.group(2)))
+
+    finished_match = re.search(r"Finished download chapter (\S+)", line)
+    if finished_match:
+        return ("finished", finished_match.group(1))
+
+    return None
+
+
+def get_mangadex_progress_reporter():
+    """
+    A function to call with each line of "mangadex-downloader" output, which updates the progress panel.
+    """
+    chapters_downloaded = 0
+
+    def report_line(line):
+        nonlocal chapters_downloaded
+        progress = parse_mangadex_progress_line(line)
+
+        if not progress:
+            return
+
+        if progress[0] == "finished":
+            chapters_downloaded += 1
+            report_progress(detail=f"{chapters_downloaded} chapter(s) downloaded")
+            return
+
+        _, chapter_name, page_number = progress
+        done_text = (
+            f"{chapters_downloaded} chapter(s) downloaded · " if chapters_downloaded else ""
+        )
+        report_progress(
+            detail=f"{done_text}Downloading {chapter_name}, page {page_number}"
+        )
+
+    return report_line
 
 
 def download_from_mangadex(
@@ -92,7 +182,7 @@ def download_from_mangadex(
     terminal_command = get_mangadex_downloader_command() + [
         mangadex_url_to_download_from,
         "-d",
-        output_directory,
+        get_download_folder(output_directory),
     ]
 
     terminal_command.extend(additional_terminal_options)
@@ -103,5 +193,10 @@ def download_from_mangadex(
         cancel_process_button.on_click = lambda _: process_manager.cancel_process()
 
     process_manager.monitor_terminal_output(
-        terminal_command, terminal_output_list_view, output_directory
+        terminal_command,
+        terminal_output_list_view,
+        output_directory,
+        on_line=get_mangadex_progress_reporter(),
     )
+
+    tidy_chapter_folder_names(output_directory)

@@ -7,6 +7,7 @@ outputs
 *.pyc
 *.wav
 testing-output
+test-chapter-cache/
 build/
 dist/
 build-assets/

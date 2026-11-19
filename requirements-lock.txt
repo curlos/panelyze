@@ -10,12 +10,14 @@ attrs==26.1.0
 azure-cognitiveservices-speech==1.42.0
 beautifulsoup4==4.15.0
 binaryornot==0.6.0
+cattrs==26.2.1
 certifi==2026.10.23
 chardet==5.2.0
 charset-normalizer==3.5.2
 click==8.5.1
 contourpy==1.4.0
 cookiecutter==2.7.1
+coremltools==8.1
 cycler==0.12.1
 decorator==5.3.1
 dnspython==2.6.1
@@ -58,7 +60,9 @@ pillow==11.1.0
 pluggy==1.7.0
 proglog==0.1.12
 propcache==0.5.4
+protobuf==7.36.2
 pulp==2.9.0
+pyaml==26.7.0
 pygments==2.21.0
 pyjwt==2.15.1
 pyparsing==3.3.3
@@ -80,6 +84,7 @@ scipy==1.14.1
 shapely==2.0.6
 six==1.17.0
 soupsieve==4.1.1
+spandrel==0.4.2
 sympy==1.13.1
 tabulate==0.10.0
 text-unidecode==1.3

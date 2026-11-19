@@ -1,6 +1,7 @@
 import os
 import shutil
 import flet as ft
+from default_settings import get_output_directory
 from utils import (
     IMAGE_EXTENSIONS,
     copy_picked_images_to_folder,
@@ -9,17 +10,27 @@ from utils import (
 
 
 class PickInputAndOutputDirectories(ft.Container):
-    def __init__(self, on_submit, parent_gui, settings_container):
+    def __init__(
+        self, on_submit, parent_gui, settings_container, output_setting_key=None
+    ):
         super().__init__()
 
         self.input_directory = ""
         # Set when individual images were picked instead of a folder.
         self.input_image_paths = []
-        self.output_directory = ""
+        # True when the input folder was filled in by the app (the result of the step before) instead of picked by the user.
+        self.input_was_filled_in_by_app = False
+        # The output folder is saved under this setting, and starts as its default folder. Without one, the user has to pick it.
+        self.output_setting_key = output_setting_key
         self.on_submit = on_submit
 
         self.parent_gui = parent_gui
         self.page = self.parent_gui.page
+        self.output_directory = (
+            get_output_directory(self.page.client_storage, output_setting_key)
+            if output_setting_key
+            else ""
+        )
         self.pick_input_files_dialog = ft.FilePicker(
             on_result=self.pick_input_files_result
         )
@@ -77,6 +88,7 @@ class PickInputAndOutputDirectories(ft.Container):
             self.output_directory,
             color="white",
             size=14,
+            expand=True,
         )
 
         self.selected_output_directory_row = ft.Column(
@@ -101,10 +113,22 @@ class PickInputAndOutputDirectories(ft.Container):
                                     ft.Row(
                                         controls=[
                                             self.output_directory_row_text,
-                                            ft.IconButton(
-                                                ft.Icons.CLOSE,
-                                                icon_color="white",
-                                                on_click=self.handle_clear_output_directory,
+                                            ft.Row(
+                                                controls=[
+                                                    ft.IconButton(
+                                                        ft.Icons.FOLDER_OPEN,
+                                                        icon_color="white",
+                                                        tooltip="Pick a different output folder",
+                                                        on_click=self.open_output_files_picker_dialog,
+                                                    ),
+                                                    ft.IconButton(
+                                                        ft.Icons.RESTART_ALT,
+                                                        icon_color="white",
+                                                        tooltip="Use the default output folder",
+                                                        on_click=self.handle_clear_output_directory,
+                                                    ),
+                                                ],
+                                                spacing=0,
                                             ),
                                         ],
                                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -127,7 +151,7 @@ class PickInputAndOutputDirectories(ft.Container):
                 )
             ],
             expand=True,
-            visible=False,
+            visible=bool(self.output_directory),
         )
 
         self.pick_output_directory_column = self.get_pick_directory_container(
@@ -136,6 +160,7 @@ class PickInputAndOutputDirectories(ft.Container):
             ],
             self.open_output_files_picker_dialog,
         )
+        self.pick_output_directory_column.visible = not self.output_directory
 
         self.input_directory_row_text = ft.Text(
             self.input_directory,
@@ -295,17 +320,27 @@ class PickInputAndOutputDirectories(ft.Container):
         if not e.path:
             return
 
-        absolute_path = e.path
-        self.input_directory = absolute_path
+        self.set_input_directory(e.path)
+
+    def set_input_directory(self, input_directory, filled_in_by_app=False):
+        self.input_directory = input_directory
         self.input_image_paths = []
+        self.input_was_filled_in_by_app = filled_in_by_app
 
         self.pick_input_directory_column.visible = False
         self.selected_input_directory_row.visible = True
         self.input_directory_row_text.value = get_last_directory(self.input_directory)
 
-        self.pick_input_directory_column.update()
-        self.selected_input_directory_row.update()
-        self.input_directory_row_text.update()
+        # This tab might not be on screen right now (the step before it can fill this in from another tab). It shows the new folder the next time it's opened.
+        for control in (
+            self.pick_input_directory_column,
+            self.selected_input_directory_row,
+            self.input_directory_row_text,
+        ):
+            try:
+                control.update()
+            except Exception:
+                pass
 
     def pick_input_images_result(self, e):
         # The user cancelled the dialog.
@@ -313,6 +348,7 @@ class PickInputAndOutputDirectories(ft.Container):
             return
 
         self.input_image_paths = [file.path for file in e.files]
+        self.input_was_filled_in_by_app = False
         # Shown in the app and checked against the output directory. The images themselves are copied to a temporary folder when Submit is clicked.
         self.input_directory = os.path.dirname(self.input_image_paths[0])
 
@@ -334,11 +370,20 @@ class PickInputAndOutputDirectories(ft.Container):
         if not e.path:
             return
 
-        self.output_directory = e.path
+        self.set_output_directory(e.path)
+
+    def set_output_directory(self, output_directory):
+        if self.output_setting_key:
+            self.page.client_storage.set(self.output_setting_key, output_directory)
+
+        self.show_output_directory(output_directory)
+
+    def show_output_directory(self, output_directory):
+        self.output_directory = output_directory
 
         self.pick_output_directory_column.visible = False
         self.selected_output_directory_row.visible = True
-        self.output_directory_row_text.value = get_last_directory(self.output_directory)
+        self.output_directory_row_text.value = self.output_directory
 
         self.pick_output_directory_column.update()
         self.selected_output_directory_row.update()
@@ -347,6 +392,7 @@ class PickInputAndOutputDirectories(ft.Container):
     def handle_clear_input_directory(self, e):
         self.input_directory = ""
         self.input_image_paths = []
+        self.input_was_filled_in_by_app = False
 
         self.selected_input_directory_row.visible = False
         self.pick_input_directory_column.visible = True
@@ -355,6 +401,14 @@ class PickInputAndOutputDirectories(ft.Container):
         self.pick_input_directory_column.update()
 
     def handle_clear_output_directory(self, e):
+        # With a default output folder, clearing goes back to it.
+        if self.output_setting_key:
+            self.page.client_storage.set(self.output_setting_key, "")
+            self.show_output_directory(
+                get_output_directory(self.page.client_storage, self.output_setting_key)
+            )
+            return
+
         self.output_directory = ""
 
         self.pick_output_directory_column.visible = True

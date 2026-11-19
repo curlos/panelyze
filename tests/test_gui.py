@@ -30,6 +30,19 @@ def test_every_tab_opens_and_reopens(make_gui):
         assert gui.view_element is not None
 
 
+def test_the_terminal_stays_on_the_page_when_switching_tabs(make_gui):
+    gui = make_gui()
+    page_controls_before = list(gui.page.controls)
+
+    for tab in TABS:
+        gui.app_bar.change_view(tab)
+
+        # Taking the terminal off the page would reset its scroll position.
+        assert gui.page.controls == page_controls_before
+        assert gui.terminal_output.page is gui.page
+        assert gui.view_slot.content is gui.view_element
+
+
 def test_reset_all_settings_restores_defaults(make_gui):
     gui = make_gui()
     storage = gui.page.client_storage
@@ -59,7 +72,8 @@ def test_submit_without_folders_shows_an_error(make_gui):
 
     view.pick_input_output_directories_container.handle_submit(fake_event())
 
-    assert "valid input and output directories" in terminal_lines[-1].value
+    # The output folder already has a default, so only the input is missing.
+    assert "valid input directory" in terminal_lines[-1].value
     assert gui.is_job_running is False
 
 
@@ -220,17 +234,31 @@ def test_reset_keeps_the_azure_key(make_gui):
 
 def test_number_boxes_only_save_valid_numbers(make_gui):
     gui = make_gui()
-    height_box = find_control(
-        gui.ImagesToVideoView, lambda c: getattr(c, "label", "") and "Video Resolution" in c.label
+    duration_box = find_control(
+        gui.ImagesToVideoView, lambda c: getattr(c, "label", "") and "Minimum Image Duration" in c.label
     )
 
-    height_box.on_change(fake_event(data="abc", control=height_box))
-    assert height_box.error_text == "Please enter a valid number."
-    assert gui.page.client_storage.get("video_height") == 1080
+    duration_box.on_change(fake_event(data="abc", control=duration_box))
+    assert duration_box.error_text == "Please enter a valid number."
+    assert gui.page.client_storage.get("minimum_image_duration") == 3
 
-    height_box.on_change(fake_event(data="720", control=height_box))
-    assert height_box.error_text == ""
-    assert gui.page.client_storage.get("video_height") == "720"
+    duration_box.on_change(fake_event(data="4", control=duration_box))
+    assert duration_box.error_text == ""
+    assert gui.page.client_storage.get("minimum_image_duration") == "4"
+
+
+def test_the_video_resolution_is_picked_from_a_list_from_360p_to_4k(make_gui):
+    gui = make_gui()
+    dropdown = find_control(
+        gui.ImagesToVideoView, lambda c: getattr(c, "label", "") == "Video Resolution"
+    )
+
+    assert [option.key for option in dropdown.options] == ["360", "480", "720", "1080", "1440", "2160"]
+    assert dropdown.value == "1080"
+
+    dropdown.on_change(fake_event(data="2160"))
+
+    assert gui.page.client_storage.get("video_height") == "2160"
 
 
 def test_picking_new_images_during_a_job_never_deletes_them(make_gui, tmp_path):

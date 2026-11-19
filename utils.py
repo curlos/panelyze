@@ -8,6 +8,7 @@ import subprocess
 import sys
 import os
 import platform
+import zipfile
 import flet as ft
 import math
 from dotenv import load_dotenv
@@ -36,6 +37,22 @@ def add_line_to_terminal_output_list_view(
     elif terminal_output_list_view:
         terminal_output_list_view.controls.append(ft.Text(text, color=color))
         terminal_output_list_view.update()
+
+
+def get_newest_subfolder(directory):
+    """
+    The folder inside "directory" that was changed most recently, or None if there isn't one.
+    """
+    if not os.path.isdir(directory):
+        return None
+
+    subfolders = [
+        entry.path
+        for entry in os.scandir(directory)
+        if entry.is_dir() and not entry.name.startswith(".")
+    ]
+
+    return max(subfolders, key=os.path.getmtime, default=None)
 
 
 def get_last_directory(directory_path):
@@ -96,6 +113,9 @@ def list_images(directory):
 
 
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
+
+# The dialogue Panel-By-Panel read on the pages, saved next to the panels as a list of lines for each panel (in the same order as the images). Images To Video uses it instead of reading the text on every panel again.
+PANEL_TEXT_FILE_NAME = "panel-text.json"
 
 
 def is_image_file(file_name):
@@ -161,6 +181,7 @@ class ProcessManager:
         terminal_command: list[str],
         terminal_output_list_view: ft.ListView = None,
         output_directory: str = "",
+        on_line=None,
     ):
         lines = []
 
@@ -196,6 +217,9 @@ class ProcessManager:
                     )
 
                 lines.append(line)
+
+                if on_line:
+                    on_line(line)
 
             self.process.wait()
         except Exception as e:
@@ -390,6 +414,64 @@ def natural_sort_key(filename):
     For example, 'panel_10.jpg' -> [10], so it can be sorted correctly.
     """
     return [int(s) if s.isdigit() else s for s in re.split(r"(\d+)", filename)]
+
+
+# The longest a "small" comic file image can be: sharp on any iPad (even a 12.9" iPad Pro) and on phones, while about 10x smaller than full PNGs.
+SMALL_COMIC_FILE_IMAGE_SIZE = (2048, 2732)
+
+
+def save_folder_as_cbz(folder, size="full"):
+    """
+    Save the images in "folder" (and its folders, e.g. one for each page) as a comic file, "<folder>.cbz" next to it, in reading order. Comic reader apps (e.g. Panels on iPhone and iPad, Mihon on Android) open it like a book. Returns its path, or None if there were no images.
+
+    "size" is "full" (the images as they are) or "small" (WebP sized for phones and tablets, and grayscale for black and white pages: a chapter is about 15-25 MB instead of 150-250 MB).
+    """
+    image_paths = sorted(
+        (
+            os.path.join(directory, file_name)
+            for directory, _, file_names in os.walk(folder)
+            for file_name in file_names
+            if is_image_file(file_name)
+        ),
+        key=lambda path: [
+            natural_sort_key(part) for part in os.path.relpath(path, folder).split(os.sep)
+        ],
+    )
+    if not image_paths:
+        return None
+
+    cbz_path = f"{folder.rstrip(os.sep)}.cbz"
+    # Written to a temporary file first, so a half-written comic file is never left behind.
+    with zipfile.ZipFile(f"{cbz_path}.tmp", "w", zipfile.ZIP_STORED) as cbz:
+        for number, image_path in enumerate(image_paths, start=1):
+            # Numbered with zeros in front (0001, 0002, ...), so every reader app keeps them in order.
+            if size == "small":
+                cbz.writestr(f"{number:04d}.webp", get_small_comic_file_image(image_path))
+            else:
+                cbz.write(image_path, f"{number:04d}{os.path.splitext(image_path)[1]}")
+    os.replace(f"{cbz_path}.tmp", cbz_path)
+
+    print(f"Saved a comic file to read in comic reader apps: {cbz_path}")
+    return cbz_path
+
+
+def get_small_comic_file_image(image_path):
+    """
+    The image as a small WebP for a comic file: no bigger than a tablet's screen, and grayscale if it's black and white.
+    """
+    from PIL import Image
+    from janai import is_color_image
+
+    with Image.open(image_path) as image:
+        image = image.convert("RGB")
+        is_color = is_color_image(image)
+        image.thumbnail(SMALL_COMIC_FILE_IMAGE_SIZE, Image.LANCZOS)
+        if not is_color:
+            image = image.convert("L")
+
+        output = io.BytesIO()
+        image.save(output, "WEBP", quality=85, method=6)
+        return output.getvalue()
 
 
 def is_valid_number(value):

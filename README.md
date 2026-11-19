@@ -30,11 +30,11 @@ Manga is made for bigger formats, so reading a full page on a phone means a lot 
   - <img src="https://github.com/user-attachments/assets/d0eb6fbd-c1d6-435a-b775-4bd488512d70" height="400" />
 - **Download from MangaDex:** pick a language, chapters and pages. No account needed.
   - <img src="https://github.com/user-attachments/assets/9b5ab7fd-666e-4ad0-882c-e2fdf13cce81" height="400" />
-- **Upscale images** with waifu2x (2x, 4x, ...), with a limit so a huge image doesn't take forever.
+- **Upscale images** (2x, 4x, ...) with waifu2x (fast), or with MangaJaNai for the best-looking manga (clean halftone dots), which uses IllustrationJaNai for color pages. There's a limit so a huge image doesn't take forever.
 - **Make videos** from your panels, timed by reading speed or read aloud with text-to-speech (free voices, or Azure with your own key). Choose YouTube (16:9), TikTok / Shorts / Reels (9:16) or square (1:1).
 - **Run it all at once:** tick the steps you want (download → split → upscale → video) and run them in a row.
 
-Works on a whole folder, or just a few images.
+Works on a whole folder, or just a few images. Nothing to set up: results are saved in **Documents → Panelyze** (a folder for each tool), and each step starts from the result of the one before it. You can change that folder in the Settings (gear icon), or pick a different output folder in any tab.
 
 ## Install
 
@@ -47,7 +47,7 @@ Everything is built in, including the panel-finding AI model and the upscaler. T
 ## Good to know
 
 - **Mac with Apple Silicon only** (M1 or newer) for now. Windows is planned.
-- **For personal, non-commercial use.** The Magi AI model that finds the panels is free only for personal, research and non-commercial use (see its [model page](https://huggingface.co/ragavsachdeva/magiv2)).
+- **For personal, non-commercial use.** The Magi AI model that finds the panels is free only for personal, research and non-commercial use (see its [model page](https://huggingface.co/ragavsachdeva/magiv2)). The MangaJaNai and IllustrationJaNai upscale models are licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) (non-commercial).
 - Everything the app does is saved to `~/Library/Logs/Panelyze/panelyze.log` (Settings → Open Log File). Send it along if something goes wrong.
 
 ## License
@@ -57,5 +57,6 @@ Distributed under the MIT License.
 ## Acknowledgements
 
 - [Magi](https://github.com/ragavsachdeva/magi) by Ragav Sachdeva (panel and text detection)
+- [MangaJaNai and IllustrationJaNai](https://github.com/the-database/MangaJaNai) by the-database (the "Best" upscale model), run with [spandrel](https://github.com/chaiNNer-org/spandrel) and [Core ML Tools](https://github.com/apple/coremltools)
 - [MangaDex Downloader](https://github.com/mansuf/mangadex-downloader), [waifu2x-ncnn-vulkan](https://github.com/nihui/waifu2x-ncnn-vulkan), [Flet](https://flet.dev/), [MoviePy](https://github.com/Zulko/moviepy) and [edge-tts](https://github.com/rany2/edge-tts)
 - Icons made by <a href="https://www.freepik.com" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com</a>

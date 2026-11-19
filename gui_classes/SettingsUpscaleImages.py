@@ -1,5 +1,14 @@
 import flet as ft
+from gui_classes.WrappingCheckbox import WrappingCheckbox
 from gui_classes.SettingsBase import SettingsBase
+
+
+# The upscalers to pick from, as (setting value, what's shown). Measured on a 97-panel chapter on an M1 MacBook.
+UPSCALE_MODELS = {
+    "fast": "Fast: waifu2x (about 30 seconds a chapter)",
+    "better": "Better: waifu2x cunet (cleaner gray shading, about 2x slower)",
+    "best": "Best: MangaJaNai, or IllustrationJaNai for color (best for manga, slower; downloads about 600 MB the first time)",
+}
 
 
 class SettingsUpscaleImages(SettingsBase):
@@ -38,6 +47,22 @@ class SettingsUpscaleImages(SettingsBase):
 
 
         self.inner_content = [
+            ft.Dropdown(
+                label="Upscale Model",
+                options=[
+                    ft.dropdown.Option(key=model, text=text)
+                    for model, text in UPSCALE_MODELS.items()
+                ],
+                value=self.page.client_storage.get("upscale_model"),
+                text_style=ft.TextStyle(
+                    color="white",  # Text color of the selected item
+                    size=14,  # Font size
+                ),
+                fill_color="#3b4252",  # Background color of the dropdown
+                border_color="#5e81ac",
+                max_menu_height=300,
+                on_change=lambda e: self.change_setting("upscale_model", e.data),
+            ),
             ft.Dropdown(
                 label="Upscale Ratio",
                 options=[
@@ -86,13 +111,13 @@ class SettingsUpscaleImages(SettingsBase):
                 on_change=lambda e: self.change_setting("image_format", e.data),
             ),
             # Upscaling an already big image (e.g. 8000px at 16x) would take forever for no visible gain.
-            ft.Checkbox(
+            WrappingCheckbox(
                 label="Don't upscale past 4K (3840px on the longest side)",
                 value=self.page.client_storage.get("limit_upscale_to_4k"),
                 on_change=lambda e: self.change_setting("limit_upscale_to_4k", e.data),
             ),
-            ft.Checkbox(
-                label="Use Custom Panel Image Height",
+            WrappingCheckbox(
+                label="Use Custom Image Height",
                 value=self.page.client_storage.get("use_custom_panel_image_height"),
                 on_change=lambda e: self.toggle_setting_element_visibility(
                     e,
@@ -102,7 +127,7 @@ class SettingsUpscaleImages(SettingsBase):
             ),
             self.custom_panel_image_height_col,
             # Big images like colorspreads can balloon to 100+ MB after a 4x upscale, so this caps how wide they can get.
-            ft.Checkbox(
+            WrappingCheckbox(
                 label="Use Max Image Width",
                 value=self.page.client_storage.get("use_max_image_width"),
                 on_change=lambda e: self.toggle_setting_element_visibility(

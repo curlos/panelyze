@@ -1,15 +1,23 @@
+import os
+
+# Anything the Mac GPU can't do runs on the CPU instead of failing. It has to be set before "torch" is imported.
+os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+
+import json
 from PIL import Image
 import torch
 import numpy
-import os
 from utils import (
+    PANEL_TEXT_FILE_NAME,
     get_relative_output_path,
     list_images,
     paths_overlap,
     time_it,
 )
 import shutil
+import tempfile
 from copy_panels_to_one_level_directory import copy_panels_to_one_level_directory
+from janai import get_page_height_info
 
 
 # The exact version of Magi v2 on Hugging Face. Its code is copied into "magi_model/" at this version, and the full weights are downloaded at this version, so future changes to it can't silently change or break the output.
@@ -20,6 +28,11 @@ PANELS_MODEL_FILE = os.path.join(MAGI_MODEL_DIRECTORY, "panels_fp16.safetensors"
 PANELS_MODEL_PARTS = ("detection_transformer.", "bbox_predictor.", "class_labels_classifier.")
 # How sure Magi has to be that something is a panel (the same value Magi uses itself).
 PANEL_DETECTION_THRESHOLD = 0.2
+# How many images Magi looks at in one go when finding the text, and how many lines of text it reads in one go.
+# One image at a time is fastest: images looked at together are all padded to the size of the biggest one, and panels (and some pages, like double-page spreads) are all different sizes. On 50 panels: 60s one at a time vs 163s eight at a time.
+FIND_TEXT_BATCH_SIZE = 1
+# Lines read together all wait for the longest one to finish, so smaller groups are faster. On 110 lines: about 60s for 4 to 8 at a time vs 94s for 32.
+READ_TEXT_BATCH_SIZE = 8
 
 
 _shared_magi = None
@@ -36,6 +49,22 @@ def get_magi():
         _shared_magi = Magi()
 
     return _shared_magi
+
+
+def get_device():
+    """
+    The fastest place to run Magi on this computer: the Mac GPU, an NVIDIA GPU, or else the CPU.
+    """
+    if torch.backends.mps.is_available():
+        return "mps"
+
+    if torch.cuda.is_available():
+        return "cuda"
+
+    return "cpu"
+
+
+DEVICE_NAMES = {"mps": "the Mac GPU", "cuda": "the NVIDIA GPU", "cpu": "the CPU"}
 
 
 def load_magi_config(config_file_name):
@@ -134,6 +163,68 @@ def reorder_page_result_left_to_right(page_result, page_width):
     return page_result
 
 
+def get_panel_crop_box(bbox, page):
+    """
+    The part of the page a panel is cut from: the panel's box in whole pixels, kept inside the page. "None" if nothing is left of it (the panel is then skipped).
+    """
+    page_height, page_width = page.shape[:2]
+    x_min, y_min, x_max, y_max = map(int, bbox)
+
+    x_min = max(0, min(x_min, page_width))
+    y_min = max(0, min(y_min, page_height))
+    x_max = max(0, min(x_max, page_width))
+    y_max = max(0, min(y_max, page_height))
+
+    if x_max <= x_min or y_max <= y_min:
+        return None
+
+    return [x_min, y_min, x_max, y_max]
+
+
+def get_overlap_area(box, other_box):
+    width = min(box[2], other_box[2]) - max(box[0], other_box[0])
+    height = min(box[3], other_box[3]) - max(box[1], other_box[1])
+    return max(0, width) * max(0, height)
+
+
+def get_distance_between_centers(box, other_box):
+    return (
+        ((box[0] + box[2]) - (other_box[0] + other_box[2])) ** 2
+        + ((box[1] + box[3]) - (other_box[1] + other_box[3])) ** 2
+    ) ** 0.5
+
+
+def get_dialogue_for_each_panel(page_result, panel_boxes):
+    """
+    The dialogue Magi read on a whole page, split up by the panel each line is in: the panel its text box overlaps the most, or the closest panel if it's in none (e.g. a bubble in the gutter between panels). The lines stay in the page's reading order.
+    """
+    dialogue_for_each_panel = [[] for _ in panel_boxes]
+
+    if not panel_boxes:
+        return dialogue_for_each_panel
+
+    for text_box, text, is_dialogue in zip(
+        page_result["texts"], page_result["ocr"], page_result["is_essential_text"]
+    ):
+        if not is_dialogue:
+            continue
+
+        text_box = [float(value) for value in text_box]
+        overlaps = [get_overlap_area(text_box, panel_box) for panel_box in panel_boxes]
+
+        if max(overlaps) > 0:
+            panel_index = overlaps.index(max(overlaps))
+        else:
+            panel_index = min(
+                range(len(panel_boxes)),
+                key=lambda index: get_distance_between_centers(text_box, panel_boxes[index]),
+            )
+
+        dialogue_for_each_panel[panel_index].append(text)
+
+    return dialogue_for_each_panel
+
+
 def apply_reading_direction(per_page_results, chapter_pages, reading_direction):
     if reading_direction != "ltr":
         return per_page_results
@@ -153,35 +244,63 @@ class Magi:
     @property
     def panels_model(self):
         if self._panels_model is None:
-            self._panels_model = load_panels_magi_model()
+            self._panels_model = load_panels_magi_model().to(get_device())
         return self._panels_model
 
     @property
     def full_model(self):
         if self._full_model is None:
             print("Loading the full Magi AI Model to read the text (the first time, this downloads about 2 GB)...")
-            self._full_model = load_full_magi_model()
+            device = get_device()
+            self._full_model = load_full_magi_model().to(device)
+            print(f"Magi will read the text on {DEVICE_NAMES[device]}.")
         return self._full_model
 
+    def run_with_cpu_fallback(self, model_attribute, run):
+        """
+        Run "run()" with the model in "model_attribute" ("_panels_model" or "_full_model"). If it fails on the GPU (e.g. it ran out of memory), move that model to the CPU, which is slower but works, and run it again there. It stays on the CPU from then on.
+        """
+        try:
+            return run()
+        except RuntimeError as error:
+            model = getattr(self, model_attribute)
+            if model is None or model.device.type == "cpu":
+                raise
+
+            print(f"Magi failed on the GPU ({error}). Running it on the CPU instead.")
+            setattr(self, model_attribute, model.to("cpu"))
+            return run()
+
     def predict_panels(self, chapter_pages):
+        return self.run_with_cpu_fallback(
+            "_panels_model", lambda: self.find_panels(chapter_pages)
+        )
+
+    def find_panels(self, chapter_pages):
         """
         Find the panels on each page, in reading order. Only runs the part of Magi that finds panels, which is about 18x faster than the full model (it skips reading the text and finding characters).
         """
         from transformers.image_transforms import center_to_corners_format
         from magi_model.utils import sort_panels
+        from gui_classes.ProgressPanel import report_progress
 
         model = self.panels_model
         per_page_results = []
 
         # A few pages at a time, so a long chapter doesn't use too much memory.
         batch_size = 8
+        report_progress(pages_done=0, pages_total=len(chapter_pages))
         for batch_start in range(0, len(chapter_pages), batch_size):
             pages = chapter_pages[batch_start : batch_start + batch_size]
 
             with torch.no_grad():
-                inputs = model.processor.preprocess_inputs_for_detection(pages)
+                inputs = model.move_to_device(
+                    model.processor.preprocess_inputs_for_detection(pages)
+                )
                 detection_output = model._get_detection_transformer_output(**inputs)
                 scores, boxes = model._get_predicted_bboxes_and_classes(detection_output)
+                # The rest is done on the CPU, with the page sizes.
+                scores, boxes = scores.cpu(), boxes.cpu()
 
             # The same steps Magi's own "predict_detections_and_associations" uses for panels.
             batch_scores, batch_labels = scores.max(-1)
@@ -207,6 +326,10 @@ class Magi:
                 if len(panel_boxes):
                     panel_boxes = panel_boxes[sort_panels(panel_boxes)]
                 per_page_results.append({"panels": panel_boxes.tolist()})
+
+            report_progress(
+                pages_done=len(per_page_results), pages_total=len(chapter_pages)
+            )
 
         return per_page_results
 
@@ -236,16 +359,85 @@ class Magi:
         ]
 
     def get_per_page_results(self, chapter_pages):
-        # No known characters to match against (Panelyze doesn't use character names).
-        character_bank = {"images": [], "names": []}
+        return self.run_with_cpu_fallback(
+            "_full_model", lambda: self.find_and_read_dialogue(chapter_pages)
+        )
+
+    def find_and_read_dialogue(self, chapter_pages):
+        """
+        Find the text boxes on each page, then read only the dialogue (the boxes Magi marks as "is_essential_text"). Sound effects and background text are never used, so reading them would be wasted time. They get "" in "ocr", so "ocr" still has one entry for each text box.
+        """
+        from tqdm import tqdm
+        from gui_classes.ProgressPanel import report_progress
+
+        model = self.full_model
+        per_page_results = []
 
         # Set to "no_grad()" so that there's inference without tracking gradients. Basically, this saves memory and computational resources by turning off gradient tracking.
         with torch.no_grad():
-            per_page_results = self.full_model.do_chapter_wide_prediction(
-                chapter_pages, character_bank, use_tqdm=True, do_ocr=True
+            report_progress(
+                pages_done=0, pages_total=len(chapter_pages), unit="images", detail="Finding the text"
+            )
+            for batch_start in tqdm(range(0, len(chapter_pages), FIND_TEXT_BATCH_SIZE)):
+                per_page_results += model.predict_detections_and_associations(
+                    chapter_pages[batch_start : batch_start + FIND_TEXT_BATCH_SIZE]
+                )
+                report_progress(pages_done=len(per_page_results))
+
+            dialogue_boxes = [
+                [
+                    box
+                    for box, is_dialogue in zip(result["texts"], result["is_essential_text"])
+                    if is_dialogue
+                ]
+                for result in per_page_results
+            ]
+            dialogue_on_each_page = self.read_text_in_parts(
+                chapter_pages, dialogue_boxes, report_progress, tqdm
             )
 
+        for result, dialogue in zip(per_page_results, dialogue_on_each_page):
+            dialogue = iter(dialogue)
+            result["ocr"] = [
+                next(dialogue) if is_dialogue else ""
+                for is_dialogue in result["is_essential_text"]
+            ]
+
         return per_page_results
+
+    def read_text_in_parts(self, chapter_pages, boxes_on_each_page, report_progress, tqdm):
+        """
+        Read the text in "boxes_on_each_page" exactly "READ_TEXT_BATCH_SIZE" lines at a time (a page's lines can be split between two parts), so the progress can show how many lines have been read. Bigger parts would be slower: lines read together all wait for the longest one.
+        """
+        # Every line as (page number, text box), in reading order.
+        lines = [
+            (page_index, box)
+            for page_index, boxes in enumerate(boxes_on_each_page)
+            for box in boxes
+        ]
+        text_on_each_page = [[] for _ in chapter_pages]
+        report_progress(pages_done=0, pages_total=len(lines), unit="lines", detail="Reading the text")
+
+        with tqdm(total=len(lines)) as progress_bar:
+            for part_start in range(0, len(lines), READ_TEXT_BATCH_SIZE):
+                part = lines[part_start : part_start + READ_TEXT_BATCH_SIZE]
+                page_indexes = sorted({page_index for page_index, _ in part})
+                part_text = self.full_model.predict_ocr(
+                    [chapter_pages[page_index] for page_index in page_indexes],
+                    [
+                        [box for line_page_index, box in part if line_page_index == page_index]
+                        for page_index in page_indexes
+                    ],
+                    batch_size=READ_TEXT_BATCH_SIZE,
+                )
+
+                for page_index, page_text in zip(page_indexes, part_text):
+                    text_on_each_page[page_index] += page_text
+
+                progress_bar.update(len(part))
+                report_progress(pages_done=part_start + len(part))
+
+        return text_on_each_page
 
     def save_cropped_panels(
         self,
@@ -257,23 +449,16 @@ class Magi:
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)  # Create the directory if it doesn't exist
 
-        image_height, image_width, _ = image_as_np_array.shape  # Get image dimensions
         bboxes = predictions["panels"]
 
         for i, bbox in enumerate(bboxes):
-            # Ensure coordinates are integers
-            x_min, y_min, x_max, y_max = map(int, bbox)
+            crop_box = get_panel_crop_box(bbox, image_as_np_array)
 
-            # Clamp bounding box to image dimensions
-            x_min = max(0, min(x_min, image_width))
-            y_min = max(0, min(y_min, image_height))
-            x_max = max(0, min(x_max, image_width))
-            y_max = max(0, min(y_max, image_height))
-
-            # Check if the box is valid after clamping
-            if x_max <= x_min or y_max <= y_min:
+            if crop_box is None:
                 print(f"Skipping invalid panel {i + 1}: {bbox}")
                 continue
+
+            x_min, y_min, x_max, y_max = crop_box
 
             # Crop the image
             cropped_image = image_as_np_array[y_min:y_max, x_min:x_max]
@@ -283,7 +468,8 @@ class Magi:
 
             # Convert the cropped NumPy array to a PIL Image
             pil_image = Image.fromarray(cropped_image)
-            pil_image.save(output_path)
+            # The page's height goes in the panel's file, because the "Best" upscaler (MangaJaNai) picks its model by the page's height.
+            pil_image.save(output_path, pnginfo=get_page_height_info(image_as_np_array.shape[0]))
             print(f"Saved: {output_path}")
 
     def get_data_from_images(self, input_directory, reading_direction="rtl"):
@@ -305,9 +491,13 @@ class Magi:
         output_directory,
         selected_input_directory,
         reading_direction="rtl",
+        group_by_page=False,
+        read_text=False,
     ):
         """
         "reading_direction" is "rtl" (manga, right to left) or "ltr" (comics, left to right).
+        "group_by_page" saves each page's panels in their own "page_x" folder. Otherwise, all of the chapter's panels are saved together, numbered in reading order.
+        "read_text" also reads the dialogue on the pages and saves it next to the panels (see "save_panel_text"), so Images To Video doesn't have to read the text on every panel later.
         "selected_input_directory" is the top-level directory the user picked. The output path keeps the whole path from that directory down (e.g. "One Piece/Vol 1/Ch 1") so different series don't overwrite each other.
         """
         print(f"Starting panel-by-panel conversion for: {input_directory}")
@@ -327,6 +517,8 @@ class Magi:
                 output_directory,
                 chapter_input_directory=input_directory,
                 reading_direction=reading_direction,
+                group_by_page=group_by_page,
+                read_text=read_text,
             )
 
         get_panels()
@@ -338,6 +530,8 @@ class Magi:
         output_directory,
         chapter_input_directory="",
         reading_direction="rtl",
+        group_by_page=False,
+        read_text=False,
     ):
         per_page_results = apply_reading_direction(
             self.predict_panels(chapter_pages_image_numpy_array),
@@ -345,29 +539,71 @@ class Magi:
             reading_direction,
         )
 
-        panel_by_panel_input_dir = f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}"
-        panel_by_panel_output_dir = f"{output_directory}/panel-by-panel/not-grouped/{series_and_chapter_name_directory}"
+        grouped_by_page_dir = f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}"
+        not_grouped_by_page_dir = f"{output_directory}/panel-by-panel/not-grouped-by-page/{series_and_chapter_name_directory}"
+        panels_output_dir = grouped_by_page_dir if group_by_page else not_grouped_by_page_dir
 
         # Remove this chapter's panels from any previous run first. Otherwise, if this run finds fewer panels or pages, the old leftover panels would get mixed in with the new ones.
-        for previous_run_dir in [panel_by_panel_input_dir, panel_by_panel_output_dir]:
-            # Never delete a folder that holds the images being processed (e.g. when re-running Magi on its own previous output).
-            if os.path.exists(previous_run_dir) and not (
-                chapter_input_directory
-                and paths_overlap(previous_run_dir, chapter_input_directory)
-            ):
-                shutil.rmtree(previous_run_dir)
-
-        for i, (image_as_np_array, page_result_predictions) in enumerate(
-            zip(chapter_pages_image_numpy_array, per_page_results)
+        # Never delete a folder that holds the images being processed (e.g. when re-running Magi on its own previous output).
+        if os.path.exists(panels_output_dir) and not (
+            chapter_input_directory
+            and paths_overlap(panels_output_dir, chapter_input_directory)
         ):
-            self.save_cropped_panels(
-                image_as_np_array,
-                page_result_predictions,
-                f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}/page_{i + 1}",
-            )
+            shutil.rmtree(panels_output_dir)
 
-        copy_panels_to_one_level_directory(
-            panel_by_panel_input_dir, panel_by_panel_output_dir
+        # Only the chosen version is saved. Not grouped panels are first saved page by page in a temporary folder, so they can be numbered in reading order across the whole chapter.
+        pages_dir = (
+            grouped_by_page_dir if group_by_page else tempfile.mkdtemp(prefix="panelyze-")
         )
 
+        try:
+            for i, (image_as_np_array, page_result_predictions) in enumerate(
+                zip(chapter_pages_image_numpy_array, per_page_results)
+            ):
+                self.save_cropped_panels(
+                    image_as_np_array,
+                    page_result_predictions,
+                    f"{pages_dir}/page_{i + 1}",
+                )
+
+            if not group_by_page:
+                copy_panels_to_one_level_directory(pages_dir, not_grouped_by_page_dir)
+        finally:
+            if not group_by_page:
+                shutil.rmtree(pages_dir, ignore_errors=True)
+
+        # Only for panels saved together. That's the folder Images To Video reads.
+        if read_text and not group_by_page:
+            self.save_panel_text(
+                chapter_pages_image_numpy_array,
+                per_page_results,
+                not_grouped_by_page_dir,
+                reading_direction,
+            )
+
         return per_page_results
+
+    def save_panel_text(self, chapter_pages, per_page_panels, panels_output_dir, reading_direction):
+        """
+        Read the dialogue on whole pages and save it as one list of lines for each saved panel, in "PANEL_TEXT_FILE_NAME" next to the panels. Reading whole pages is much faster than reading every panel on its own: Magi looks at each image at the same size, so one page costs about as much as one panel, and a page has several panels.
+        """
+        from gui_classes.ProgressPanel import report_progress
+
+        print("Reading the text on the pages for Images To Video...")
+        report_progress(pages_done=None, pages_total=None, detail="Reading the text on the pages...")
+        per_page_text = apply_reading_direction(
+            self.get_per_page_results(chapter_pages), chapter_pages, reading_direction
+        )
+
+        panel_text = []
+        for page, page_panels, page_text in zip(chapter_pages, per_page_panels, per_page_text):
+            # The same panels "save_cropped_panels" saves, in the same order, so line "n" belongs to "panel_n".
+            panel_boxes = [
+                crop_box
+                for crop_box in (get_panel_crop_box(bbox, page) for bbox in page_panels["panels"])
+                if crop_box is not None
+            ]
+            panel_text += get_dialogue_for_each_panel(page_text, panel_boxes)
+
+        with open(os.path.join(panels_output_dir, PANEL_TEXT_FILE_NAME), "w", encoding="utf-8") as file:
+            json.dump(panel_text, file, ensure_ascii=False, indent=1)

@@ -1,4 +1,5 @@
 import flet as ft
+from gui_classes.WrappingCheckbox import WrappingCheckbox
 from gui_classes.SettingsBase import SettingsBase
 from gui_classes.DropdownTextOptions import DropdownTextOptions
 
@@ -187,7 +188,7 @@ class HighlightTextBoxesInImages(SettingsBase):
                         ),
                         height=20,
                     ),
-                    ft.Checkbox(
+                    WrappingCheckbox(
                         label='Clean up "images-with-highlighted-text-boxes" folder',
                         label_style=ft.TextStyle(size=10),
                         value=self.page.client_storage.get(
@@ -208,7 +209,7 @@ class HighlightTextBoxesInImages(SettingsBase):
         self.content = ft.Column(
             controls=[
                 ft.ExpansionTile(
-                    title=ft.Checkbox(
+                    title=WrappingCheckbox(
                         label="Highlight Text Boxes In Images",
                         label_style=ft.TextStyle(size=14),
                         value=self.page.client_storage.get(

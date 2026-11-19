@@ -13,7 +13,9 @@ class ImagesToVideoView(JobView):
 
     def __init__(self, parent_gui):
         super().__init__(
-            parent_gui, settings_container=SettingsImagesToVideo(parent_gui.page)
+            parent_gui,
+            settings_container=SettingsImagesToVideo(parent_gui.page),
+            output_setting_key="output_directory_images_to_video",
         )
         self.video_creator_from_images = VideoCreatorFromImages(
             flet_page_client_storage=self.parent_gui.page.client_storage,

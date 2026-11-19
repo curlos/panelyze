@@ -121,7 +121,12 @@ class TextToSpeech:
         if isinstance(text_list, str):
             text_list = [text_list]
 
-        text_list = [text.strip() for text in text_list if text and text.strip()]
+        # A line with no letters or digits (like "!" or "...") can't be spoken. The voice service fails on it ("No audio was received"), so it's left out.
+        text_list = [
+            text.strip()
+            for text in text_list
+            if text and any(character.isalnum() for character in text)
+        ]
 
         if not text_list:
             return

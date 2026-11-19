@@ -31,9 +31,17 @@ from gui_classes.AppOutput import show_all_output_in_app
 from utils import get_all_mangadex_languages
 
 
+# The window opens at the default size. It can't be made smaller than the minimum size, because the views don't fit in less space.
+DEFAULT_WINDOW_WIDTH = 1100
+DEFAULT_WINDOW_HEIGHT = 750
+MIN_WINDOW_WIDTH = 800
+MIN_WINDOW_HEIGHT = 600
+
+
 class GUI:
     def __init__(self, page: ft.Page):
         self.page = page
+        self.set_window_size()
 
         self.page.theme_mode = "dark"
         self.page.theme = ft.Theme(color_scheme_seed="#5e81ac")
@@ -48,12 +56,21 @@ class GUI:
 
         self.current_view = "Panel-By-Panel"
         self.is_job_running = False
+        self.app_bar_slot = None
+        self.view_slot = None
         self.terminal_output = TerminalOutput(self.page)
         # From here on, everything printed (including errors and progress bars) also shows up in the app's terminal and the log file. This matters most when the app wasn't opened from a terminal.
         show_all_output_in_app(self.terminal_output.terminal_output_list_view)
         self.create_views()
 
         self.render_page_based_on_current_view()
+
+    def set_window_size(self):
+        window = self.page.window
+        window.width = DEFAULT_WINDOW_WIDTH
+        window.height = DEFAULT_WINDOW_HEIGHT
+        window.min_width = MIN_WINDOW_WIDTH
+        window.min_height = MIN_WINDOW_HEIGHT
 
     def create_views(self):
         self.MangaDexDownloaderView = MangaDexDownloaderView(self)
@@ -84,27 +101,53 @@ class GUI:
         self.render_page_based_on_current_view()
         self.page.update()
 
+    def change_panelyze_folder(self, panelyze_folder):
+        """
+        Save everything in "panelyze_folder" from now on (except for tools that have their own output folder picked). The views read their output folder when they're created, so they're re-created afterwards to show the new folders.
+        """
+        # Re-creating the views while a job is running would break that job.
+        if self.is_job_running:
+            self.terminal_output.update_terminal_with_error_message(
+                "ERROR: Can't change the folder while a job is running. Please wait for it to finish."
+            )
+            return
+
+        self.page.client_storage.set("panelyze_folder", panelyze_folder)
+
+        self.create_views()
+
+        self.render_page_based_on_current_view()
+        self.page.update()
+
     def render_page_based_on_current_view(self):
-        self.page.controls.clear()
         self.app_bar = AppBar(self)
         self.view_element = self.get_view_element()
-        self.page.add(self.app_bar)
 
-        view_element_with_terminal = ft.Container(
-            content=ft.Column(
-                controls=[
-                    ft.Container(content=self.view_element, expand=True),
-                    ft.Container(
-                        content=self.terminal_output,
-                        alignment=ft.alignment.bottom_left,
-                    ),
-                ],
+        # The terminal is added to the page only once and stays on it when switching tabs. Taking it off the page would reset its scroll position. After the first time, only the app bar and the tab's content are swapped.
+        if self.app_bar_slot:
+            self.app_bar_slot.content = self.app_bar
+            self.view_slot.content = self.view_element
+            return
+
+        self.app_bar_slot = ft.Container(content=self.app_bar)
+        self.view_slot = ft.Container(content=self.view_element, expand=True)
+
+        self.page.add(
+            self.app_bar_slot,
+            ft.Container(
+                content=ft.Column(
+                    controls=[
+                        self.view_slot,
+                        ft.Container(
+                            content=self.terminal_output,
+                            alignment=ft.alignment.bottom_left,
+                        ),
+                    ],
+                    expand=True,
+                ),
                 expand=True,
             ),
-            expand=True,
         )
-
-        self.page.add(view_element_with_terminal)
 
     def get_view_element(self):
         if self.current_view == "Pipeline":

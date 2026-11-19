@@ -52,10 +52,10 @@ echo 'export PATH=$PATH:~/Downloads/waifu2x-ncnn-vulkan' >> ~/.zshrc
 
 ```bash
 python -m pytest          # fast tests (a few seconds), including GUI tests without a window
-python -m pytest -m e2e   # end-to-end tests with the real tools (a minute or two, needs the internet and waifu2x)
+python -m pytest -m e2e   # end-to-end tests with the real tools (a few minutes, needs the internet and waifu2x)
 ```
 
-The end-to-end tests that download from MangaDex use Dragon Ball chapter 93 (`https://mangadex.org/chapter/ac33cc50-a1b2-49b0-a388-0d0ee4ebce18/14`) and only fetch pages 2 and 3 (page 1 is a cover with no panels). Set `PANELYZE_TEST_MANGADEX_URL` to use a different chapter.
+The end-to-end tests that download from MangaDex use Dragon Ball chapter 93 (`https://mangadex.org/chapter/ac33cc50-a1b2-49b0-a388-0d0ee4ebce18/14`) and only fetch its first 3 pages (saved as `00.jpg` for the cover, `01.jpg` and `02.jpg`; the downloader numbers files from 00). The first run saves them in `test-chapter-cache/` (git-ignored), and later runs reuse them. Set `PANELYZE_TEST_MANGADEX_URL` to use a different chapter.
 
 ## Build the downloadable app
 
@@ -68,16 +68,32 @@ It bundles everything (including waifu2x and the panels-only Magi model) into `d
 ## How it works
 
 - **Output folders** keep the same structure as the input folder. For example, picking `One Piece` as the input gives `<output>/panel-by-panel/not-grouped-by-page/One Piece/<chapter>/panel_1.png, panel_2.png, ...`. With "Group panels by page" checked, it saves `<output>/panel-by-panel/grouped-by-page/One Piece/<chapter>/page_1/panel_1.png, ...` instead (only one of the two is made).
+- **Default output folders:** every tool saves to its own folder in the Panelyze folder (`panelyze_folder` setting, `~/Documents/Panelyze` by default, changed in Settings) unless the user picks another one for that tool, which is remembered in the `output_directory_*` settings (empty means the default). `get_output_directory` in `default_settings.py` works out the folder. When a job finishes, the next tab's input folder is filled in with the result (`JobView.fill_in_next_tab_input`), unless the user picked a folder there themselves.
+- **Downloads** go to `<output>/<manga title>/Vol. 1 Ch. 3 - <chapter title>/`. The downloader is given its own placeholders for this (`download_from_mangadex.py`), because passing it a plain folder drops the manga folder, and its "use chapter title" option doesn't change these folder names for the raw format. A chapter without a title gets no trailing dash.
 - **Pipeline:** each step saves to its own numbered folder (`1-mangadex-download`, `2-panel-by-panel`, ...) inside the output folder, and the pipeline stops if a step fails or saves no images.
 - **Terminal Output** shows everything the app prints (progress, errors, tool output) and also saves it to `~/Library/Logs/Panelyze/panelyze.log`.
 
 ## Magi models
 
 - **Panel-By-Panel uses only the part of Magi that finds panels** (87 MB instead of 2 GB, about 18x faster than running the full model, same panels).
-- **Images To Video reads text with the full Magi v2 model** (about 20 seconds per page on CPU). It's downloaded the first time it's needed.
+- **Images To Video reads text with the full Magi v2 model.** It's downloaded the first time it's needed. Both Magi models run on the GPU when there is one (the Mac GPU or an NVIDIA GPU), and on the CPU otherwise. Only the dialogue is read (sound effects are skipped), one image at a time and 8 lines at a time, which measured fastest.
+- **When the Pipeline also makes a video, Panel-By-Panel reads the text on the whole pages** (much faster than reading every panel) and saves it as `panel-text.json` next to the panels. Upscale carries it along, and Images To Video uses it instead of running Magi again (not when highlighting text boxes, which needs the boxes on each panel).
 - Magi v1 and v3 were also measured. v1 found slightly different panels, and v3 was much slower (about 15–38 seconds per page) and marks every text as dialogue.
 - Magi was trained on manga, so panels on western comics may be found a little less reliably.
 - **License:** the Magi AI Model is free for personal, research, non-commercial and not-for-profit use only (see its [model page](https://huggingface.co/ragavsachdeva/magiv2)).
+
+## Upscale models
+
+The "Upscale Model" setting picks one of three:
+
+- **Fast** (default): waifu2x `upconv_7_anime_style_art_rgb`. About 2x faster than cunet and nearly the same on manga.
+- **Better**: waifu2x `cunet`. Slightly cleaner screentone (gray shading).
+- **Best**: [MangaJaNai](https://github.com/the-database/MangaJaNai) for black and white images, IllustrationJaNai for color ones (`janai.py`). By far the best on manga: it restores clean halftone dots. MangaJaNai turns color into black and white dots, so color images are detected and sent to IllustrationJaNai.
+  - MangaJaNai has a model for each common page height (1200p to 2048p), and the closest one restores the dots at the right size. Panel-By-Panel saves each panel's page height in its PNG file for this.
+  - On Apple Silicon Macs they run with Core ML: MangaJaNai on the Neural Engine (about 0.44 s a panel, 3.6x faster than the GPU with PyTorch) and IllustrationJaNai on the GPU (Apple's Neural Engine compiler gets stuck on it). Each model is converted to Core ML the first time it's used. Elsewhere they run with PyTorch.
+  - The models are downloaded the first time (about 600 MB of zips, 240 MB kept) to `~/Library/Application Support/Panelyze/upscale-models`.
+  - **License:** CC BY-NC 4.0 (non-commercial).
+- waifu2x upscales a whole folder in one run (about 2x faster than one run per image). Real-CUGAN was also tried: it smears black and white screentone into a gray texture.
 
 ## Text-to-speech
 

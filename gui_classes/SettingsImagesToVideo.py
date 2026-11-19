@@ -1,9 +1,21 @@
 import flet as ft
+from gui_classes.WrappingCheckbox import WrappingCheckbox
 from gui_classes.SettingsBase import SettingsBase
 from gui_classes.TextToSpeechAzure import TextToSpeechAzure
 from gui_classes.HighlightTextBoxesInImages import HighlightTextBoxesInImages
 from gui_classes.DropdownTextOptions import DropdownTextOptions
 from gui_classes.ReadingDirectionSetting import get_reading_direction_dropdown
+
+
+# The video resolutions to pick from (the shorter side of the video, e.g. 1080 = 1920x1080 for 16:9).
+VIDEO_RESOLUTIONS = {
+    360: "360p",
+    480: "480p",
+    720: "720p (HD)",
+    1080: "1080p (Full HD)",
+    1440: "1440p (2K)",
+    2160: "2160p (4K)",
+}
 
 
 class SettingsImagesToVideo(
@@ -16,8 +28,14 @@ class SettingsImagesToVideo(
         default_video_extension = self.get_setting_value("video_extension")
 
         # Saved as "video_height" (its old name), but it's the resolution: the shorter side of the video.
-        self.video_height_textfield = self.get_number_textfield(
-            "Video Resolution (px, e.g. 1080 = 1080p)", "video_height"
+        self.video_height_dropdown = DropdownTextOptions(
+            label="Video Resolution",
+            options=[
+                ft.dropdown.Option(key=str(height), text=text)
+                for height, text in VIDEO_RESOLUTIONS.items()
+            ],
+            value=str(self.get_setting_value("video_height")),
+            on_change=lambda e: self.change_setting("video_height", e.data),
         )
 
         self.video_aspect_ratio_dropdown = DropdownTextOptions(
@@ -148,9 +166,9 @@ class SettingsImagesToVideo(
             ),
             get_reading_direction_dropdown(self.page),
             self.video_aspect_ratio_dropdown,
-            self.video_height_textfield,
+            self.video_height_dropdown,
             self.video_extensions_dropdown,
-            ft.Checkbox(
+            WrappingCheckbox(
                 label="Use Minimum Image Duration (sec.)",
                 value=self.page.client_storage.get("use_minimum_image_duration"),
                 on_change=lambda e: self.toggle_setting_element_visibility(

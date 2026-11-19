@@ -1,5 +1,6 @@
 import threading
 import flet as ft
+from gui_classes.WrappingCheckbox import WrappingCheckbox
 from TextToSpeech import (
     AZURE_VOICE_STYLE_OPTIONS,
     DEFAULT_VOICE_LOCALE,
@@ -157,7 +158,7 @@ class TextToSpeechAzure(SettingsBase):
                 ),
                 self.image_pre_tts_audio_delay_textfield,
                 self.image_post_tts_audio_delay_textfield,
-                ft.Checkbox(
+                WrappingCheckbox(
                     label='Clean up TTS "audio-files" folder',
                     value=self.page.client_storage.get(
                         "clean_up_tts_audio_files_folder"

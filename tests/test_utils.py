@@ -64,7 +64,7 @@ def test_output_dir_would_overwrite_input(tmp_path):
 
 def test_paths_overlap(tmp_path):
     out = tmp_path / "out"
-    chapter = out / "panel-by-panel" / "not-grouped" / "Series" / "Ch 1"
+    chapter = out / "panel-by-panel" / "not-grouped-by-page" / "Series" / "Ch 1"
     chapter.mkdir(parents=True)
 
     # Re-running Magi on its own output: the folder it would clear IS the input chapter.
@@ -183,3 +183,76 @@ def test_mangadex_downloader_command_in_the_packaged_app(monkeypatch):
     monkeypatch.setattr(utils.sys, "frozen", True, raising=False)
 
     assert get_mangadex_downloader_command()[1:] == ["--run-mangadex"]
+
+
+def test_a_finished_command_does_not_open_a_finder_window_in_tests(tmp_path, monkeypatch):
+    import subprocess
+    import sys
+
+    launched = []
+    monkeypatch.setattr(subprocess, "run", lambda command, *args, **kwargs: launched.append(command))
+
+    utils.ProcessManager().monitor_terminal_output(
+        [sys.executable, "-c", "pass"], None, str(tmp_path)
+    )
+
+    # "open" is the command that shows a folder in Finder.
+    assert not any(command and command[0] == "open" for command in launched)
+
+
+def test_a_folder_is_saved_as_a_comic_file_in_reading_order(tmp_path):
+    import zipfile
+
+    from utils import save_folder_as_cbz
+
+    chapter = tmp_path / "Ch 1"
+    for page, panel in [("page_2", "panel_1.png"), ("page_10", "panel_1.png"), ("page_2", "panel_10.png"), ("page_2", "panel_2.png")]:
+        (chapter / page).mkdir(parents=True, exist_ok=True)
+        (chapter / page / panel).write_bytes(f"{page}/{panel}".encode())
+    (chapter / "panel-text.json").write_text("[]")
+
+    cbz_path = save_folder_as_cbz(str(chapter))
+
+    assert cbz_path == str(tmp_path / "Ch 1.cbz")
+    with zipfile.ZipFile(cbz_path) as cbz:
+        assert cbz.namelist() == ["0001.png", "0002.png", "0003.png", "0004.png"]
+        # Pages in order (2 before 10), then panels in order inside each page. Only images.
+        assert [cbz.read(name).decode() for name in cbz.namelist()] == [
+            "page_2/panel_1.png",
+            "page_2/panel_2.png",
+            "page_2/panel_10.png",
+            "page_10/panel_1.png",
+        ]
+
+
+def test_a_folder_without_images_makes_no_comic_file(tmp_path):
+    from utils import save_folder_as_cbz
+
+    assert save_folder_as_cbz(str(tmp_path)) is None
+    assert not (tmp_path.parent / f"{tmp_path.name}.cbz").exists()
+
+
+def test_a_small_comic_file_has_webp_images_sized_for_tablets_and_grayscale_for_black_and_white(tmp_path):
+    import io
+    import zipfile
+
+    from PIL import Image
+
+    from utils import save_folder_as_cbz
+
+    chapter = tmp_path / "Ch 1"
+    chapter.mkdir()
+    Image.new("RGB", (3000, 1000), (128, 128, 130)).save(chapter / "panel_1.png")
+    Image.new("RGB", (500, 400), (40, 140, 230)).save(chapter / "panel_2.png")
+
+    with zipfile.ZipFile(save_folder_as_cbz(str(chapter), size="small")) as cbz:
+        assert cbz.namelist() == ["0001.webp", "0002.webp"]
+        black_and_white = Image.open(io.BytesIO(cbz.read("0001.webp")))
+        color = Image.open(io.BytesIO(cbz.read("0002.webp")))
+
+    assert black_and_white.size == (2048, 683)
+    # WebP has no grayscale mode, but the slight tint is gone: every pixel is pure gray.
+    red, green, blue = black_and_white.convert("RGB").split()
+    assert red.tobytes() == green.tobytes() == blue.tobytes()
+    # Small images aren't made bigger, and color stays color.
+    assert color.size == (500, 400) and color.mode == "RGB"

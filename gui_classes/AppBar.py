@@ -5,6 +5,7 @@ class AppBarButton(ft.TextButton):
     def __init__(self, text, current_view, change_view):
         super().__init__()
         self.text = text
+        self.icon = TAB_ICONS[text]
         self.on_click = lambda e: change_view(text)
         self.style = self.get_button_style_by_view(current_view)
 
@@ -28,6 +29,15 @@ TAB_NAMES = [
 ]
 
 
+TAB_ICONS = {
+    "MangaDex Downloader": ft.Icons.DOWNLOAD,
+    "Panel-By-Panel": ft.Icons.GRID_VIEW,
+    "Upscale Images": ft.Icons.HIGH_QUALITY,
+    "Images To Video": ft.Icons.MOVIE,
+    "Pipeline": ft.Icons.ACCOUNT_TREE,
+}
+
+
 class AppBar(ft.Container):
     def __init__(self, parent_gui):
         super().__init__()
@@ -39,7 +49,11 @@ class AppBar(ft.Container):
 
         self.content = ft.Row(
             controls=[
+                # The tabs go onto another line when the window is too narrow for all of them, like on a web page.
                 ft.Row(
+                    wrap=True,
+                    run_spacing=0,
+                    expand=True,
                     controls=[
                         AppBarButton(
                             text=tab_name,

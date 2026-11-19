@@ -41,8 +41,8 @@ fi
 
 mkdir -p "$BUILD_ASSETS_DIR"
 
-# 1. waifu2x: only the program and the one model the app uses.
-if [ ! -x "$WAIFU2X_DIR/waifu2x-ncnn-vulkan" ]; then
+# 1. waifu2x: only the program and the two models the app uses (the default fast one and the best-quality one).
+if [ ! -x "$WAIFU2X_DIR/waifu2x-ncnn-vulkan" ] || [ ! -d "$WAIFU2X_DIR/models-upconv_7_anime_style_art_rgb" ]; then
     echo "Downloading waifu2x $WAIFU2X_VERSION..."
     DOWNLOAD_DIR="$(mktemp -d)"
     curl -L --fail -o "$DOWNLOAD_DIR/waifu2x.zip" "https://github.com/nihui/waifu2x-ncnn-vulkan/releases/download/$WAIFU2X_VERSION/waifu2x-ncnn-vulkan-$WAIFU2X_VERSION-macos.zip"
@@ -51,6 +51,7 @@ if [ ! -x "$WAIFU2X_DIR/waifu2x-ncnn-vulkan" ]; then
     mkdir -p "$WAIFU2X_DIR"
     cp "$DOWNLOAD_DIR/waifu2x-ncnn-vulkan-$WAIFU2X_VERSION-macos/waifu2x-ncnn-vulkan" "$WAIFU2X_DIR/"
     cp -R "$DOWNLOAD_DIR/waifu2x-ncnn-vulkan-$WAIFU2X_VERSION-macos/models-cunet" "$WAIFU2X_DIR/"
+    cp -R "$DOWNLOAD_DIR/waifu2x-ncnn-vulkan-$WAIFU2X_VERSION-macos/models-upconv_7_anime_style_art_rgb" "$WAIFU2X_DIR/"
     cp "$DOWNLOAD_DIR/waifu2x-ncnn-vulkan-$WAIFU2X_VERSION-macos/LICENSE" "$WAIFU2X_DIR/"
     rm -rf "$DOWNLOAD_DIR"
 fi
@@ -94,6 +95,8 @@ mkdir -p "$PACK_DIR"
         --pyinstaller-build-args=--collect-all=azure.cognitiveservices.speech \
         --pyinstaller-build-args=--collect-all=mangadex_downloader \
         --pyinstaller-build-args=--collect-all=edge_tts \
+        --pyinstaller-build-args=--collect-all=spandrel \
+        --pyinstaller-build-args=--collect-all=coremltools \
         --pyinstaller-build-args=--hidden-import=magi_model.modelling_magiv2 \
         --yes
 )

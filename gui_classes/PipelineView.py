@@ -1,11 +1,16 @@
 import os
 import shutil
 import flet as ft
+from gui_classes.AppBar import TAB_ICONS
+from gui_classes.WrappingCheckbox import WrappingCheckbox
+from default_settings import get_output_directory
 from download_from_mangadex import download_from_mangadex
+from gui_classes.ProgressPanel import report_progress
 from utils import (
     IMAGE_EXTENSIONS,
     add_line_to_terminal_output_list_view,
     copy_picked_images_to_folder,
+    get_image_folders,
     get_last_directory,
     is_image_file,
     open_directory,
@@ -29,6 +34,33 @@ PIPELINE_STEP_FOLDER_NAMES = {
 }
 
 
+# What the last step of the pipeline makes, for the "Final result" part of the review.
+FINAL_RESULT_DESCRIPTIONS = {
+    "MangaDex Downloader": "The downloaded chapters",
+    "Panel-By-Panel": "The panels",
+    "Upscale Images": "The upscaled images",
+    "Images To Video": "The videos",
+}
+
+LABEL_COLOR = "#8fbcbb"
+DETAIL_COLOR = "#d8dee9"
+MUTED_COLOR = "#8c97ab"
+PATH_COLOR = "#a3be8c"
+
+
+def get_section(label, controls):
+    """
+    A part of the review: a small label in capitals and then what belongs under it.
+    """
+    return ft.Column(
+        controls=[
+            ft.Text(label.upper(), size=12, weight=ft.FontWeight.BOLD, color=LABEL_COLOR),
+            *controls,
+        ],
+        spacing=6,
+    )
+
+
 def get_step_output_directory(pipeline_output_directory, step):
     return os.path.join(pipeline_output_directory, PIPELINE_STEP_FOLDER_NAMES[step])
 
@@ -45,7 +77,7 @@ def get_next_step_input_directory(step, step_input_directory, step_output_direct
 
     if step == "Panel-By-Panel":
         return os.path.join(
-            step_output_directory, "panel-by-panel", "not-grouped", input_folder_name
+            step_output_directory, "panel-by-panel", "not-grouped-by-page", input_folder_name
         )
 
     # Upscale Images
@@ -60,32 +92,59 @@ def folder_has_images(directory):
     )
 
 
-def get_settings_review_lines(storage, selected_steps):
+def get_final_step_folder(step, step_input_directory, step_output_directory):
     """
-    A short summary of the settings (from each step's own tab) that the pipeline will use.
+    The folder opened when the pipeline finishes, next to the pipeline folder: the chapter's own folder when the last step made just one (so it doesn't have to be clicked through to), or else the last step's folder. "step_input_directory" is where the last step saved its images (see "get_next_step_input_directory").
+    """
+    if step == "Images To Video":
+        return step_output_directory
+
+    image_folders = list(get_image_folders(step_input_directory))
+    return image_folders[0][0] if len(image_folders) == 1 else step_output_directory
+
+
+def video_will_use_text_read_by_panel_by_panel(storage, selected_steps):
+    """
+    When the Pipeline makes panels and then a video that needs the text, Panel-By-Panel reads it from the pages (much faster than Images To Video reading every panel). Highlighting text boxes needs where the text is on each panel, so it still reads the panels.
     """
     get = storage.get
-    review_lines = []
+    return (
+        "Panel-By-Panel" in selected_steps
+        and "Images To Video" in selected_steps
+        and bool(get("use_text_to_speech_azure") or get("use_reading_speed_wpm"))
+        and not get("highlight_text_boxes_in_images")
+    )
+
+
+def get_settings_review(storage, selected_steps):
+    """
+    A short summary of the settings (from each step's own tab) that the pipeline will use, as (step, details) pairs.
+    """
+    get = storage.get
+    review = []
 
     if "MangaDex Downloader" in selected_steps:
         language = get("language") or {}
-        line = f"MangaDex Downloader: language {language.get('name', 'English')}"
+        details = f"language {language.get('name', 'English')}"
         if get("use_start_and_end_chapters"):
-            line += f", chapters {get('start_chapter') or 'first'} to {get('end_chapter') or 'last'}"
+            details += f", chapters {get('start_chapter') or 'first'} to {get('end_chapter') or 'last'}"
         if get("use_start_and_end_pages"):
-            line += f", pages {get('start_page') or 'first'} to {get('end_page') or 'last'}"
-        review_lines.append(line)
+            details += f", pages {get('start_page') or 'first'} to {get('end_page') or 'last'}"
+        review.append(("MangaDex Downloader", details))
 
     if "Panel-By-Panel" in selected_steps:
-        review_lines.append("Panel-By-Panel: Magi AI Model (no settings)")
+        details = "Magi AI Model, panels saved together (not grouped by page)"
+        if video_will_use_text_read_by_panel_by_panel(storage, selected_steps):
+            details += ", also reads the text for the video"
+        review.append(("Panel-By-Panel", details))
 
     if "Upscale Images" in selected_steps:
-        line = f"Upscale Images: {get('upscale_ratio')}x, noise level {get('noise_level')}, {get('image_format')}"
+        details = f"{get('upscale_ratio')}x, noise level {get('noise_level')}, {get('image_format')}, {get('upscale_model') or 'fast'} model"
         if get("use_custom_panel_image_height"):
-            line += f", height {get('custom_panel_image_height')}px"
+            details += f", height {get('custom_panel_image_height')}px"
         if get("use_max_image_width"):
-            line += f", max width {get('max_image_width')}px"
-        review_lines.append(line)
+            details += f", max width {get('max_image_width')}px"
+        review.append(("Upscale Images", details))
 
     if "Images To Video" in selected_steps:
         if get("use_text_to_speech_azure"):
@@ -95,12 +154,12 @@ def get_settings_review_lines(storage, selected_steps):
         else:
             timing = f"reading speed {get('reading_speed_wpm')} WPM"
 
-        line = f"Images To Video: {get('video_aspect_ratio') or '16:9'}, {get('video_height')}p, {get('video_extension')}, {timing}"
+        details = f"{get('video_aspect_ratio') or '16:9'}, {get('video_height')}p, {get('video_extension')}, {timing}"
         if get("highlight_text_boxes_in_images"):
-            line += ", highlight text boxes"
-        review_lines.append(line)
+            details += ", highlight text boxes"
+        review.append(("Images To Video", details))
 
-    return review_lines
+    return review
 
 
 class PipelineView(ft.Container):
@@ -117,12 +176,19 @@ class PipelineView(ft.Container):
         self.padding = 20
 
         self.input_directory = ""
+        # Set for each run (see "video_will_use_text_read_by_panel_by_panel").
+        self.read_text_for_video = False
         # Set when individual images were picked instead of a folder.
         self.input_image_paths = []
-        self.output_directory = ""
+        # Starts as the default folder. Picking a different one is remembered.
+        self.output_directory = get_output_directory(
+            self.parent_gui.page.client_storage, "output_directory_pipeline"
+        )
 
         self.step_checkboxes = {
-            step: ft.Checkbox(label=step, on_change=self.handle_steps_change)
+            step: WrappingCheckbox(
+                label=step, on_change=self.handle_steps_change, icon=TAB_ICONS[step]
+            )
             for step in PIPELINE_STEPS
         }
 
@@ -144,11 +210,10 @@ class PipelineView(ft.Container):
         self.parent_gui.page.overlay.append(self.output_directory_picker)
 
         self.input_directory_text = ft.Text("No input directory picked", color="white")
-        self.output_directory_text = ft.Text(
-            "No output directory picked", color="white"
-        )
+        self.output_directory_text = ft.Text(self.output_directory, color="white")
 
         self.input_directory_row = ft.Row(
+            wrap=True,
             controls=[
                 ft.ElevatedButton(
                     "Pick Input Folder",
@@ -168,7 +233,8 @@ class PipelineView(ft.Container):
             ]
         )
 
-        self.review_text = ft.Text(color="white", selectable=True)
+        # Filled in by "refresh_review".
+        self.review_column = ft.Column(spacing=14)
 
         self.run_button = ft.FilledTonalButton(
             text="Run Pipeline",
@@ -188,17 +254,24 @@ class PipelineView(ft.Container):
                 self.mangadex_url_text_field,
                 self.input_directory_row,
                 ft.Row(
+                    wrap=True,
                     controls=[
                         ft.ElevatedButton(
-                            "Pick Output Directory",
+                            "Change Output Folder",
                             icon=ft.Icons.FOLDER_OPEN,
                             on_click=lambda e: self.output_directory_picker.get_directory_path(),
+                        ),
+                        ft.IconButton(
+                            ft.Icons.RESTART_ALT,
+                            icon_color="white",
+                            tooltip="Use the default output folder",
+                            on_click=lambda e: self.set_output_directory(""),
                         ),
                         self.output_directory_text,
                     ]
                 ),
                 ft.Text("Review", size=18, weight=ft.FontWeight.BOLD),
-                self.review_text,
+                self.review_column,
                 self.run_button,
             ],
             spacing=15,
@@ -212,26 +285,91 @@ class PipelineView(ft.Container):
 
     def refresh_review(self):
         """
-        Called whenever this view is shown, since settings may have changed in the other tabs.
+        Called whenever this view is shown, since settings may have changed in the other tabs. It shows the steps, the settings each of them will use, and where the final result will be saved.
         """
         selected_steps = self.get_selected_steps()
 
         if not selected_steps:
-            self.review_text.value = "Pick at least one step."
+            self.review_column.controls = [ft.Text("Pick at least one step.", color=MUTED_COLOR)]
             return
 
-        review_lines = [" -> ".join(selected_steps), ""]
-        review_lines += get_settings_review_lines(
-            self.parent_gui.page.client_storage, selected_steps
-        )
-        if self.output_directory:
-            review_lines += [
-                "",
-                "Each step saves to its own numbered folder in the output directory, e.g. "
-                + get_step_output_directory(self.output_directory, selected_steps[0]),
-            ]
+        self.review_column.controls = [
+            get_section("Steps", [self.get_steps_flow(selected_steps)]),
+            get_section(
+                "Settings each step will use",
+                [
+                    *self.get_settings_rows(selected_steps),
+                    ft.Text("Change them in each step's own tab.", size=12, color=MUTED_COLOR),
+                ],
+            ),
+            get_section("Final result", [self.get_final_result_card(selected_steps)]),
+        ]
 
-        self.review_text.value = "\n".join(review_lines)
+    def get_steps_flow(self, selected_steps):
+        # A numbered list, one step on each line (the numbers show the order).
+        return ft.Column(
+            controls=[
+                ft.Row(
+                    controls=[
+                        ft.Text(f"{step_number}.", weight=ft.FontWeight.BOLD, color="white"),
+                        ft.Icon(TAB_ICONS[step], size=18, color="white"),
+                        ft.Text(step, weight=ft.FontWeight.BOLD, color="white"),
+                    ],
+                    spacing=6,
+                )
+                for step_number, step in enumerate(selected_steps, start=1)
+            ],
+            spacing=4,
+        )
+
+    def get_settings_rows(self, selected_steps):
+        return [
+            ft.Row(
+                controls=[
+                    ft.Row(
+                        controls=[
+                            ft.Icon(TAB_ICONS[step], size=18, color="white"),
+                            ft.Text(step, weight=ft.FontWeight.BOLD, color="white", expand=True),
+                        ],
+                        spacing=6,
+                        width=230,
+                    ),
+                    ft.Text(details, color=DETAIL_COLOR, expand=True),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.START,
+            )
+            for step, details in get_settings_review(
+                self.parent_gui.page.client_storage, selected_steps
+            )
+        ]
+
+    def get_final_result_card(self, selected_steps):
+        last_step = selected_steps[-1]
+
+        return ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Text(
+                        f"{FINAL_RESULT_DESCRIPTIONS[last_step]} will be saved in:",
+                        color="white",
+                    ),
+                    ft.Text(
+                        get_step_output_directory(self.output_directory, last_step),
+                        color=PATH_COLOR,
+                        selectable=True,
+                    ),
+                    ft.Text(
+                        f"Each step's results are also kept in numbered folders (1-…, 2-…) inside {self.output_directory}",
+                        size=12,
+                        color=MUTED_COLOR,
+                    ),
+                ],
+                spacing=4,
+            ),
+            border=ft.border.all(1, "#5e81ac"),
+            border_radius=ft.border_radius.all(10),
+            padding=10,
+        )
 
     def handle_steps_change(self, e):
         # The MangaDex Downloader is where the images come from, so it replaces the input directory.
@@ -252,8 +390,18 @@ class PipelineView(ft.Container):
             self.input_image_paths = []
             self.input_directory_text.value = e.path
         else:
-            self.output_directory = e.path
-            self.output_directory_text.value = e.path
+            self.set_output_directory(e.path)
+            return
+
+        self.refresh_review()
+        self.update()
+
+    def set_output_directory(self, output_directory):
+        # An empty one means the default folder.
+        storage = self.parent_gui.page.client_storage
+        storage.set("output_directory_pipeline", output_directory)
+        self.output_directory = get_output_directory(storage, "output_directory_pipeline")
+        self.output_directory_text.value = self.output_directory
 
         self.refresh_review()
         self.update()
@@ -324,6 +472,7 @@ class PipelineView(ft.Container):
             if picked_images_folder:
                 shutil.rmtree(os.path.dirname(picked_images_folder), ignore_errors=True)
 
+            report_progress(prefix="")
             self.parent_gui.is_job_running = False
             self.run_button.disabled = False
 
@@ -334,11 +483,15 @@ class PipelineView(ft.Container):
     def run_pipeline(self, selected_steps, input_directory):
         terminal_output = self.parent_gui.terminal_output
         step_input_directory = input_directory
+        self.read_text_for_video = video_will_use_text_read_by_panel_by_panel(
+            self.parent_gui.page.client_storage, selected_steps
+        )
 
         for step_number, step in enumerate(selected_steps, start=1):
             self.show_progress_message(
                 f"Pipeline: Step {step_number}/{len(selected_steps)}: {step}"
             )
+            report_progress(prefix=f"Step {step_number} of {len(selected_steps)}")
             step_output_directory = get_step_output_directory(
                 self.output_directory, step
             )
@@ -375,6 +528,8 @@ class PipelineView(ft.Container):
             f"Pipeline finished! Everything was saved to {self.output_directory}"
         )
         open_directory(self.output_directory)
+        # Opened last, so it's the window in front.
+        open_directory(get_final_step_folder(step, step_input_directory, step_output_directory))
 
     def show_progress_message(self, message):
         add_line_to_terminal_output_list_view(
@@ -385,12 +540,19 @@ class PipelineView(ft.Container):
 
     def run_step(self, step, step_input_directory, step_output_directory):
         if step == "MangaDex Downloader":
-            download_from_mangadex(
-                self.mangadex_url_text_field.value,
-                step_output_directory,
-                self.parent_gui.terminal_output.terminal_output_list_view,
-                self.parent_gui.page.client_storage,
-            )
+            terminal_output = self.parent_gui.terminal_output
+            terminal_output.show_loading_text("Downloading from MangaDex...")
+            try:
+                download_from_mangadex(
+                    self.mangadex_url_text_field.value,
+                    step_output_directory,
+                    terminal_output.terminal_output_list_view,
+                    self.parent_gui.page.client_storage,
+                )
+            except Exception:
+                terminal_output.hide_loading_text("MangaDex download failed.", success=False)
+                raise
+            terminal_output.hide_loading_text("MangaDex download ended.")
             return
 
         # The other steps run exactly like they do in their own tabs.
@@ -400,5 +562,17 @@ class PipelineView(ft.Container):
             "Images To Video": self.parent_gui.ImagesToVideoView,
         }
 
-        if not step_views[step].start_job(step_input_directory, step_output_directory):
+        step_view = step_views[step]
+        if step == "Panel-By-Panel":
+            step_view.ignore_group_by_page = True
+            step_view.read_text_for_video = self.read_text_for_video
+
+        try:
+            finished = step_view.start_job(step_input_directory, step_output_directory)
+        finally:
+            if step == "Panel-By-Panel":
+                step_view.ignore_group_by_page = False
+                step_view.read_text_for_video = False
+
+        if not finished:
             raise RuntimeError("see the error above")

@@ -1,4 +1,5 @@
 import flet as ft
+from gui_classes.WrappingCheckbox import WrappingCheckbox
 from gui_classes.SettingsBase import SettingsBase
 
 
@@ -64,7 +65,7 @@ class SettingsMangaDexDownloader(SettingsBase):
                     ),
                     padding=ft.padding.only(top=5),
                 ),
-                ft.Checkbox(
+                WrappingCheckbox(
                     label="Use Start and End Pages",
                     value=self.page.client_storage.get("use_start_and_end_pages"),
                     on_change=lambda e: self.toggle_setting_element_visibility(
@@ -74,7 +75,7 @@ class SettingsMangaDexDownloader(SettingsBase):
                     ),
                 ),
                 self.start_and_end_page_col,
-                ft.Checkbox(
+                WrappingCheckbox(
                     label="Use Start and End Chapters",
                     value=self.page.client_storage.get("use_start_and_end_chapters"),
                     on_change=lambda e: self.toggle_setting_element_visibility(
@@ -84,19 +85,19 @@ class SettingsMangaDexDownloader(SettingsBase):
                     ),
                 ),
                 self.start_and_end_chapter_col,
-                ft.Checkbox(
-                    label="Use Chapter Title",
+                WrappingCheckbox(
+                    label="Include Chapter Title in Folder Names",
                     value=self.page.client_storage.get("use_chapter_title"),
                     on_change=lambda e: self.change_setting(
                         "use_chapter_title", e.data
                     ),
                 ),
-                ft.Checkbox(
+                WrappingCheckbox(
                     label="No Group Name",
                     value=self.page.client_storage.get("no_group_name"),
                     on_change=lambda e: self.change_setting("no_group_name", e.data),
                 ),
-                ft.Checkbox(
+                WrappingCheckbox(
                     # Replace existing manga, chapter, or list.
                     label="Replace Existing Manga/Chapter",
                     value=self.page.client_storage.get("replace_existing_manga"),
@@ -104,7 +105,7 @@ class SettingsMangaDexDownloader(SettingsBase):
                         "replace_existing_manga", e.data
                     ),
                 ),
-                ft.Checkbox(
+                WrappingCheckbox(
                     # Replace existing manga, chapter, or list.
                     label="No Oneshot Chapters",
                     value=self.page.client_storage.get("no_oneshot_chapters"),
@@ -112,14 +113,14 @@ class SettingsMangaDexDownloader(SettingsBase):
                         "no_oneshot_chapters", e.data
                     ),
                 ),
-                ft.Checkbox(
+                WrappingCheckbox(
                     label="Use Chapter Cover",
                     value=self.page.client_storage.get("use_chapter_cover"),
                     on_change=lambda e: self.change_setting(
                         "use_chapter_cover", e.data
                     ),
                 ),
-                ft.Checkbox(
+                WrappingCheckbox(
                     label="Use Volume Cover",
                     value=self.page.client_storage.get("use_volume_cover"),
                     on_change=lambda e: self.change_setting("use_volume_cover", e.data),

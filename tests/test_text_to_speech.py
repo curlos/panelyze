@@ -196,3 +196,17 @@ def test_a_failed_style_lookup_is_not_remembered(monkeypatch):
 
     assert tts.get_azure_voice_styles(speechsdk, None) == []
     assert tts.get_azure_voice_styles(speechsdk, None) == ["cheerful"]
+
+
+def test_lines_with_nothing_to_say_are_left_out_of_the_voice_over(tmp_path, monkeypatch):
+    spoken = []
+    text_to_speech = TextToSpeech({})
+    monkeypatch.setattr(
+        text_to_speech, "generate_audio_for_text", lambda text, output_file, *args: spoken.append(text)
+    )
+
+    # A lone "!" or "..." can't be spoken, and the voice service fails on it.
+    text_to_speech.generate_audio(["Hello there.", "!", "...!", "Why?!"], str(tmp_path / "a.mp3"))
+    text_to_speech.generate_audio(["!", "?", "..."], str(tmp_path / "b.mp3"))
+
+    assert spoken == ["Hello there. Why?!"]
