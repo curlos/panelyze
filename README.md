@@ -5,7 +5,7 @@
   <p align="center">Turn manga pages into easy-to-read panels, upscale them, and make videos from them. All on your Mac, no terminal needed.</p>
 
   <p align="center">
-    <a href="https://github.com/curlos/manga-panel-splitter/releases/latest"><b>⬇ Download for Mac (Apple Silicon)</b></a>
+    <a href="https://github.com/curlos/panelyze/releases/latest"><b>⬇ Download for Mac (Apple Silicon)</b></a>
   </p>
 </p>
 
@@ -38,7 +38,7 @@ Works on a whole folder, or just a few images. Nothing to set up: results are sa
 
 ## Install
 
-1. Download `Panelyze-macOS-AppleSilicon.zip` from the [latest release](https://github.com/curlos/manga-panel-splitter/releases/latest).
+1. Download `Panelyze-macOS-AppleSilicon.zip` from the [latest release](https://github.com/curlos/panelyze/releases/latest).
 2. Double-click the zip to unzip it, then drag **Panelyze** into your **Applications** folder.
 3. Double-click Panelyze. The first time, macOS says it can't check the app for malicious software (it isn't signed with a paid Apple Developer account). Click **Done**, then open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to "Panelyze was blocked". You only do this once.
 

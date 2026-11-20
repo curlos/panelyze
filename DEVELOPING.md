@@ -22,8 +22,8 @@ They use the project's `venv`, so set it up first (below).
 ## Set up (once)
 
 ```bash
-git clone https://github.com/curlos/manga-panel-splitter.git
-cd manga-panel-splitter
+git clone https://github.com/curlos/panelyze.git
+cd panelyze
 python3.12 -m venv venv        # or: uv venv --python 3.12 venv
 source venv/bin/activate
 pip install -r requirements.txt        # or, for the exact tested versions of everything: pip install -r requirements-lock.txt
@@ -64,7 +64,7 @@ The end-to-end tests that download from MangaDex use Dragon Ball chapter 93 (`ht
 ./build_mac_app.sh
 ```
 
-It bundles everything (including waifu2x and the panels-only Magi model) into `dist/Panelyze.app`, runs the self-test on the built app, and zips it to `dist/Panelyze-macOS-AppleSilicon.zip`. Upload that zip to a [GitHub release](https://github.com/curlos/manga-panel-splitter/releases) for users to download. The app only runs on Apple Silicon Macs (it's built on one).
+It bundles everything (including waifu2x and the panels-only Magi model) into `dist/Panelyze.app`, runs the self-test on the built app, and zips it to `dist/Panelyze-macOS-AppleSilicon.zip`. Upload that zip to a [GitHub release](https://github.com/curlos/panelyze/releases) for users to download. The app only runs on Apple Silicon Macs (it's built on one).
 
 ## How it works
 

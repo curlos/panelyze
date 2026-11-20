@@ -3,7 +3,7 @@
 The context of a long working session (Nov 18–19, 2026) on Panelyze, so a new chat can continue without re-discovering everything. Measured numbers are in [benchmarks/](benchmarks/README.md), and the to-do list of future ideas is in [ROADMAP.md](ROADMAP.md). How the app works is in [DEVELOPING.md](DEVELOPING.md).
 
 ## The project
-- **Panelyze** (repo `manga-panel-splitter`): a Python **Flet 0.25.2** desktop app for an M1 Mac.
+- **Panelyze** (repo `panelyze`): a Python **Flet 0.25.2** desktop app for an M1 Mac.
 - **Tabs:**
   - **MangaDex Downloader**
   - **Panel-By-Panel** (Magi v2 cuts pages into panels)
