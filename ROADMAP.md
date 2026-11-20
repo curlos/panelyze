@@ -28,7 +28,7 @@ Every item has a detailed plan in [specs/](specs/README.md) (Nov 2026). The spec
 | 14 | [Organize the Python files into folders](#14-organize-the-python-files-into-folders) | 🔵 | Medium | Medium | [14](specs/14-folder-structure.md) |
 | 15 | [Auto format, lint, type check and tests + CI](#15-auto-format-lint-type-check-and-ci) | 🟢 | Small | High | [15](specs/15-format-lint-ci.md) |
 | 16 | [More MangaDex options (chapter ranges, etc.)](#16-more-mangadex-options) | 🟢 | Small | Medium–High | [16](specs/16-mangadex-options.md) |
-| 17 | [A second source for pages](#17-a-second-source-for-pages) | 🟡 | Small | Medium–High | [17](specs/17-second-downloader.md) |
+| 17 | [More sources for pages](#17-more-sources-for-pages) | 🟡 | Small–Medium | High | [17](specs/17-second-downloader.md) |
 | 18 | [Fix the type-checker (Pylance) errors](#18-fix-the-type-checker-errors) | 🟢 | Small–Medium | Medium | [18](specs/18-type-check-fixes.md) |
 | 19 | [A downloadable app on GitHub](#19-a-downloadable-app-on-github) | 🟢 after #2 | Small | High | [19](specs/19-github-release-app.md) |
 | 20 | [Optional free NVIDIA GPU](#20-optional-free-nvidia-gpu) | 🔵 | Small | Low–Medium | [20](specs/20-optional-nvidia-gpu.md) |
@@ -170,8 +170,8 @@ Panelyze runs from source there, not as the Mac app, and waifu2x needs its Windo
 ## 16. More MangaDex options
 **Why:** the GUI is missing options the downloader's command line has. **Idea:** a "Chapters" box (`1-5, 7-10`), a Volumes box and a cover option. The downloader's own `--range` is turned off, so Panelyze runs one download per range.
 
-## 17. A second source for pages
-**Why:** MangaDex only has low-quality Slam Dunk scans. **Idea:** an "Import comic files" option (.cbz, .zip, .cbr, .epub) for files the user owns. The app won't include a scraper for piracy sites like Comix.
+## 17. More sources for pages
+**Why:** MangaDex is the only source, has low-quality Slam Dunk scans, and almost no American, Western or French comics, which the app has never been tested on. **Idea:** import comic files (.cbz, .zip, .epub, .pdf, later .cbr), "Download pages from a URL" (e.g. DC's Absolute Batman #1 preview pages), and a public-domain Internet Archive downloader. High priority.
 
 ## 18. Fix the type-checker errors
 **Why:** red Pylance lines. Pyright finds 88 errors in the app code (about 20 are real small bugs), plus 75 in the bundled `magi_model/`, which should be excluded.

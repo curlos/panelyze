@@ -22,7 +22,7 @@ Speed numbers in some specs were measured while other jobs ran on the same Mac, 
 | 14 | [Folder structure](14-folder-structure.md) | Yes | Medium (mechanical) | Medium | `panelyze/` package with core / tools / gui; `gui.py` stays in the root |
 | 15 | [Format, lint, CI](15-format-lint-ci.md) | Yes | Small | High | Ruff + Pyright + pre-commit + GitHub Actions |
 | 16 | [More MangaDex options](16-mangadex-options.md) | Yes | Small | Medium–High | "Chapters" box (`1-5, 7-10`), Volumes box, cover option |
-| 17 | [Second source for pages](17-second-downloader.md) | Yes (import), No (Comix) | Small | Medium–High | "Import comic files" (.cbz/.zip/.cbr/.epub); no piracy-site scraper |
+| 17 | [More sources for pages](17-second-downloader.md) | Yes (import, page URL, Internet Archive), No (piracy sites) | Small–Medium | High | Import .cbz/.zip/.epub/.pdf + "Download pages from a URL" (e.g. DC preview pages), then a public-domain Internet Archive downloader; first test of American, Western and French comics |
 | 18 | [Type-check fixes](18-type-check-fixes.md) | Yes | Small–Medium | Medium | 88 real-code errors, about 20 real bugs; about 60 one-line edits |
 | 19 | [Downloadable app on GitHub](19-github-release-app.md) | Yes | Small | High | Rebuild, test, `gh release create` unsigned; CI builds later |
 | 20 | [Optional free NVIDIA GPU](20-optional-nvidia-gpu.md) | Yes | Small | Low–Medium | A Kaggle/Colab notebook that runs Magi on uploaded chapters |
@@ -41,9 +41,10 @@ Speed numbers in some specs were measured while other jobs ran on the same Mac, 
 ## Suggested order
 Top to bottom. The spec numbers are IDs, not the order, so they never change.
 
-1. **Panel-By-Panel polish:** 27 → 28 → 29 → 31 → 30
-2. **Quick wins:** 12 → 22 → 23 → 05 → 08 → 16 → 17 (any order)
-3. **Code health:** 15 → 18 → 14 → 25 (in this order)
-4. **Ship the app:** 02 → 21 → 19 (in this order)
-5. **Bigger features:** 13 → 07 → 03 → 01 (03 needs 08 and 16 first)
-6. **Later / experimental:** 11, 24, 06, 09, 04, 10, 20, 26 (any order)
+1. **New sources and comic types:** 17 (American, Western and French comics, like Webtoon mode was for webtoons)
+2. **Panel-By-Panel polish:** 27 → 28 → 29 → 31 → 30
+3. **Quick wins:** 12 → 22 → 23 → 05 → 08 → 16 (any order)
+4. **Code health:** 15 → 18 → 14 → 25 (in this order)
+5. **Ship the app:** 02 → 21 → 19 (in this order)
+6. **Bigger features:** 13 → 07 → 03 → 01 (03 needs 08 and 16 first)
+7. **Later / experimental:** 11, 24, 06, 09, 04, 10, 20, 26 (any order)
