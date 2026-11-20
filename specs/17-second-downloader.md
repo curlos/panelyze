@@ -102,8 +102,8 @@ So the Absolute titles are tested with their preview pages. For a full modern Am
 |---|---|
 | `utils.py` | Add `COMIC_FILE_EXTENSIONS = (".cbz", ".zip", ".epub", ".pdf")` and `extract_comic_files_to_folder(comic_paths)`: builds a temporary folder (same layout as `copy_picked_images_to_folder`) with one subfolder per file, named after it. Zip-based files: write only image entries (`is_image_file`), each by its **base name**, never the archive path (blocks "zip slip"). PDF: render each page with `pypdfium2` to `001.png`, `002.png`… |
 | `download_pages_from_url.py` (new) | `download_pages_from_url(url)`: `requests.get` the page (with a normal browser User-Agent and a timeout) → collect image URLs in page order from `<img src>`, `data-src` and the largest `srcset` entry with `html.parser` → make them absolute (`urljoin`) and drop duplicates → download each, open with Pillow, keep only images at least 600 px on the short side (drops ads, icons, avatars) → save as `001.jpg`, `002.jpg`… in a temporary folder named after the page title. Raises a clear "No comic pages found on this page" error when nothing is kept. |
-| `download_from_internet_archive.py` (phase 2) | `search_internet_archive(title)`: `advancedsearch.php` with `mediatype:texts` and the title, fields `identifier, title, licenseurl, rights`. Keep **only** items whose `licenseurl` is a public-domain mark / CC0 (`publicdomain`), skip everything else. `download_internet_archive_item(identifier, folder)`: `GET /metadata/{identifier}`, pick the "Comic Book ZIP" (.cbz) file, else the PDF, download from `/download/{identifier}/{file}` with `requests`, then `extract_comic_files_to_folder`. |
-| `gui_classes/PipelineView.py` | In `input_directory_row`: a "Pick Comic File(s)" button (`FilePicker` limited to `COMIC_FILE_EXTENSIONS`, extension checked again in code) and a "Page URL" text field. `handle_comic_files_picked` (copy of `handle_images_picked`, stores `self.input_comic_paths`). In `handle_run_pipeline`, the `copy_picked_images_to_folder` branch gets two `elif`s: comic files and page URL. Picking one input clears the others (as `input_image_paths` does today). Phase 2: an "Internet Archive" source next to MangaDex, with a title box and a list of public-domain results. |
+| `download_from_internet_archive.py` (phase 2) | `download_internet_archive_item(url, folder)`: take the item id from an `archive.org/details/<id>` URL, `GET /metadata/{id}`, and stop with a clear error unless its `licenseurl` is a public-domain mark / CC0 (`publicdomain`). Then pick the "Comic Book ZIP" (.cbz) file, else the PDF, download from `/download/{identifier}/{file}` with `requests`, then `extract_comic_files_to_folder`. |
+| `gui_classes/PipelineView.py` | In `input_directory_row`: a "Pick Comic File(s)" button (`FilePicker` limited to `COMIC_FILE_EXTENSIONS`, extension checked again in code) and a "Page URL" text field. `handle_comic_files_picked` (copy of `handle_images_picked`, stores `self.input_comic_paths`). In `handle_run_pipeline`, the `copy_picked_images_to_folder` branch gets two `elif`s: comic files and page URL. Picking one input clears the others (as `input_image_paths` does today). Phase 2: no new box. An `archive.org/details/…` link pasted into the same "Page URL" field goes to the Internet Archive downloader instead, like a MangaDex link does for MangaDex. |
 | `gui_classes/PickInputAndOutputDirectories.py` | Phase 3: the same inputs, so the Panel-By-Panel, Upscale and Video tabs get them too |
 | `requirements.txt`, `requirements-lock.txt` | Add `pypdfium2` |
 | `build_mac_app.sh` | Check `pypdfium2`'s native library is bundled (rebuild + self-test) |
@@ -114,6 +114,8 @@ Reuse: `copy_picked_images_to_folder` (layout and cleanup), `is_image_file`, `na
 Not changed: `download_from_mangadex.py`, `MangaDexDownloaderView.py`, `SettingsMangaDexDownloader.py`.
 
 ## 6. Steps
+Work through all three phases without stopping for review, then report once at the end. Never commit.
+
 Phase 1 (Import incl. PDF + page URLs)
 - [ ] Add `pypdfium2` to `requirements.txt` / `requirements-lock.txt` and install it into the shared venv on purpose (CLAUDE.md: the venv is shared)
 - [ ] Add `COMIC_FILE_EXTENSIONS` and `extract_comic_files_to_folder` to `utils.py` (.cbz/.zip/.epub/.pdf) + tests
@@ -121,12 +123,11 @@ Phase 1 (Import incl. PDF + page URLs)
 - [ ] Add the "Pick Comic File(s)" button and the "Page URL" field to `PipelineView.py`, and the two `elif`s in `handle_run_pipeline`; each input clears the others
 - [ ] Run the full test suite
 - [ ] Real runs (§7): Absolute Batman #1 preview article, one Golden Age comic, Pepper&Carrot PDF
-- [ ] Stop for the user's review
 
 Phase 2 (Internet Archive)
 - [ ] Check which test comics (§7) the Internet Archive has with a public-domain license
 - [ ] Add `download_from_internet_archive.py` + tests (fake JSON, no network)
-- [ ] Add the Internet Archive source to the Pipeline
+- [ ] In `PipelineView.py`, send `archive.org/details/…` links in the "Page URL" field to the Internet Archive downloader
 - [ ] Real run on one public-domain comic
 
 Phase 3
@@ -146,7 +147,7 @@ Phase 3
 | .pdf | A 3-page PDF made in the test (Pillow can save one) → `001.png`–`003.png` |
 | Page URL: big images in order, ads dropped | A fake HTML page (no network, `requests` patched) with 3 big images (`src`, `data-src`, `srcset`) and 1 small ad image → 3 pages, in page order |
 | Page URL: nothing found | A page with only small images → the clear "No comic pages found" error |
-| Internet Archive (phase 2) | Fake search JSON with one public-domain item and one item without a public-domain license → only the first is offered; fake metadata JSON → the .cbz is picked over the PDF |
+| Internet Archive (phase 2) | Fake metadata JSON (no network): a public-domain item → the .cbz is picked over the PDF; an item without a public-domain license → a clear error and nothing downloaded; a non-`archive.org` URL goes to the page-URL path instead |
 | Full Pipeline | With the existing fake steps in `tests/test_pipeline.py`, a picked .cbz and a page URL flow into Panel-By-Panel |
 | Real runs | Output to `~/Documents/Panelyze/17-second-downloader/` (CLAUDE.md). Check the panel order by eye on 3–4 pages each, with "Left to right" |
 
@@ -180,9 +181,8 @@ Notes: the first Superman (Action Comics #1, 1938) and Batman (Detective Comics 
 1. **.cbr on Windows:** not now (no Windows testing yet). Later, if needed.
 2. **One folder per picked file:** yes. Two .cbz files become two chapter folders.
 3. **Page URL:** one page only for now. Following "next page" links can come later.
-
-**Open question for the user**
-1. The new inputs go into the **Pipeline** tab first (one place, where MangaDex already is). Should the Panel-By-Panel, Upscale and Video tabs, which each have their own "pick a folder" input, get them in phase 1 too, or in phase 3 as planned (recommended)?
+4. **Which tabs:** the new inputs go into the **Pipeline** tab in phase 1, and into the Panel-By-Panel, Upscale and Video tabs (their own "pick a folder" inputs) in phase 3.
+5. **Pacing:** all phases run straight through with one report at the end, no review stops.
 
 ## 9. Sources
 - Comick shutdown, called a major piracy site: https://animecorner.me/comick-shut-down-manga-piracy-site/
