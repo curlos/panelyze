@@ -8,20 +8,37 @@ Ideas and to-dos for the future, for the user and for future Claude chats. Each 
 
 ## At a glance
 
-| # | Idea | Status | Size | Value |
-|---|---|---|---|---|
-| 1 | [Translate raw Japanese pages to English](#1-translate-raw-japanese-pages) | 🟡 plan waiting for OK | Large | High |
-| 2 | [Check the things that aren't tested yet](#2-check-the-things-that-arent-tested-yet) | 🟢 | Small | High |
-| 3 | [Whole-series runs (e.g. all of Slam Dunk)](#3-whole-series-runs) | 🔵 | Medium | High |
-| 4 | [Magi on the Neural Engine](#4-magi-on-the-neural-engine) | 🔵 worth it for whole-series runs | Medium | Medium |
-| 5 | [Faster "Best" upscaling for color](#5-faster-best-upscaling-for-color) | 🔵 | Medium | Medium |
-| 6 | [Upscale only as much as the video needs](#6-upscale-only-as-much-as-the-video-needs) | 🔵 | Small | Medium |
-| 7 | [Page reading with "highlight text boxes"](#7-page-reading-with-highlight-text-boxes) | 🔵 | Medium | Medium |
-| 8 | [Smaller files by default](#8-smaller-files-by-default) | 🔵 | Small | Medium |
-| 9 | [Better upscaling for blurry scans](#9-better-upscaling-for-blurry-scans) | 🔵 | Small–Medium | Low–Medium |
-| 10 | [Run on the AMD gaming PC](#10-run-on-the-amd-gaming-pc) | 🟡 user's choice | Large | Low–Medium |
-| 11 | [Smaller ideas](#11-smaller-ideas) | 🔵 | Small | Low |
-| — | [Looked into, not worth it for now](#looked-into-not-worth-it-for-now) | ⚪ | — | — |
+Every item has a detailed plan in [specs/](specs/README.md) (Nov 2026). The specs re-checked the notes below, and where they disagree, **the spec is more up to date** (e.g. #3's disk and time estimates, #4's "one model per page shape", #8's WebP sizes).
+
+| # | Idea | Status | Size | Value | Spec |
+|---|---|---|---|---|---|
+| 1 | [Translate raw Japanese pages to English](#1-translate-raw-japanese-pages) | 🟡 plan waiting for OK | Large | High | [01](specs/01-translate-japanese-pages.md) |
+| 2 | [Check the things that aren't tested yet](#2-check-the-things-that-arent-tested-yet) | 🟢 | Small | High | [02](specs/02-untested-checks.md) |
+| 3 | [Whole-series runs (e.g. all of Slam Dunk)](#3-whole-series-runs) | 🔵 needs #8 first | Small–Medium | High | [03](specs/03-whole-series-runs.md) |
+| 4 | [Magi on the Neural Engine](#4-magi-on-the-neural-engine) | 🔵 worth it for whole-series runs | Small–Medium | Low–Medium | [04](specs/04-magi-neural-engine.md) |
+| 5 | [Faster "Best" upscaling for color](#5-faster-best-upscaling-for-color) | 🔵 | Small | Medium–High | [05](specs/05-faster-best-color.md) |
+| 6 | [Upscale only as much as the video needs](#6-upscale-only-as-much-as-the-video-needs) | ⚪ only helps at 4× | Small | Low | [06](specs/06-upscale-to-video-size.md) |
+| 7 | [Page reading with "highlight text boxes"](#7-page-reading-with-highlight-text-boxes) | 🔵 | Small–Medium | Medium | [07](specs/07-page-reading-highlight-boxes.md) |
+| 8 | [Smaller files by default](#8-smaller-files-by-default) | 🔵 | Small | Medium–High | [08](specs/08-smaller-files.md) |
+| 9 | [Better upscaling for blurry scans](#9-better-upscaling-for-blurry-scans) | 🔵 | Small | Low | [09](specs/09-blurry-scan-upscaling.md) |
+| 10 | [Run on the AMD gaming PC](#10-run-on-the-amd-gaming-pc) | 🟡 user's choice | Small (+ setup) | Low–Medium | [10](specs/10-amd-gaming-pc.md) |
+| 11 | [Smaller ideas](#11-smaller-ideas) | 🔵 | Small | Low | [11](specs/11-smaller-ideas.md) |
+| 12 | [Is "Panelyze" still the right name?](#12-the-name) | 🟡 keep it (recommended) | — | — | [12](specs/12-project-name.md) |
+| 13 | [Upscale every panel to fit the screen](#13-upscale-every-panel-to-fit-the-screen) | 🟡 | Small–Medium | Medium | [13](specs/13-fit-small-panels-to-screen.md) |
+| 14 | [Organize the Python files into folders](#14-organize-the-python-files-into-folders) | 🔵 | Medium | Medium | [14](specs/14-folder-structure.md) |
+| 15 | [Auto format, lint, type check and tests + CI](#15-auto-format-lint-type-check-and-ci) | 🟢 | Small | High | [15](specs/15-format-lint-ci.md) |
+| 16 | [More MangaDex options (chapter ranges, etc.)](#16-more-mangadex-options) | 🟢 | Small | Medium–High | [16](specs/16-mangadex-options.md) |
+| 17 | [A second source for pages](#17-a-second-source-for-pages) | 🟡 | Small | Medium–High | [17](specs/17-second-downloader.md) |
+| 18 | [Fix the type-checker (Pylance) errors](#18-fix-the-type-checker-errors) | 🟢 | Small–Medium | Medium | [18](specs/18-type-check-fixes.md) |
+| 19 | [A downloadable app on GitHub](#19-a-downloadable-app-on-github) | 🟢 after #2 | Small | High | [19](specs/19-github-release-app.md) |
+| 20 | [Optional free NVIDIA GPU](#20-optional-free-nvidia-gpu) | 🔵 | Small | Low–Medium | [20](specs/20-optional-nvidia-gpu.md) |
+| 21 | [Test on a fresh machine](#21-test-on-a-fresh-machine) | 🟢 | Small | High | [21](specs/21-fresh-machine-test.md) |
+| 22 | [How to read the panels](#22-how-to-read-the-panels) | 🟢 | Tiny | Medium | [22](specs/22-panel-reader.md) |
+| 23 | [Clean up unneeded files](#23-clean-up-unneeded-files) | 🟡 user's OK | Tiny | High (disk) | [23](specs/23-cleanup.md) |
+| 24 | [Upscale non-manga images (game icons)](#24-upscale-non-manga-images) | 🟡 needs the icons | Small | Low | [24](specs/24-non-manga-upscale-test.md) |
+| 25 | [Full code review, fixes and a whole-app test](#25-full-code-review) | 🔵 after #15, #18, #14 | Medium | High | [25](specs/25-full-code-review.md) |
+| 26 | [Colorize black-and-white manga (experimental)](#26-colorize-black-and-white-manga) | 🟡 test first | Medium | Low–Medium | [26](specs/26-colorize-manga.md) |
+| — | [Looked into, not worth it for now](#looked-into-not-worth-it-for-now) | ⚪ | — | — | — |
 
 ---
 
@@ -137,6 +154,51 @@ Panelyze runs from source there, not as the Mac app, and waifu2x needs its Windo
 | A launcher script in the repo | The one-icon Dock launcher (`~/Applications/Panelyze.app`, with Flet's window app renamed and given the Panelyze icon) was made by hand. A small script in the repo could rebuild it. |
 | The unexplained GPU outlier | Finding and reading text on 6 Shachou panels (17–22) once took 50.4 s on the GPU vs 40.0 s on the CPU, though the GPU won everywhere else. |
 | Heat during long runs | Benchmarks slowed down after long stretches of work. Worth knowing for whole-series runs (#3). |
+
+## 12. The name
+**Question:** the app grew from panel-by-panel into a general manga helper. Is "Panelyze" still right? **Recommendation:** keep it and add a tagline. No clashes in manga or comics; the GitHub repo is already `curlos/panelyze`.
+
+## 13. Upscale every panel to fit the screen
+**Why:** small panels look obviously smaller when reading. **Idea:** give each panel the smallest upscale (1×, 2×, 4×) that fills a target box (iPad size by default), then resize it to fit exactly. Costs about 5× the upscale time if it goes up to 4×.
+
+## 14. Organize the Python files into folders
+**Why:** all the main Python files are in the repo root. **Idea:** a `panelyze/` package with `core/`, `tools/` and `gui/`, moved in one `git mv` step; `gui.py` stays in the root so `flet run` and the build barely change.
+
+## 15. Auto format, lint, type check and CI
+**Why:** there's no formatter, no linter and no CI yet (Prettier is for JavaScript). **Idea:** Ruff (format + lint) and Pyright on every commit through pre-commit, plus GitHub Actions running them and the fast tests.
+
+## 16. More MangaDex options
+**Why:** the GUI is missing options the downloader's command line has. **Idea:** a "Chapters" box (`1-5, 7-10`), a Volumes box and a cover option. The downloader's own `--range` is turned off, so Panelyze runs one download per range.
+
+## 17. A second source for pages
+**Why:** MangaDex only has low-quality Slam Dunk scans. **Idea:** an "Import comic files" option (.cbz, .zip, .cbr, .epub) for files the user owns. The app won't include a scraper for piracy sites like Comix.
+
+## 18. Fix the type-checker errors
+**Why:** red Pylance lines. Pyright finds 88 errors in the app code (about 20 are real small bugs), plus 75 in the bundled `magi_model/`, which should be excluded.
+
+## 19. A downloadable app on GitHub
+**Why:** the README's download link has no release behind it yet. **Idea:** rebuild (the current build is out of date), test it, and publish an unsigned GitHub release. Automatic CI builds and signing come later.
+
+## 20. Optional free NVIDIA GPU
+**Why:** big jobs could run faster on an NVIDIA card; the default stays the user's own Mac. **Idea:** a Kaggle or Colab notebook that runs Magi on uploaded chapters and returns a zip.
+
+## 21. Test on a fresh machine
+**Why:** prove all needed libraries install outside this Mac. **Idea:** the packaged app in a new macOS user account, plus a from-source run on a GitHub Actions macOS runner.
+
+## 22. How to read the panels
+**Idea:** read the .cbz of panels the app already makes in the Panels app (iPhone, iPad, Mac). Only docs change; a reader built into Panelyze isn't needed.
+
+## 23. Clean up unneeded files
+**Why:** the folder is about 21 GB. About 2.8 GB is safe to delete (`venv-py310-old`, `dist`, `build-assets/pack`, `__pycache__`). `testing-output` (17 GB) and two old git stashes (about 600 MB) need the user's OK.
+
+## 24. Upscale non-manga images
+**Idea:** compare the upscalers on game icons (BO7 / MW19 prestige icons, from the user). Known issue: "Best" drops transparency.
+
+## 25. Full code review
+**Idea:** Claude subagents review each area (free CodeRabbit on PRs as a second opinion), each bug gets a test and a small fix, then a full app test on Dragon Ball ch. 93. Do it after #23, #15, #18 and #14.
+
+## 26. Colorize black-and-white manga
+**Experimental.** Color B&W pages automatically. Magi v2 (already in the repo) can name characters from one reference picture each, so each page's coloring gets the right character references. Good coloring models don't fit on the M1, so the plan uses Gemini's image API (about $0.80 a chapter) and keeps the original lines. Start with a test under $2 before any app code.
 
 ---
 

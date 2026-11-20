@@ -1,0 +1,40 @@
+# Specs
+
+One plan per [ROADMAP.md](../ROADMAP.md) item, written in Nov 2026 for future work. Nothing here is built yet. Every spec has the same 9 sections: summary, is it doable, what's already true (roadmap claims checked ✅ / ⚠️), recommended approach, files to change, steps, how to test, size/risks/open questions, sources.
+
+Speed numbers in some specs were measured while other jobs ran on the same Mac, so the specs say which ones to re-measure.
+
+| # | Spec | Doable? | Size | Value | Recommended approach |
+|---|---|---|---|---|---|
+| 1 | [Translate raw Japanese pages](01-translate-japanese-pages.md) | Yes | Large | High | Magi finds boxes, manga-ocr reads them, a vision LLM (Claude default, Gemini cheap, Ollama free) translates the whole page with the image + a series glossary; color fill or manga-LaMa to erase; Comic Neue lettering |
+| 2 | [Check the untested things](02-untested-checks.md) | Yes | Small | High | 3 checklists: rebuild the app (the current `dist/` is out of date), first-time model download into a scratch folder, Core ML turned off |
+| 3 | [Whole-series runs](03-whole-series-runs.md) | Yes | Small–Medium | High | "Skip chapters already done" checkbox; batches by volume; needs #8 first (only 26 GB free) |
+| 4 | [Magi on the Neural Engine](04-magi-neural-engine.md) | Partly | Small–Medium | Low alone, Medium with #3 | One fixed 1333×800 padded model (not one per page shape: 140 shapes found); try plain padding on the GPU first |
+| 5 | [Faster "Best" for color](05-faster-best-color.md) | Yes | Small | Medium–High | Switch to IllustrationJaNai V3 SPAN: runs on the Neural Engine, about 12× faster per tile |
+| 6 | [Upscale to video size](06-upscale-to-video-size.md) | Yes | Small | None at 2×, Medium at 4× | Fit the real video frame; only worth it for 4× upscales |
+| 7 | [Highlight text boxes on the fast path](07-page-reading-highlight-boxes.md) | Yes | Small–Medium | Medium | Save each text box as fractions of its panel in `panel-text.json` |
+| 8 | [Smaller files](08-smaller-files.md) | Yes | Small | Medium–High | Lossy WebP q90 (waifu2x's "webp" is lossless) + "keep only comic files" option |
+| 9 | [Blurry scans](09-blurry-scan-upscaling.md) | Partly | Small | Low | No blurry manga found; an optional "shrink if nothing is lost" check, only after a test |
+| 10 | [AMD gaming PC](10-amd-gaming-pc.md) | Probably | Small code, 1–2 h setup | Low–Medium | Windows + AMD TheRock nightly (now lists gfx1031 as tested) |
+| 11 | [Smaller ideas](11-smaller-ideas.md) | Yes | Small | Low | 2 fps video without highlighting; launcher script; per-chapter timing line; close the GPU outlier |
+| 12 | [Project name](12-project-name.md) | — | — | — | Keep "Panelyze", add a tagline; no clashes in manga |
+| 13 | [Fit small panels to the screen](13-fit-small-panels-to-screen.md) | Yes | Small–Medium | Medium | Per-panel ratio to fill a target box (iPad by default), then resize exactly |
+| 14 | [Folder structure](14-folder-structure.md) | Yes | Medium (mechanical) | Medium | `panelyze/` package with core / tools / gui; `gui.py` stays in the root |
+| 15 | [Format, lint, CI](15-format-lint-ci.md) | Yes | Small | High | Ruff + Pyright + pre-commit + GitHub Actions |
+| 16 | [More MangaDex options](16-mangadex-options.md) | Yes | Small | Medium–High | "Chapters" box (`1-5, 7-10`), Volumes box, cover option |
+| 17 | [Second source for pages](17-second-downloader.md) | Yes (import), No (Comix) | Small | Medium–High | "Import comic files" (.cbz/.zip/.cbr/.epub); no piracy-site scraper |
+| 18 | [Type-check fixes](18-type-check-fixes.md) | Yes | Small–Medium | Medium | 88 real-code errors, about 20 real bugs; about 60 one-line edits |
+| 19 | [Downloadable app on GitHub](19-github-release-app.md) | Yes | Small | High | Rebuild, test, `gh release create` unsigned; CI builds later |
+| 20 | [Optional free NVIDIA GPU](20-optional-nvidia-gpu.md) | Yes | Small | Low–Medium | A Kaggle/Colab notebook that runs Magi on uploaded chapters |
+| 21 | [Fresh machine test](21-fresh-machine-test.md) | Yes | Small | High | New macOS user account (packaged app) + GitHub Actions macOS runner (from source) |
+| 22 | [Panel reader](22-panel-reader.md) | Yes | Tiny | Medium | Use the Panels app with the .cbz the app already makes; docs only |
+| 23 | [Cleanup](23-cleanup.md) | Yes | Tiny | High (disk) | About 2.8 GB safe now; ask about `testing-output` (17 GB) and old git stashes (about 600 MB) |
+| 24 | [Non-manga upscale test](24-non-manga-upscale-test.md) | Yes | Small | Low | Scratch comparison; "Best" drops transparency today |
+| 25 | [Full code review](25-full-code-review.md) | Yes | Medium | High | 6 Claude subagents by area (+ free CodeRabbit on PRs), after #23 → #15 → #18 → #14 |
+| 26 | [Colorize B&W manga (experimental)](26-colorize-manga.md) | Partly | Medium | Low–Medium | Magi v2 names characters from reference pictures (works on the M1); coloring via Gemini image API (~$0.80/chapter), keeping the original lines. Start with a <$2 test, no app code |
+
+## Suggested order
+1. **Quick wins:** 23 (cleanup), 2 + 19 + 21 (build, test, release), 22 (docs)
+2. **Code health:** 15 → 18 → 14 → 25
+3. **Features:** 8 → 16 → 17 → 3, then 5, 13, 7, 1
+4. **Later or only if needed:** 4, 6, 9, 10, 20, 24, 11, 26 (experimental)
