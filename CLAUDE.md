@@ -6,6 +6,7 @@
 6. Make every task and code change you do as simple as possible. We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
 7. Finally, give me a summary of the changes you made and any other relevant information.
 8. When I ask you to work on a spec in `specs/`, go into plan mode first and review it before changing anything. Check that what the spec says is still true in the code (files, functions, numbers) and that the plan makes sense. Tell me what's wrong or out of date, and fix the spec. Only start making changes after I confirm.
+9. After I confirm a spec's plan, work through every step until the feature is done. Don't stop for review between steps. I review and test everything at the end, then give you more prompts.
 
 ## Specs and git worktrees
 
