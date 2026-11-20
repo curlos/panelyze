@@ -26,7 +26,7 @@ Manga is made for bigger formats, so reading a full page on a phone means a lot 
 
 ## What it does
 
-- **Split pages into panels:** an AI model finds every panel and saves each as its own image, in reading order (right to left for manga, left to right for comics, or strip by strip for 4-koma). Speech bubbles and characters drawn over a panel's border are kept whole. About 1–2 seconds per page.
+- **Split pages into panels:** an AI model finds every panel and saves each as its own image, in reading order (right to left for manga, left to right for comics, or strip by strip for 4-koma). Speech bubbles and characters drawn over a panel's border are kept whole. About 1–2 seconds per page. Webtoons (vertical scroll) work too: the chapter is joined into one strip and Magi looks at it one screen at a time.
   - <img src="https://github.com/user-attachments/assets/d0eb6fbd-c1d6-435a-b775-4bd488512d70" height="400" />
 - **Download from MangaDex:** pick a language, chapters and pages. No account needed.
   - <img src="https://github.com/user-attachments/assets/9b5ab7fd-666e-4ad0-882c-e2fdf13cce81" height="400" />

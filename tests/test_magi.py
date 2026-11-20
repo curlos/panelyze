@@ -6,6 +6,7 @@ import torch
 from tqdm import tqdm
 
 import magi as magi_module
+from tests.fake_pages import drawn_page
 from magi import Magi, get_dialogue_for_each_panel
 
 
@@ -173,7 +174,7 @@ def test_panel_by_panel_saves_the_text_for_each_saved_panel_in_order(tmp_path, m
     import numpy
 
     magi = Magi()
-    pages = [numpy.zeros((100, 100, 3), dtype=numpy.uint8) for _ in range(2)]
+    pages = [drawn_page() for _ in range(2)]
     # The middle panel on page 1 is outside the page, so it's skipped and isn't saved.
     panels = [{"panels": [RIGHT_PANEL, [200, 200, 300, 300], LEFT_PANEL]}, {"panels": [[0, 0, 100, 100]]}]
     page_text = [
@@ -200,7 +201,7 @@ def test_panel_by_panel_does_not_read_the_text_unless_asked(tmp_path, monkeypatc
     )
 
     magi.get_panels_using_local_cpu(
-        [numpy.zeros((100, 100, 3), dtype=numpy.uint8)], "Series/Ch 1", str(tmp_path)
+        [drawn_page()], "Series/Ch 1", str(tmp_path)
     )
 
     chapter = tmp_path / "panel-by-panel" / "not-grouped-by-page" / "Series" / "Ch 1"

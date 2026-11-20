@@ -5,6 +5,7 @@ READING_DIRECTIONS = {
     "rtl": "Right to left (Manga)",
     "ltr": "Left to right (Comics)",
     "4koma": "4-koma (Strips, top to bottom, right strip first)",
+    "webtoon": "Webtoon (Vertical scroll)",
 }
 
 

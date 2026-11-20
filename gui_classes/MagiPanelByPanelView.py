@@ -40,6 +40,13 @@ class MagiPanelByPanelView(JobView):
                                 "show_full_characters", e.data == "true"
                             ),
                         ),
+                        WrappingCheckbox(
+                            label="Split very tall panels for phones (never through text)",
+                            value=storage.get("split_tall_panels"),
+                            on_change=lambda e: storage.set(
+                                "split_tall_panels", e.data == "true"
+                            ),
+                        ),
                     ]
                 ),
                 width=350,
@@ -70,6 +77,7 @@ class MagiPanelByPanelView(JobView):
         )
         magi = get_magi()
         magi.show_full_characters = bool(storage.get("show_full_characters"))
+        magi.split_tall_panels = bool(storage.get("split_tall_panels"))
         magi.get_panels_for_chapter(
             image_folder,
             output_directory,

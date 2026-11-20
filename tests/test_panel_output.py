@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import numpy
 
+from tests.fake_pages import drawn_page
 from magi import Magi
 from tests.fake_gui import fake_event
 
@@ -17,7 +18,7 @@ def get_magi_with_fake_panels(monkeypatch):
 
 
 def run_magi(magi, tmp_path, group_by_page):
-    pages = [numpy.zeros((100, 100, 3), dtype=numpy.uint8) for _ in range(2)]
+    pages = [drawn_page() for _ in range(2)]
 
     magi.get_panels_using_local_cpu(
         pages, "Series/Ch 1", str(tmp_path), group_by_page=group_by_page
@@ -118,7 +119,7 @@ def test_panel_by_panel_also_saves_a_comic_file_when_turned_on(make_gui, tmp_pat
         "magi.get_magi",
         lambda: SimpleNamespace(
             get_panels_for_chapter=lambda image_folder, output_directory, **kwargs: magi.get_panels_using_local_cpu(
-                [numpy.zeros((100, 100, 3), dtype=numpy.uint8)] * 2, "Manga/Ch 1", output_directory
+                [drawn_page()] * 2, "Manga/Ch 1", output_directory
             )
         ),
     )

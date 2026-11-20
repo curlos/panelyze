@@ -70,6 +70,7 @@ DEFAULT_SETTINGS = {
         # Panel-By-Panel
         "group_panels_by_page": False,
         "show_full_characters": False,
+        "split_tall_panels": True,
         # Upscale Images
     "use_custom_panel_image_height": False,
     "custom_panel_image_height": "",

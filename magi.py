@@ -36,6 +36,24 @@ PANEL_GROWTH_LIMIT = 0.3
 TEXT_MARGIN = 12
 # Text split between two panels is only treated as dialogue to always show whole if at least this much of it is inside them. Captions in the page margin are mostly outside.
 SPLIT_TEXT_MIN_INSIDE = 0.5
+# Webtoons are too tall for Magi, which shrinks every image to at most 1333 px tall. So it looks at a window 2 screens tall (2x the strip's width), moving down 1 screen at a time: every panel up to 1 screen tall is whole in some window.
+WEBTOON_WINDOW_SCREENS = 2
+# How much smaller the strip is when looking for art Magi missed (see "get_webtoon_safety_net").
+WEBTOON_DETAIL_SCALE = 4
+# A chapter whose images are mostly more than this many times taller than wide is split as a webtoon, whatever reading direction was picked.
+WEBTOON_IMAGE_HEIGHT_RATIO = 2.5
+# A phone screen is about 19.5 x 9, so about 2.17 times taller than wide.
+PHONE_SCREEN_HEIGHT_RATIO = 2.17
+# Panels taller than this many phone screens are split into screen-sized pieces (see "split_tall_panel"). Across 10 webtoon chapters, 17 of 1,178 panels were; no manga panel comes close.
+TALL_PANEL_SCREENS = 2
+# A panel whose lightest and darkest pixels (ignoring the 1% at each end) are closer than this, out of 255, is blank (see "remove_junk_panels").
+BLANK_PANEL_SPREAD = 12
+# How different (out of 255, on average) two faint images can be and still be copies of a watermark. Watermark copies were under 1 apart; falling petals in "Under the Oak Tree" were never closer than 10.
+WATERMARK_MAX_DIFFERENCE = 8
+# A webtoon panel is a repeat if less than this share of it is detailed art no other panel shows (see "remove_repeated_webtoon_panels").
+REPEATED_PANEL_MAX_NEW_DETAIL = 0.05
+# Only slivers narrower than this share of the strip can be repeats. In Lookism, full-size panels inside a bigger safety-net slice were being dropped.
+REPEATED_PANEL_MAX_WIDTH = 0.3
 # A character only counts as a panel's own if at least this much of it is inside the panel.
 CHARACTER_MIN_SHARE = 0.3
 # How many images Magi looks at in one go when finding the text, and how many lines of text it reads in one go.
@@ -386,6 +404,216 @@ def reorder_page_result_four_koma(page_result):
     return page_result
 
 
+def join_webtoon_strip(chapter_pages):
+    """
+    A webtoon chapter as one long image: its images stacked top to bottom, all at the most common width. Panels split between two image files become whole again.
+    """
+    widths = [page.shape[1] for page in chapter_pages]
+    width = max(set(widths), key=widths.count)
+    parts = [
+        page
+        if page.shape[1] == width
+        else numpy.array(Image.fromarray(page).resize((width, round(page.shape[0] * width / page.shape[1]))))
+        for page in chapter_pages
+    ]
+    return numpy.concatenate(parts)
+
+
+def get_webtoon_safety_net(strip, panels):
+    """
+    Webtoon art Magi missed (soft-edged panels, sound effects between panels, narration on black) so none of it is lost. Only "detail" counts as art (lines, edges, text), not flat black, plain color or soft fades.
+    A blob of missed detail touching a panel (like a bubble sticking out of it, or one letter of a title) is added to that panel, unless it's bigger than the panel. Any other blob becomes a panel of its own, trimmed to its content. Specks like watermarks and icons are left out.
+    Returns the panels with the additions. Works at 1/4 size, which is plenty for this and saves memory.
+    """
+    from scipy import ndimage
+
+    scale = WEBTOON_DETAIL_SCALE
+    height, width = strip.shape[:2]
+    gray = numpy.asarray(
+        Image.fromarray(strip).convert("L").resize((max(1, width // scale), max(1, height // scale))), dtype=int
+    )
+    # Thickened a little, so a line of text is one block.
+    detail = ndimage.binary_dilation(get_detail(gray), iterations=2)
+
+    # A panel's own border line sits just outside Magi's box, so detail that close counts as the panel's.
+    border = 24 // scale
+    covered = numpy.zeros(detail.shape, bool)
+    for panel in panels:
+        x0, y0, x1, y1 = [int(value) // scale for value in panel]
+        covered[max(0, y0 - border) : y1 + 1 + border, max(0, x0 - border) : x1 + 1 + border] = True
+    missed = detail & ~covered
+
+    # Missed detail within about 40 px of itself is one blob.
+    blobs, _ = ndimage.label(ndimage.binary_dilation(missed, structure=numpy.ones((11, 11), bool)))
+    panels = [list(panel) for panel in panels]
+    new_panels = []
+
+    for index, area in enumerate(ndimage.find_objects(blobs)):
+        blob = missed[area] & (blobs[area] == index + 1)
+        ys, xs = numpy.nonzero(blob)
+        box = [
+            max(0, (area[1].start + xs.min()) * scale - 16),
+            max(0, (area[0].start + ys.min()) * scale - 16),
+            min(width, (area[1].start + xs.max() + 1) * scale + 16),
+            min(height, (area[0].start + ys.max() + 1) * scale + 16),
+        ]
+        touching = [
+            panel
+            for panel in panels
+            if panel[1] - 40 <= box[3] and box[1] <= panel[3] + 40 and panel[0] - 40 <= box[2] and box[0] <= panel[2] + 40
+        ]
+        if touching:
+            panel = min(touching, key=lambda panel: max(0, panel[1] - box[3], box[1] - panel[3]))
+            if get_box_area(box) <= get_box_area(panel):
+                panel[:] = [min(panel[0], box[0]), min(panel[1], box[1]), max(panel[2], box[2]), max(panel[3], box[3])]
+                continue
+
+        # Too small to be a panel on its own: a watermark, an icon, a stray mark. (Small art touching a panel, like one letter of a title, was added to it above.)
+        if blob.sum() < 150 or box[3] - box[1] < 60 or (box[2] - box[0] < 160 and box[3] - box[1] < 160):
+            continue
+
+        new_panels.append(box)
+
+    return panels + new_panels
+
+
+def looks_like_webtoon(chapter_pages):
+    """
+    Whether most of the chapter's images are far taller than a page (see "WEBTOON_IMAGE_HEIGHT_RATIO"), like a webtoon's. A manga page is about 1.4 times taller than wide; webtoon images are 3 to 25 times.
+    """
+    tall_images = [page for page in chapter_pages if page.shape[0] > WEBTOON_IMAGE_HEIGHT_RATIO * page.shape[1]]
+    return len(tall_images) > len(chapter_pages) / 2
+
+
+def split_tall_panel(panel, page, texts):
+    """
+    A panel taller than "TALL_PANEL_SCREENS" phone screens (as wide as the page) is split into phone-screen-sized pieces, so on a phone it fills the screen instead of being a thin, unreadable strip. Nothing is left out: the pieces together are the whole panel.
+    Each cut is at the quietest rows (white space, a panel border, little detail) near an even split, and never through text. Art can be cut, since the rest of it is in the next piece.
+    The screen is as wide as the page, not the panel: a thin sliver isn't "many screens tall", and splitting it would only make tiny pieces.
+    """
+    crop_box = get_panel_crop_box(panel, page)
+    if crop_box is None:
+        return [panel]
+
+    x0, y0, x1, y1 = crop_box
+    height = y1 - y0
+    screen_height = PHONE_SCREEN_HEIGHT_RATIO * page.shape[1]
+    if height <= TALL_PANEL_SCREENS * screen_height:
+        return [panel]
+
+    gray = page[y0:y1, x0:x1].mean(axis=2)
+    # How much each row changes, from left to right and from the row above. A cut needs a few quiet rows in a row, not one.
+    detail = numpy.abs(numpy.diff(gray, axis=1)).sum(axis=1)
+    detail[1:] += numpy.abs(numpy.diff(gray, axis=0)).sum(axis=1)
+    detail = numpy.convolve(detail, numpy.ones(15) / 15, "same")
+
+    # Never through text (with a little room for the bubble's outline).
+    for text in texts:
+        if text[0] < x1 and text[2] > x0:
+            detail[max(0, int(text[1]) - 12 - y0) : max(0, int(text[3]) + 12 - y0)] = numpy.inf
+
+    pieces = int(numpy.ceil(height / screen_height))
+    cuts = [0]
+    for piece in range(1, pieces):
+        even_cut = piece * height // pieces
+        low = max(int(even_cut - screen_height / 3), cuts[-1] + int(screen_height / 3))
+        high = min(int(even_cut + screen_height / 3), height - int(screen_height / 3))
+        if low < high and numpy.isfinite(detail[low:high]).any():
+            cuts.append(low + int(numpy.argmin(detail[low:high])))
+    cuts.append(height)
+
+    return [[x0, y0 + top, x1, y0 + bottom] for top, bottom in zip(cuts, cuts[1:])]
+
+
+def get_detail(gray):
+    """
+    Where an image has detail (lines, edges, text), as True/False for each pixel. Flat color and soft fades have none.
+    """
+    detail = numpy.zeros(gray.shape, bool)
+    detail[:, 1:] |= numpy.abs(numpy.diff(gray, axis=1)) > 40
+    detail[1:, :] |= numpy.abs(numpy.diff(gray, axis=0)) > 40
+    return detail
+
+
+def remove_junk_panels(per_page_results, chapter_pages):
+    """
+    Leave out panels with nothing to read or see:
+    - Blank ones: almost one flat color, like an all-white or all-black box.
+    - A scanlator's watermark, which Magi boxes as a panel each time it's stamped between panels: a faint image with nearly identical copies 2 or more times in the chapter.
+    Soft art and decorative bits like falling petals stay: they aren't one flat color, and they're never identical copies.
+    """
+    junk, faint_images = set(), []
+
+    for page_number, (page, page_result) in enumerate(zip(chapter_pages, per_page_results)):
+        for panel_number, panel in enumerate(page_result["panels"]):
+            crop_box = get_panel_crop_box(panel, page)
+            if crop_box is None:
+                continue
+
+            x0, y0, x1, y1 = crop_box
+            gray = Image.fromarray(page[y0:y1, x0:x1]).convert("L")
+            small = numpy.asarray(gray.resize((64, 64)), dtype=float)
+
+            if numpy.percentile(small, 99) - numpy.percentile(small, 1) < BLANK_PANEL_SPREAD:
+                junk.add((page_number, panel_number))
+            elif (small < 200).mean() < 0.02:
+                # Faint: compared without the white around it, so copies boxed a little differently still match.
+                ys, xs = numpy.nonzero(numpy.asarray(gray) < 245)
+                if len(xs):
+                    thumbnail = gray.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)).resize((24, 24))
+                    faint_images.append(((page_number, panel_number), numpy.asarray(thumbnail, dtype=float)))
+
+    for key, thumbnail in faint_images:
+        copies = sum(numpy.abs(thumbnail - other).mean() < WATERMARK_MAX_DIFFERENCE for _, other in faint_images)
+        # "copies" includes the image itself.
+        if copies >= 3:
+            junk.add(key)
+
+    if junk:
+        print(f"Left out {len(junk)} blank or watermark panel(s).")
+
+    return [
+        {**page_result, "panels": [panel for panel_number, panel in enumerate(page_result["panels"]) if (page_number, panel_number) not in junk]}
+        for page_number, page_result in enumerate(per_page_results)
+    ]
+
+
+def remove_repeated_webtoon_panels(strip, panels, texts):
+    """
+    A thin webtoon sliver whose content is all shown in other panels, like one holding the end of a speech bubble the next panel shows whole: all the text touching it is inside another panel, and almost none of its detailed art is outside the others.
+    Only slivers narrower than "REPEATED_PANEL_MAX_WIDTH" of the strip are checked. A full-size panel inside a bigger one (like a slice the safety net added) is kept: it's the cleaner of the two.
+    The smallest panels are checked first, and only against panels that are kept.
+    """
+    panels = sorted(panels, key=get_box_area)
+    kept = list(panels)
+
+    for panel in panels:
+        others = [other for other in kept if other is not panel]
+        crop_box = get_panel_crop_box(panel, strip)
+        if crop_box is None or not others or crop_box[2] - crop_box[0] > REPEATED_PANEL_MAX_WIDTH * strip.shape[1]:
+            continue
+
+        touching_texts = [text for text in texts if get_overlap_area(text, panel) > 0]
+        if not all(
+            any(get_overlap_area(text, other) >= 0.95 * get_box_area(text) for other in others) for text in touching_texts
+        ):
+            continue
+
+        x0, y0, x1, y1 = crop_box
+        own_detail = get_detail(strip[y0:y1, x0:x1].mean(axis=2))
+        inside_others = numpy.zeros(own_detail.shape, bool)
+        for other in others:
+            ox0, oy0, ox1, oy1 = [int(value) for value in other]
+            inside_others[max(0, oy0 - y0) : max(0, oy1 - y0), max(0, ox0 - x0) : max(0, ox1 - x0)] = True
+
+        # It needs proof that it's shown elsewhere: its text is in another panel, or most of it is. Soft art like falling petals has little detail, but that alone doesn't mean another panel shows it.
+        is_shown_elsewhere = touching_texts or inside_others.mean() >= 0.8
+        if is_shown_elsewhere and (own_detail & ~inside_others).mean() < REPEATED_PANEL_MAX_NEW_DETAIL:
+            kept.remove(panel)
+
+    return kept
+
+
 def apply_reading_direction(per_page_results, chapter_pages, reading_direction):
     if reading_direction == "4koma":
         return [reorder_page_result_four_koma(page_result) for page_result in per_page_results]
@@ -400,6 +628,9 @@ def apply_reading_direction(per_page_results, chapter_pages, reading_direction):
 
 
 class Magi:
+    # Panel-By-Panel's "Split very tall panels for phones" setting (see "split_tall_panel").
+    split_tall_panels = True
+
     def __init__(self):
         # Each model is only loaded the first time it's needed.
         self._panels_model = None
@@ -438,9 +669,59 @@ class Magi:
             return run()
 
     def predict_panels(self, chapter_pages, reading_direction="rtl"):
+        if reading_direction == "webtoon":
+            return self.run_with_cpu_fallback(
+                "_panels_model", lambda: [self.find_webtoon_panels(strip) for strip in chapter_pages]
+            )
+
         return self.run_with_cpu_fallback(
             "_panels_model", lambda: self.find_panels(chapter_pages, reading_direction)
         )
+
+    def find_webtoon_panels(self, strip):
+        """
+        The panels on a webtoon strip (see "join_webtoon_strip"), top to bottom, and the text boxes, as one page's result. Magi looks at overlapping windows (see "WEBTOON_WINDOW_SCREENS"). A panel cut off by a window's top or bottom edge is skipped there, since the next window sees it whole. The same panel found in two windows is kept once.
+        """
+        height, width = strip.shape[:2]
+        window_height = WEBTOON_WINDOW_SCREENS * width
+        window_tops = list(range(0, max(1, height - width), width))
+        windows = [strip[top : top + window_height] for top in window_tops]
+        whole_panels, cut_off_panels, texts = [], [], []
+
+        # Webtoons are read left to right, like comics.
+        for top, window, result in zip(window_tops, windows, self.find_panels(windows, "ltr")):
+            # Text seen in two windows is listed twice, which is fine: it's only used to not split a panel through text.
+            texts += [[text[0], text[1] + top, text[2], text[3] + top] for text in result.get("texts", [])]
+            for panel in result["panels"]:
+                is_cut_off = (panel[1] < 4 and top > 0) or (
+                    panel[3] > window.shape[0] - 4 and top + window.shape[0] < height
+                )
+                (cut_off_panels if is_cut_off else whole_panels).append([panel[0], panel[1] + top, panel[2], panel[3] + top])
+
+        def is_same_panel(panel, other):
+            return get_overlap_area(panel, other) > 0.6 * min(get_box_area(panel), get_box_area(other))
+
+        panels = []
+        for panel in sorted(whole_panels, key=lambda panel: -get_box_area(panel)):
+            if not any(is_same_panel(panel, kept) for kept in panels):
+                panels.append(panel)
+
+        # A panel taller than 1 screen is cut off in every window: its pieces are joined back together.
+        tall_panels = []
+        for piece in cut_off_panels:
+            if any(is_same_panel(piece, kept) for kept in panels):
+                continue
+            for tall_panel in tall_panels:
+                if get_overlap_area(piece, tall_panel) > 0:
+                    tall_panel[:] = [min(tall_panel[0], piece[0]), min(tall_panel[1], piece[1]), max(tall_panel[2], piece[2]), max(tall_panel[3], piece[3])]
+                    break
+            else:
+                tall_panels.append(list(piece))
+        panels += [panel for panel in tall_panels if not any(is_same_panel(panel, kept) for kept in panels)]
+
+        panels = remove_repeated_webtoon_panels(strip, get_webtoon_safety_net(strip, panels), texts)
+        panels = sorted(panels, key=lambda panel: (panel[1], panel[0]))
+        return {"panels": panels, "texts": texts}
 
     def find_panels(self, chapter_pages, reading_direction="rtl"):
         """
@@ -491,8 +772,10 @@ class Magi:
             )
 
             for page_number in range(len(pages)):
+                # Kept so a very tall panel is never split through text (see "split_tall_panel").
+                texts = boxes[page_number][text_indices[page_number]].tolist()
                 if len(panel_indices[page_number]) == 0:
-                    per_page_results.append({"panels": []})
+                    per_page_results.append({"panels": [], "texts": texts})
                     continue
 
                 panel_boxes = boxes[page_number][panel_indices[page_number]]
@@ -502,11 +785,12 @@ class Magi:
                     {
                         "panels": get_grown_panels(
                             panel_boxes.tolist(),
-                            boxes[page_number][text_indices[page_number]].tolist(),
+                            texts,
                             boxes[page_number][character_indices[page_number]].tolist(),
                             None if self.show_full_characters else PANEL_GROWTH_LIMIT,
                             reading_direction=reading_direction,
-                        )
+                        ),
+                        "texts": texts,
                     }
                 )
 
@@ -657,7 +941,7 @@ class Magi:
 
     def get_data_from_images(self, input_directory, reading_direction="rtl"):
         """
-        Everything Magi finds on each page (panels, text boxes, what the text says, which text is dialogue, etc.), in reading order. "reading_direction" is "rtl" (manga), "ltr" (comics) or "4koma" (strips, top to bottom).
+        Everything Magi finds on each page (panels, text boxes, what the text says, which text is dialogue, etc.), in reading order. "reading_direction" is "rtl" (manga), "ltr" (comics), "4koma" (strips, top to bottom) or "webtoon" (vertical scroll).
         """
         chapter_pages_image_numpy_array = self.get_chapter_pages_image_numpy_array(
             input_directory
@@ -678,7 +962,7 @@ class Magi:
         read_text=False,
     ):
         """
-        "reading_direction" is "rtl" (manga, right to left), "ltr" (comics, left to right) or "4koma" (strips, top to bottom, right strip first).
+        "reading_direction" is "rtl" (manga, right to left), "ltr" (comics, left to right), "4koma" (strips, top to bottom, right strip first) or "webtoon" (vertical scroll: the chapter is joined into one strip, see "find_webtoon_panels").
         "group_by_page" saves each page's panels in their own "page_x" folder. Otherwise, all of the chapter's panels are saved together, numbered in reading order.
         "read_text" also reads the dialogue on the pages and saves it next to the panels (see "save_panel_text"), so Images To Video doesn't have to read the text on every panel later.
         "selected_input_directory" is the top-level directory the user picked. The output path keeps the whole path from that directory down (e.g. "One Piece/Vol 1/Ch 1") so different series don't overwrite each other.
@@ -716,11 +1000,33 @@ class Magi:
         group_by_page=False,
         read_text=False,
     ):
+        if reading_direction != "webtoon" and looks_like_webtoon(chapter_pages_image_numpy_array):
+            print("These images are much taller than pages, so they're split as a webtoon (vertical scroll).")
+            reading_direction = "webtoon"
+
+        if reading_direction == "webtoon":
+            chapter_pages_image_numpy_array = [join_webtoon_strip(chapter_pages_image_numpy_array)]
+
         per_page_results = apply_reading_direction(
             self.predict_panels(chapter_pages_image_numpy_array, reading_direction),
             chapter_pages_image_numpy_array,
             reading_direction,
         )
+
+        if self.split_tall_panels:
+            per_page_results = [
+                {
+                    **page_result,
+                    "panels": [
+                        piece
+                        for panel in page_result["panels"]
+                        for piece in split_tall_panel(panel, page, page_result.get("texts") or [])
+                    ],
+                }
+                for page, page_result in zip(chapter_pages_image_numpy_array, per_page_results)
+            ]
+
+        per_page_results = remove_junk_panels(per_page_results, chapter_pages_image_numpy_array)
 
         grouped_by_page_dir = f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}"
         not_grouped_by_page_dir = f"{output_directory}/panel-by-panel/not-grouped-by-page/{series_and_chapter_name_directory}"
@@ -755,8 +1061,8 @@ class Magi:
             if not group_by_page:
                 shutil.rmtree(pages_dir, ignore_errors=True)
 
-        # Only for panels saved together. That's the folder Images To Video reads.
-        if read_text and not group_by_page:
+        # Only for panels saved together. That's the folder Images To Video reads. A webtoon strip is far too tall for Magi to read its text in one go, so Images To Video reads it from the panels instead.
+        if read_text and not group_by_page and reading_direction != "webtoon":
             self.save_panel_text(
                 chapter_pages_image_numpy_array,
                 per_page_results,
