@@ -32,9 +32,18 @@ Speed numbers in some specs were measured while other jobs ran on the same Mac, 
 | 24 | [Non-manga upscale test](24-non-manga-upscale-test.md) | Yes | Small | Low | Scratch comparison; "Best" drops transparency today |
 | 25 | [Full code review](25-full-code-review.md) | Yes | Medium | High | 6 Claude subagents by area (+ free CodeRabbit on PRs), after #23 → #15 → #18 → #14 |
 | 26 | [Colorize B&W manga (experimental)](26-colorize-manga.md) | Partly | Medium | Low–Medium | Magi v2 names characters from reference pictures (works on the M1); coloring via Gemini image API (~$0.80/chapter), keeping the original lines. Start with a <$2 test, no app code |
+| 27 | [Pick the reading direction automatically](27-reading-direction-from-mangadex.md) | Yes | Small–Medium | High | MangaDex has no direction field, so: user pick → "Long Strip" tag (webtoon) → "4-Koma" tag (right strip first if Japanese, else left) → language (ja = right to left, else left to right) → image checks |
+| 28 | [Join floating speech bubbles to their speaker's panel](28-floating-bubbles-join-panel.md) | Yes | Medium | Medium–High | Add Magi's tiny speaker/tail/dialogue heads (~2 MB) to the fast model; split bubble-only panels per bubble and attach each to its speaker's panel, within size limits |
+| 29 | [Less memory for webtoons](29-webtoon-memory.md) | Yes | Medium | Medium | A "lazy strip" that builds only the part each window or crop needs, instead of one 282,000 px image (3.2 GB peak) |
+| 30 | [Skip first/last images (optional)](30-skip-intro-credit-pages.md) | Yes | Small | Low | Two number settings, 0 by default; no automatic credit detection (not reliable) |
+| 31 | [Test the untested formats](31-format-testing-followups.md) | Yes | Small | Medium | Spreads, Western comics, more 4-koma, webtoon upscaling and video text: measure only |
 
 ## Suggested order
-1. **Quick wins:** 23 (cleanup), 2 + 19 + 21 (build, test, release), 22 (docs)
-2. **Code health:** 15 → 18 → 14 → 25
-3. **Features:** 8 → 16 → 17 → 3, then 5, 13, 7, 1
-4. **Later or only if needed:** 4, 6, 9, 10, 20, 24, 11, 26 (experimental)
+Top to bottom. The spec numbers are IDs, not the order, so they never change.
+
+1. **Panel-By-Panel polish:** 27 → 28 → 29 → 31 → 30
+2. **Quick wins:** 12 → 22 → 23 → 05 → 08 → 16 → 17 (any order)
+3. **Code health:** 15 → 18 → 14 → 25 (in this order)
+4. **Ship the app:** 02 → 21 → 19 (in this order)
+5. **Bigger features:** 13 → 07 → 03 → 01 (03 needs 08 and 16 first)
+6. **Later / experimental:** 11, 24, 06, 09, 04, 10, 20, 26 (any order)
