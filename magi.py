@@ -28,6 +28,16 @@ PANELS_MODEL_FILE = os.path.join(MAGI_MODEL_DIRECTORY, "panels_fp16.safetensors"
 PANELS_MODEL_PARTS = ("detection_transformer.", "bbox_predictor.", "class_labels_classifier.")
 # How sure Magi has to be that something is a panel (the same value Magi uses itself).
 PANEL_DETECTION_THRESHOLD = 0.2
+# How sure Magi has to be that something is text or a character before a panel grows to fit it.
+TEXT_AND_CHARACTER_DETECTION_THRESHOLD = 0.3
+# The most of another panel a panel may take when it grows to fit a speech bubble or character sticking out of it. Across 25 test chapters, 30% never pulled in another panel's dialogue, while 70% did 17 times. 40% let Japanese captions in the page margin swallow panels again, and showed some characters twice (see "benchmarks/panel-cropping.md").
+PANEL_GROWTH_LIMIT = 0.3
+# Room left around a speech bubble a panel grows to fit, so the bubble's outline isn't cut.
+TEXT_MARGIN = 12
+# Text split between two panels is only treated as dialogue to always show whole if at least this much of it is inside them. Captions in the page margin are mostly outside.
+SPLIT_TEXT_MIN_INSIDE = 0.5
+# A character only counts as a panel's own if at least this much of it is inside the panel.
+CHARACTER_MIN_SHARE = 0.3
 # How many images Magi looks at in one go when finding the text, and how many lines of text it reads in one go.
 # One image at a time is fastest: images looked at together are all padded to the size of the biggest one, and panels (and some pages, like double-page spreads) are all different sizes. On 50 panels: 60s one at a time vs 163s eight at a time.
 FIND_TEXT_BATCH_SIZE = 1
@@ -187,6 +197,104 @@ def get_overlap_area(box, other_box):
     return max(0, width) * max(0, height)
 
 
+def get_box_area(box):
+    return max(0, box[2] - box[0]) * max(0, box[3] - box[1])
+
+
+def get_panel_reading_order(panels, reading_direction):
+    """
+    The indices of "panels" (in manga order, as Magi sorts them) in the order they're read in "reading_direction".
+    """
+    from magi_model.utils import sort_panels
+
+    if reading_direction == "4koma":
+        return get_four_koma_panel_order(panels)
+
+    if reading_direction == "ltr" and panels:
+        # Mirrored, like "reorder_page_result_left_to_right". Any width works, since only the order matters.
+        return list(sort_panels(get_mirrored_boxes(panels, max(panel[2] for panel in panels))))
+
+    return list(range(len(panels)))
+
+
+def get_grown_panels(panels, texts, characters, character_growth_limit=PANEL_GROWTH_LIMIT, reading_direction="rtl"):
+    """
+    Magi's panel boxes follow the panel borders, so speech bubbles and characters drawn over a border get cut. Each panel grows to fit the text and characters that are its own (they overlap it the most) but stick out of it.
+    It doesn't grow when that would take more than "PANEL_GROWTH_LIMIT" of another panel, so a crop never pulls in the next panel and its dialogue. This also skips Japanese captions in the page margin, which Magi finds as text too.
+    Dialogue split between panels is always shown whole in one of them, though, because the reader needs the words (see "grow_to_fit").
+    "character_growth_limit=None" always fits the whole character (the "Show full characters" setting).
+    """
+    grown_panels = [list(panel) for panel in panels]
+    position_in_reading_order = {
+        index: position for position, index in enumerate(get_panel_reading_order(panels, reading_direction))
+    }
+
+    def get_share_taken_of_another_panel(index, grown_panel):
+        """
+        The most of any other panel that growing panel "index" to "grown_panel" would take (0 to 1).
+        """
+        return max(
+            (
+                (get_overlap_area(grown_panel, other) - get_overlap_area(grown_panels[index], other)) / get_box_area(other)
+                for other_index, other in enumerate(panels)
+                if other_index != index and get_box_area(other) > 0
+            ),
+            default=0,
+        )
+
+    def grow_to_fit(box, margin, min_share, limit, always_show_whole=False):
+        overlaps = [get_overlap_area(panel, box) for panel in grown_panels]
+        box_area = get_box_area(box)
+
+        # Not in any panel, mostly outside of them, or already all inside one.
+        if not overlaps or max(overlaps) == 0 or max(overlaps) < min_share * box_area or max(overlaps) >= 0.999 * box_area:
+            return
+
+        # The panels it's in, in reading order.
+        panels_it_is_in = sorted(
+            (index for index, overlap in enumerate(overlaps) if overlap > 0),
+            key=lambda index: position_in_reading_order[index],
+        )
+        # Its own panel (the one it overlaps the most) first. Text can also go in the other panels it's in.
+        indices = sorted(panels_it_is_in, key=lambda index: -overlaps[index])
+        if not always_show_whole:
+            indices = indices[:1]
+
+        grown = {
+            index: [
+                min(grown_panels[index][0], box[0] - margin),
+                min(grown_panels[index][1], box[1] - margin),
+                max(grown_panels[index][2], box[2] + margin),
+                max(grown_panels[index][3], box[3] + margin),
+            ]
+            for index in indices
+        }
+        share_taken = {index: get_share_taken_of_another_panel(index, grown[index]) for index in indices}
+
+        if limit is None or share_taken[indices[0]] <= limit:
+            grown_panels[indices[0]] = grown[indices[0]]
+            return
+
+        # A bubble split between two panels that its own panel can't fit within the limit: the first of the two in reading order shows it anyway, so the reader sees the whole line the first time they reach it. Text mostly outside the panels (like a caption in the page margin), or running across 3 or more panels (like a chapter title down the side of the page), isn't dialogue the reader needs.
+        if always_show_whole and len(panels_it_is_in) == 2 and sum(overlaps) >= SPLIT_TEXT_MIN_INSIDE * box_area:
+            grown_panels[panels_it_is_in[0]] = grown[panels_it_is_in[0]]
+            return
+
+        # Otherwise, another panel it's in can fit it, within the limit.
+        for index in indices[1:]:
+            if share_taken[index] <= limit:
+                grown_panels[index] = grown[index]
+                return
+
+    for text in texts:
+        grow_to_fit(text, TEXT_MARGIN, 0, PANEL_GROWTH_LIMIT, always_show_whole=True)
+
+    for character in characters:
+        grow_to_fit(character, 0, CHARACTER_MIN_SHARE, character_growth_limit)
+
+    return grown_panels
+
+
 def get_distance_between_centers(box, other_box):
     return (
         ((box[0] + box[2]) - (other_box[0] + other_box[2])) ** 2
@@ -206,26 +314,82 @@ def get_dialogue_for_each_panel(page_result, panel_boxes):
     for text_box, text, is_dialogue in zip(
         page_result["texts"], page_result["ocr"], page_result["is_essential_text"]
     ):
-        if not is_dialogue:
-            continue
-
-        text_box = [float(value) for value in text_box]
-        overlaps = [get_overlap_area(text_box, panel_box) for panel_box in panel_boxes]
-
-        if max(overlaps) > 0:
-            panel_index = overlaps.index(max(overlaps))
-        else:
-            panel_index = min(
-                range(len(panel_boxes)),
-                key=lambda index: get_distance_between_centers(text_box, panel_boxes[index]),
-            )
-
-        dialogue_for_each_panel[panel_index].append(text)
+        if is_dialogue:
+            dialogue_for_each_panel[get_panel_index_of_text(text_box, panel_boxes)].append(text)
 
     return dialogue_for_each_panel
 
 
+def get_panel_index_of_text(text_box, panel_boxes):
+    """
+    The panel a text box belongs to: the one it overlaps the most, or the closest one if it's in none.
+    """
+    text_box = [float(value) for value in text_box]
+    overlaps = [get_overlap_area(text_box, panel_box) for panel_box in panel_boxes]
+
+    if max(overlaps) > 0:
+        return overlaps.index(max(overlaps))
+
+    return min(
+        range(len(panel_boxes)),
+        key=lambda index: get_distance_between_centers(text_box, panel_boxes[index]),
+    )
+
+
+def get_four_koma_panel_order(panels):
+    """
+    4-koma pages are strips of panels stacked top to bottom, read one strip (column) at a time from the right. Panels that share most of their width are in the same column.
+    """
+    columns = []
+
+    for index in sorted(range(len(panels)), key=lambda index: -(panels[index][0] + panels[index][2])):
+        panel = panels[index]
+        for column in columns:
+            first_panel = panels[column[0]]
+            shared_width = min(panel[2], first_panel[2]) - max(panel[0], first_panel[0])
+            if shared_width > 0.5 * min(panel[2] - panel[0], first_panel[2] - first_panel[0]):
+                column.append(index)
+                break
+        else:
+            columns.append([index])
+
+    return [index for column in columns for index in sorted(column, key=lambda index: panels[index][1])]
+
+
+def reorder_page_result_four_koma(page_result):
+    """
+    Put the panels in 4-koma order (see "get_four_koma_panel_order"), and the text in the order of the panels it's in.
+    """
+    page_result = dict(page_result)
+    panels = list(page_result.get("panels") or [])
+
+    if not panels:
+        return page_result
+
+    panel_order = get_four_koma_panel_order(panels)
+    page_result["panels"] = [panels[index] for index in panel_order]
+    texts = list(page_result.get("texts") or [])
+
+    if texts:
+        position_of_panel = {panel_index: position for position, panel_index in enumerate(panel_order)}
+        # "sorted" keeps Magi's own order for text in the same panel.
+        text_order = sorted(
+            range(len(texts)),
+            key=lambda index: position_of_panel[get_panel_index_of_text(texts[index], panels)],
+        )
+        # The text, what it says and whether it's dialogue all have to stay together.
+        for key in ("texts", "ocr", "is_essential_text"):
+            values = page_result.get(key)
+            if values is not None and len(values) == len(texts):
+                page_result[key] = [values[index] for index in text_order]
+
+    return page_result
+
+
 def apply_reading_direction(per_page_results, chapter_pages, reading_direction):
+    if reading_direction == "4koma":
+        return [reorder_page_result_four_koma(page_result) for page_result in per_page_results]
+
     if reading_direction != "ltr":
         return per_page_results
 
@@ -240,6 +404,8 @@ class Magi:
         # Each model is only loaded the first time it's needed.
         self._panels_model = None
         self._full_model = None
+        # Panel-By-Panel's "Show full characters" setting: panels grow to fit the whole character, even if that takes a lot of another panel.
+        self.show_full_characters = False
 
     @property
     def panels_model(self):
@@ -271,14 +437,14 @@ class Magi:
             setattr(self, model_attribute, model.to("cpu"))
             return run()
 
-    def predict_panels(self, chapter_pages):
+    def predict_panels(self, chapter_pages, reading_direction="rtl"):
         return self.run_with_cpu_fallback(
-            "_panels_model", lambda: self.find_panels(chapter_pages)
+            "_panels_model", lambda: self.find_panels(chapter_pages, reading_direction)
         )
 
-    def find_panels(self, chapter_pages):
+    def find_panels(self, chapter_pages, reading_direction="rtl"):
         """
-        Find the panels on each page, in reading order. Only runs the part of Magi that finds panels, which is about 18x faster than the full model (it skips reading the text and finding characters).
+        Find the panels on each page, in manga reading order ("apply_reading_direction" changes it for other formats). "reading_direction" decides which panel a speech bubble split between two panels goes in (see "get_grown_panels"). Only runs the part of Magi that finds panels, which is about 18x faster than the full model (it skips reading the text and finding characters).
         """
         from transformers.image_transforms import center_to_corners_format
         from magi_model.utils import sort_panels
@@ -316,6 +482,13 @@ class Magi:
             panel_indices = model.processor._get_indices_of_panels_to_keep(
                 batch_scores, batch_labels, boxes, PANEL_DETECTION_THRESHOLD
             )
+            # The same pass also finds the text and characters, so the panels can grow to fit them at no extra cost.
+            text_indices = model.processor._get_indices_of_texts_to_keep(
+                batch_scores, batch_labels, boxes, TEXT_AND_CHARACTER_DETECTION_THRESHOLD
+            )
+            character_indices = model.processor._get_indices_of_characters_to_keep(
+                batch_scores, batch_labels, boxes, TEXT_AND_CHARACTER_DETECTION_THRESHOLD
+            )
 
             for page_number in range(len(pages)):
                 if len(panel_indices[page_number]) == 0:
@@ -325,7 +498,17 @@ class Magi:
                 panel_boxes = boxes[page_number][panel_indices[page_number]]
                 if len(panel_boxes):
                     panel_boxes = panel_boxes[sort_panels(panel_boxes)]
-                per_page_results.append({"panels": panel_boxes.tolist()})
+                per_page_results.append(
+                    {
+                        "panels": get_grown_panels(
+                            panel_boxes.tolist(),
+                            boxes[page_number][text_indices[page_number]].tolist(),
+                            boxes[page_number][character_indices[page_number]].tolist(),
+                            None if self.show_full_characters else PANEL_GROWTH_LIMIT,
+                            reading_direction=reading_direction,
+                        )
+                    }
+                )
 
             report_progress(
                 pages_done=len(per_page_results), pages_total=len(chapter_pages)
@@ -474,7 +657,7 @@ class Magi:
 
     def get_data_from_images(self, input_directory, reading_direction="rtl"):
         """
-        Everything Magi finds on each page (panels, text boxes, what the text says, which text is dialogue, etc.), in reading order. "reading_direction" is "rtl" (manga) or "ltr" (comics).
+        Everything Magi finds on each page (panels, text boxes, what the text says, which text is dialogue, etc.), in reading order. "reading_direction" is "rtl" (manga), "ltr" (comics) or "4koma" (strips, top to bottom).
         """
         chapter_pages_image_numpy_array = self.get_chapter_pages_image_numpy_array(
             input_directory
@@ -495,7 +678,7 @@ class Magi:
         read_text=False,
     ):
         """
-        "reading_direction" is "rtl" (manga, right to left) or "ltr" (comics, left to right).
+        "reading_direction" is "rtl" (manga, right to left), "ltr" (comics, left to right) or "4koma" (strips, top to bottom, right strip first).
         "group_by_page" saves each page's panels in their own "page_x" folder. Otherwise, all of the chapter's panels are saved together, numbered in reading order.
         "read_text" also reads the dialogue on the pages and saves it next to the panels (see "save_panel_text"), so Images To Video doesn't have to read the text on every panel later.
         "selected_input_directory" is the top-level directory the user picked. The output path keeps the whole path from that directory down (e.g. "One Piece/Vol 1/Ch 1") so different series don't overwrite each other.
@@ -534,7 +717,7 @@ class Magi:
         read_text=False,
     ):
         per_page_results = apply_reading_direction(
-            self.predict_panels(chapter_pages_image_numpy_array),
+            self.predict_panels(chapter_pages_image_numpy_array, reading_direction),
             chapter_pages_image_numpy_array,
             reading_direction,
         )

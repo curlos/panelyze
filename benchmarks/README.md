@@ -24,6 +24,7 @@ What was measured while speeding up Panelyze (November 2026), and what was learn
 |---|---|
 | [Magi](magi.md) | GPU vs CPU, dialogue only, pages vs panels, gluing pages, images and lines at once, the Neural Engine |
 | [Making the video](video.md) | Old code vs new, smaller speedups, the whole Pipeline timed |
+| [Panel cropping](panel-cropping.md) | Keeping speech bubbles and characters whole, tested on 25 chapters from 17 series. The 4-koma reading order. |
 | [Upscaling](upscaling.md) | waifu2x settings, every upscaler on black and white and on color, making MangaJaNai and IllustrationJaNai faster, the "Best" model |
 | [File sizes](file-sizes.md) | Formats and sizes for reading on a phone or iPad |
 

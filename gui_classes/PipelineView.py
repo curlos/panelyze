@@ -135,6 +135,8 @@ def get_settings_review(storage, selected_steps):
 
     if "Panel-By-Panel" in selected_steps:
         details = "Magi AI Model, panels saved together (not grouped by page)"
+        if get("show_full_characters"):
+            details += ", shows full characters"
         if video_will_use_text_read_by_panel_by_panel(storage, selected_steps):
             details += ", also reads the text for the video"
         review.append(("Panel-By-Panel", details))

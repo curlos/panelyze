@@ -3,7 +3,7 @@ from utils import time_it
 
 class SpeechTextParser:
     def __init__(self):
-        # "rtl" (manga, right to left) or "ltr" (comics, left to right). Decides the order the text is read in.
+        # "rtl" (manga, right to left), "ltr" (comics, left to right) or "4koma" (strips, top to bottom). Decides the order the text is read in.
         self.reading_direction = "rtl"
         # The full Magi data from the last run. It's needed for drawing highlighted text boxes.
         self.last_magi_data = None

@@ -4,6 +4,7 @@ from gui_classes.DropdownTextOptions import DropdownTextOptions
 READING_DIRECTIONS = {
     "rtl": "Right to left (Manga)",
     "ltr": "Left to right (Comics)",
+    "4koma": "4-koma (Strips, top to bottom, right strip first)",
 }
 
 

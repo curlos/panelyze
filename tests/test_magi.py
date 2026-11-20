@@ -107,7 +107,7 @@ def test_finding_panels_also_falls_back_to_the_cpu(monkeypatch):
     magi._panels_model = SimpleNamespace(device=torch.device("mps"), to=lambda device: SimpleNamespace(device=torch.device(device)))
     attempts = []
 
-    def find_panels(pages):
+    def find_panels(pages, reading_direction="rtl"):
         attempts.append(magi._panels_model.device.type)
         if magi._panels_model.device.type != "cpu":
             raise RuntimeError("MPS backend out of memory")
@@ -180,7 +180,7 @@ def test_panel_by_panel_saves_the_text_for_each_saved_panel_in_order(tmp_path, m
         make_page_text(([10, 10, 40, 30], "Left.", True), ([60, 10, 90, 30], "Right.", True)),
         make_page_text(([10, 10, 40, 30], "Page two.", True)),
     ]
-    monkeypatch.setattr(magi, "predict_panels", lambda chapter_pages: panels)
+    monkeypatch.setattr(magi, "predict_panels", lambda chapter_pages, reading_direction: panels)
     monkeypatch.setattr(magi, "get_per_page_results", lambda chapter_pages: page_text)
 
     magi.get_panels_using_local_cpu(pages, "Series/Ch 1", str(tmp_path), read_text=True)
@@ -194,7 +194,7 @@ def test_panel_by_panel_does_not_read_the_text_unless_asked(tmp_path, monkeypatc
     import numpy
 
     magi = Magi()
-    monkeypatch.setattr(magi, "predict_panels", lambda chapter_pages: [{"panels": [LEFT_PANEL]}])
+    monkeypatch.setattr(magi, "predict_panels", lambda chapter_pages, reading_direction: [{"panels": [LEFT_PANEL]}])
     monkeypatch.setattr(
         magi, "get_per_page_results", lambda chapter_pages: pytest.fail("the text shouldn't be read")
     )

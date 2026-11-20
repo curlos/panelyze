@@ -12,7 +12,7 @@ ONE_PANEL = {"panels": [[0, 0, 100, 100]]}
 
 def get_magi_with_fake_panels(monkeypatch):
     magi = Magi.__new__(Magi)
-    monkeypatch.setattr(magi, "predict_panels", lambda pages: [TWO_PANELS, ONE_PANEL])
+    monkeypatch.setattr(magi, "predict_panels", lambda pages, reading_direction: [TWO_PANELS, ONE_PANEL])
     return magi
 
 
@@ -148,3 +148,24 @@ def test_the_comic_file_setting_is_in_the_app_settings(make_gui):
     dropdown.on_change(fake_event(data="small"))
 
     assert gui.page.client_storage.get("save_as_cbz") == "small"
+
+
+def test_show_full_characters_is_off_by_default_and_is_passed_to_magi(make_gui, tmp_path, monkeypatch):
+    import magi as magi_module
+
+    gui = make_gui()
+    view = gui.MagiPanelByPanelView
+    checkbox = view.pick_input_output_directories_container.settings_container.content.controls[2].checkbox
+    fake_magi = SimpleNamespace(show_full_characters=None, get_panels_for_chapter=lambda *args, **kwargs: None)
+    monkeypatch.setattr(magi_module, "get_magi", lambda: fake_magi)
+    chapter = tmp_path / "Manga" / "Ch 1"
+    chapter.mkdir(parents=True)
+    (chapter / "page_1.png").write_bytes(b"")
+
+    assert checkbox.value is False
+    view.start_job(str(tmp_path / "Manga"), str(tmp_path / "out"))
+    assert fake_magi.show_full_characters is False
+
+    checkbox.on_change(fake_event(data="true"))
+    view.start_job(str(tmp_path / "Manga"), str(tmp_path / "out"))
+    assert fake_magi.show_full_characters is True

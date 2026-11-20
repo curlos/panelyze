@@ -33,6 +33,13 @@ class MagiPanelByPanelView(JobView):
                                 "group_panels_by_page", e.data == "true"
                             ),
                         ),
+                        WrappingCheckbox(
+                            label="Show full characters (can include parts of nearby panels)",
+                            value=storage.get("show_full_characters"),
+                            on_change=lambda e: storage.set(
+                                "show_full_characters", e.data == "true"
+                            ),
+                        ),
                     ]
                 ),
                 width=350,
@@ -61,7 +68,9 @@ class MagiPanelByPanelView(JobView):
         group_by_page = bool(
             storage.get("group_panels_by_page") and not self.ignore_group_by_page
         )
-        get_magi().get_panels_for_chapter(
+        magi = get_magi()
+        magi.show_full_characters = bool(storage.get("show_full_characters"))
+        magi.get_panels_for_chapter(
             image_folder,
             output_directory,
             selected_input_directory=input_directory,

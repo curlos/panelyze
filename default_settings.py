@@ -69,6 +69,7 @@ DEFAULT_SETTINGS = {
         "reading_direction": "rtl",
         # Panel-By-Panel
         "group_panels_by_page": False,
+        "show_full_characters": False,
         # Upscale Images
     "use_custom_panel_image_height": False,
     "custom_panel_image_height": "",
