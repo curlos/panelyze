@@ -40,7 +40,7 @@ Worktrees are local only. GitHub only sees `main`. Each one is about 5 MB becaus
    2. In `panelyze-main/` (with `git -C ../panelyze-main`): `git merge <branch>`, run the fast tests there, then `git push`.
    3. Clean up: `git worktree remove ../<folder>`, `git branch -d <branch>`, and delete the spec's output folder in `~/Documents/Panelyze/`.
    4. **Update the others:** in each other worktree, `git merge main` and re-run its tests.
-   Stop and tell me instead of forcing anything if a merge has conflicts, tests fail, or a push is rejected. Never commit directly on `main` (only the merge), and never force-push.
+   Stop and tell me instead of forcing anything if a merge has conflicts, tests fail, or a push is rejected. Never commit directly on `main` (only the merge), and never force-push. Commits show only me as the author: never add a "Co-Authored-By: Claude" line or any other Claude attribution to commit messages or pull requests.
 6. Merge specs one at a time.
 
 ### Rules
