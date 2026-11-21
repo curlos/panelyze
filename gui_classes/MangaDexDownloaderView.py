@@ -1,6 +1,6 @@
 import flet as ft
 from gui_classes import Nord
-from default_settings import get_output_directory
+from default_settings import can_pick_output_folders, get_output_directory
 from download_from_mangadex import download_from_mangadex
 from gui_classes.SettingsMangaDexDownloader import SettingsMangaDexDownloader
 from utils import get_newest_subfolder
@@ -66,6 +66,8 @@ class MangaDexDownloaderView(ft.Container):
                                     style=Nord.icon_button_style(),
                                     tooltip="Pick a different output folder",
                                     on_click=lambda e: self.pick_files_dialog.get_directory_path(),
+                                    # Running from source, everything goes to the repo's own folder (see "can_pick_output_folders").
+                                    visible=can_pick_output_folders(),
                                 ),
                                 ft.IconButton(
                                     ft.Icons.RESTART_ALT,
@@ -73,6 +75,7 @@ class MangaDexDownloaderView(ft.Container):
                                     style=Nord.icon_button_style(),
                                     tooltip="Use the default output folder",
                                     on_click=lambda e: self.set_output_directory(""),
+                                    visible=can_pick_output_folders(),
                                 ),
                             ]
                         ),

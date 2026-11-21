@@ -2,7 +2,7 @@ import os
 import shutil
 import flet as ft
 from gui_classes import Nord
-from default_settings import get_output_directory
+from default_settings import can_pick_output_folders, get_output_directory
 from utils import (
     IMAGE_EXTENSIONS,
     copy_picked_images_to_folder,
@@ -133,6 +133,8 @@ class PickInputAndOutputDirectories(ft.Container):
                                                     ),
                                                 ],
                                                 spacing=0,
+                                                # Running from source, everything goes to the repo's own folder (see "can_pick_output_folders").
+                                                visible=can_pick_output_folders(),
                                             ),
                                         ],
                                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,

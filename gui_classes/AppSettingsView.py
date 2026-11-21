@@ -2,6 +2,7 @@ import os
 import flet as ft
 from gui_classes import Nord
 from gui_classes.AppBar import TAB_NAMES
+import default_settings
 from default_settings import PANELYZE_FOLDER, get_panelyze_folder_inside
 from gui_classes.AppOutput import LOG_FILE_PATH
 from utils import open_directory
@@ -19,8 +20,9 @@ class AppSettingsView(ft.Container):
         # Takes the space above the terminal, so the page below can scroll when it doesn't all fit.
         self.expand = True
 
+        dev_output_folder = default_settings.DEV_OUTPUT_FOLDER
         self.panelyze_folder_text = ft.Text(
-            self.parent_gui.page.client_storage.get("panelyze_folder"),
+            dev_output_folder or self.parent_gui.page.client_storage.get("panelyze_folder"),
             color=Nord.TEXT,
             selectable=True,
         )
@@ -45,7 +47,15 @@ class AppSettingsView(ft.Container):
                     color=Nord.TEXT,
                 ),
                 self.panelyze_folder_text,
+                ft.Text(
+                    "Running from source (development), so everything is saved in this repo's own folder (this can't be changed here).",
+                    size=12,
+                    color=Nord.TEXT_MUTED,
+                    visible=bool(dev_output_folder),
+                ),
                 ft.Row(
+                    # Changing the folder does nothing when running from source (see "get_dev_output_folder").
+                    visible=not dev_output_folder,
                     wrap=True,
                     controls=[
                         ft.ElevatedButton(

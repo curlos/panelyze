@@ -6,6 +6,25 @@ import os
 # Everything the app makes is saved here unless a different folder is picked (in the app's Settings, or for just one tool). Each tool gets its own folder inside it, so one tool's files never mix with another's.
 PANELYZE_FOLDER = os.path.join(os.path.expanduser("~"), "Documents", "Panelyze")
 
+
+def get_dev_output_folder(code_folder=os.path.dirname(os.path.abspath(__file__))):
+    """
+    When the app runs from source (the main repo or a spec's git worktree), everything is saved in "~/Documents/Panelyze/<repo folder>" (e.g. ".../Panelyze/panelyze-main" or ".../Panelyze/17-second-downloader"), so development and testing never mix with the normal folders. Source has a ".git" (a folder in the main repo, a file in a worktree); the packaged app has none, so it returns None and saves in "~/Documents/Panelyze".
+    """
+    if os.path.exists(os.path.join(code_folder, ".git")):
+        return os.path.join(PANELYZE_FOLDER, os.path.basename(code_folder))
+    return None
+
+
+DEV_OUTPUT_FOLDER = get_dev_output_folder()
+
+
+def can_pick_output_folders():
+    """
+    Output folders can only be picked in the packaged app. A picked folder is saved in the settings, which every run shares (the packaged app, the main repo and every worktree), so one picked while developing would send other runs' files to the wrong place.
+    """
+    return not DEV_OUTPUT_FOLDER
+
 # The folder of each tool inside the Panelyze folder, by the setting that holds the output folder picked for that tool.
 OUTPUT_SUBFOLDERS = {
     "output_directory_mangadex": "MangaDex Downloads",
@@ -18,14 +37,16 @@ OUTPUT_SUBFOLDERS = {
 
 def get_output_directory(storage, output_setting_key):
     """
-    Where a tool saves its results: the folder picked for that tool, or else its folder inside the Panelyze folder.
+    Where a tool saves its results: the folder picked for that tool, or else its folder inside the Panelyze folder (the repo's own folder when running from source, see "get_dev_output_folder").
     """
     picked_directory = storage.get(output_setting_key)
 
-    if picked_directory:
+    # From source, a folder picked earlier (maybe in the packaged app) is ignored (see "can_pick_output_folders").
+    if picked_directory and can_pick_output_folders():
         return picked_directory
 
-    panelyze_folder = storage.get("panelyze_folder") or PANELYZE_FOLDER
+    # The Panelyze folder saved in the settings is shared by the main repo, every worktree and the packaged app, so the repo's own folder comes first.
+    panelyze_folder = DEV_OUTPUT_FOLDER or storage.get("panelyze_folder") or PANELYZE_FOLDER
     return os.path.join(panelyze_folder, OUTPUT_SUBFOLDERS[output_setting_key])
 
 

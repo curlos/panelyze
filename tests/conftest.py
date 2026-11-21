@@ -10,6 +10,16 @@ from tests.fake_gui import make_gui  # noqa: E402,F401 (makes the "make_gui" fix
 
 
 @pytest.fixture(autouse=True)
+def act_like_the_packaged_app(monkeypatch):
+    """
+    The tests run the same wherever they're run from (from source, the app saves to the repo's own folder, see "get_dev_output_folder").
+    """
+    import default_settings
+
+    monkeypatch.setattr(default_settings, "DEV_OUTPUT_FOLDER", None)
+
+
+@pytest.fixture(autouse=True)
 def never_open_finder_windows(monkeypatch):
     """
     The app opens a job's output folder in Finder when it finishes. Tests must never do that (it would open a window every time one runs), whichever part of the app starts the job.

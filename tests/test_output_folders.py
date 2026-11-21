@@ -228,3 +228,61 @@ def test_a_download_fills_in_the_panel_by_panel_tab_input(make_gui, tmp_path):
     directories = get_directories(gui, "MagiPanelByPanelView")
     assert directories.input_directory == str(newest)
     assert directories.input_was_filled_in_by_app
+
+
+def test_running_from_source_saves_everything_in_the_repos_own_folder(tmp_path, monkeypatch):
+    import default_settings
+
+    worktree = tmp_path / "17-second-downloader"
+    worktree.mkdir()
+    (worktree / ".git").write_text("gitdir: /repos/panelyze-main/.git/worktrees/17-second-downloader")
+    main_repo = tmp_path / "panelyze-main"
+    (main_repo / ".git").mkdir(parents=True)
+
+    worktree_folder = default_settings.get_dev_output_folder(str(worktree))
+    assert worktree_folder == os.path.join(PANELYZE_FOLDER, "17-second-downloader")
+    assert default_settings.get_dev_output_folder(str(main_repo)) == os.path.join(PANELYZE_FOLDER, "panelyze-main")
+    # The packaged app (no ".git") keeps the normal folders.
+    assert default_settings.get_dev_output_folder(str(tmp_path)) is None
+
+    monkeypatch.setattr(default_settings, "DEV_OUTPUT_FOLDER", worktree_folder)
+    # Even with folders saved in the (shared) settings: the Panelyze folder, or one picked for a tool (e.g. in the packaged app).
+    storage = {"panelyze_folder": PANELYZE_FOLDER, "output_directory_pipeline": str(tmp_path / "picked")}
+    assert default_settings.get_output_directory(storage, "output_directory_pipeline") == os.path.join(worktree_folder, "Pipeline")
+    assert not default_settings.can_pick_output_folders()
+
+
+def test_output_folders_can_not_be_picked_when_running_from_source(make_gui, monkeypatch):
+    import default_settings
+    from tests.fake_gui import get_all_controls
+
+    def is_output_folder_button(control):
+        return getattr(control, "tooltip", None) in (
+            "Pick a different output folder",
+            "Use the default output folder",
+        ) or getattr(control, "text", None) == "Change Output Folder"
+
+    def get_shown_output_folder_buttons(gui):
+        """
+        The output folder buttons that are on screen: neither hidden themselves nor inside something hidden.
+        """
+        views = [gui.PipelineView, gui.MangaDexDownloaderView, gui.MagiPanelByPanelView, gui.UpscaleImagesView, gui.ImagesToVideoView]
+        shown = []
+
+        def walk(control):
+            if control.visible is False:
+                return
+            if is_output_folder_button(control):
+                shown.append(control)
+            for child in control._get_children():
+                walk(child)
+
+        for view in views:
+            walk(view)
+        return shown
+
+    # The packaged app: in all 5 tabs (Pipeline, Downloader and 3 tabs with 2 buttons each).
+    assert len(get_shown_output_folder_buttons(make_gui())) == 10
+
+    monkeypatch.setattr(default_settings, "DEV_OUTPUT_FOLDER", "/Documents/Panelyze/panelyze-main")
+    assert get_shown_output_folder_buttons(make_gui()) == []
