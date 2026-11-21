@@ -67,14 +67,14 @@ Show each result on a **checkerboard and a dark background**, since icons are us
 No app files change for the test. A scratch script only (in the session scratchpad), reusing:
 - `waifu2x.upscale_with_waifu2x(input, output, upscale_ratio, noise_level, image_format, model=...)` and `utils.get_waifu2x_path()`.
 - `janai.download_model_file`, `janai.get_upscaler`, `janai.COLOR_MODEL_FILE`, `janai.COLOR_MODEL_ZIP_URL` (to run IllustrationJaNai while keeping the alpha aside).
-- The `Compare upscalers.html` pages in `~/Documents/Panelyze/Upscale Comparison - …` as the layout to copy.
+- The `Compare upscalers.html` pages in `~/Documents/Panelyze/Upscale Comparison - …` as the layout to copy. Those folders are no longer kept (2026-11-21): make a similar page (one row per image, one column per upscaler, same size side by side).
 
 Only if Best wins: `janai.py` (`upscale_image_with_janai`, `is_color_image`) + a test in `tests/test_janai.py` that an RGBA image comes out RGBA with the same transparent corners.
 
 ## 6. Steps
-- [ ] 1. **User:** put 6–10 prestige icons (PNG with transparency, as big as you have them; a mix of BO7 and MW19, some with gradients and some with digits) in a folder, e.g. `~/Documents/Panelyze/Non-manga test - CoD icons/originals`. Say their source size (e.g. 128, 256 px).
+- [ ] 1. **User:** put 6–10 prestige icons (PNG with transparency, as big as you have them; a mix of BO7 and MW19, some with gradients and some with digits) in a folder, e.g. `~/Documents/Panelyze/24-non-manga-upscale-test/originals` (the spec's own folder). Say their source size (e.g. 128, 256 px).
 - [ ] 2. Check each icon: size, has alpha, `is_color_image` result.
-- [ ] 3. Scratch script: run every column of the table at 4× (icons are small; also 2× for one icon), output to `~/Documents/Panelyze/Non-manga test - CoD icons/<upscaler>`.
+- [ ] 3. Scratch script: run every column of the table at 4× (icons are small; also 2× for one icon), output to `~/Documents/Panelyze/24-non-manga-upscale-test/<upscaler>`.
 - [ ] 4. Build `Compare upscalers.html` with checkerboard and dark backgrounds, plus zoomed crops of an edge, a gradient and the digits.
 - [ ] 5. User picks the winner per type of icon. Write the result in a short "Non-manga images" section of benchmarks/upscaling.md.
 - [ ] 6. If Best (or V3 SPAN) wins: propose the alpha fix as a separate small change.

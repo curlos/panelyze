@@ -125,7 +125,7 @@ The runs with audio vary a lot from round to round (34–71 s for the same 1 fps
 | Why a new image size costs time on the GPU | ✅ benchmarks/magi.md explains it: the Mac GPU builds a program for each exact image size the first time it sees it |
 | The 6 panels | ✅ Sizes (height × width): 427×942, 337×283, 336×176, 334×483, 617×260, 721×720. Small and all different |
 
-**New measurement** (throwaway script calling `Magi.find_and_read_dialogue` on panels 17–22 from `~/Documents/Panelyze/Speed Test 2 - Shachou Ch 3 Full Pipeline`; each run is a fresh process, then a second run in the same process; 14 lines read every time):
+**New measurement** (throwaway script calling `Magi.find_and_read_dialogue` on panels 17–22 from `~/Documents/Panelyze/Speed Test 2 - Shachou Ch 3 Full Pipeline` (that folder may be gone: to measure again, download Shachou ch. 3 from `https://mangadex.org/chapter/f54fb875-d732-42d2-9926-b25767ee4cda` into the spec's own folder (`~/Documents/Panelyze/<worktree-folder>/`) and run Panel-By-Panel); each run is a fresh process, then a second run in the same process; 14 lines read every time):
 
 | Run | First time | Again, same process |
 |---|---|---|

@@ -30,7 +30,7 @@ Yes. The hard part (who says what) is already learned by Magi. The rest is geome
 
 ## 4. Recommended approach + rejected alternatives
 
-**Main test case (from the user): Lookism ch. 553, panels 202–204,** in `~/Documents/Panelyze/Webtoon Test/App output (cleaned)/panel-by-panel/not-grouped-by-page/Oemo Jisangjuui/Ch. 553 - DIVINE ORDER [02]/`. The folder may need regenerating; see §7.
+**Main test case (from the user): Lookism ch. 553, panels 202–204,** originally in `~/Documents/Panelyze/Webtoon Test/…/Oemo Jisangjuui/Ch. 553 - DIVINE ORDER [02]/`. That folder is no longer kept (2026-11-21), so regenerate it; see §7.
 
 | Panel | What's in it |
 |---|---|
@@ -91,7 +91,7 @@ So a bubble-only panel can hold **several bubbles from different speakers**. Mov
 | Speed | Finding panels on Shachou ch. 3 still about 11 s |
 | Fast + e2e tests | All pass |
 
-The Lookism output folder is in the user's Documents folder, not the repo. If it's gone, re-run Panel-By-Panel in Webtoon mode on `MangaDex Downloads/Oemo Jisangjuui/Ch. 553 …`.
+The old Lookism folders in `~/Documents/Panelyze/` are no longer kept (2026-11-21). Download Lookism ("Oemo Jisangjuui") ch. 553 from MangaDex into the spec's own folder (`~/Documents/Panelyze/<worktree-folder>/`), run Panel-By-Panel in Webtoon mode, and find panels 202–204 again (the numbers can shift a little).
 
 ## 8. Size, value, risks, open questions
 

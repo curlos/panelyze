@@ -79,4 +79,4 @@ Yes, and it's easy. It's just dropping some files from the chapter's list before
 ## 9. Sources
 
 - The user's description of scanlation credit pages (this project's planning chat, 2026-11-20).
-- The 36 test chapters in `~/Documents/Panelyze/MangaDex Downloads/`.
+- The 36 test chapters that were in `~/Documents/Panelyze/MangaDex Downloads/`. The old test folders in `~/Documents/Panelyze/` are no longer kept (user decision, 2026-11-21): download what's needed again into the spec's own folder (`~/Documents/Panelyze/<worktree-folder>/`). Pick test chapters with credit pages from a few scanlation groups (and one official chapter, which has none).

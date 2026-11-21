@@ -41,7 +41,7 @@ Yes. Deleting ignored folders doesn't touch git history, and none of them are ne
 
 | Path | Size | Verdict |
 |---|---|---|
-| `~/Documents/Panelyze/` test folders (Panel Crop Limits 25 ch 4.3 GB and 7 ch 1.8 GB, Upscale Comparison Shachou 1.3 GB and One Piece 895 MB, Best Upscale Test 585 MB, Speed Tests 387 MB, Panel Crop Comparison 448 MB, Pipeline 208 MB, MangaDex Downloads 465 MB, Videos 56 MB) | about 10 GB | 🟡 Ask user. HANDOFF calls the older ones "safe to delete", but `Speed Test 2…` is **the only copy of the Shachou ch. 3 pages** used for benchmarks. Keep that one. |
+| `~/Documents/Panelyze/` test folders (Panel Crop Limits 25 ch 4.3 GB and 7 ch 1.8 GB, Upscale Comparison Shachou 1.3 GB and One Piece 895 MB, Best Upscale Test 585 MB, Speed Tests 387 MB, Panel Crop Comparison 448 MB, Pipeline 208 MB, MangaDex Downloads 465 MB, Videos 56 MB) | about 10 GB | ✅ **User decision (2026-11-21): delete them.** Each spec downloads what it needs again into the spec's own folder (`~/Documents/Panelyze/<worktree-folder>/`) (the specs that used these folders now say so). `Speed Test 2…` was the only copy of the Shachou ch. 3 pages; it can be downloaded again from `https://mangadex.org/chapter/f54fb875-d732-42d2-9926-b25767ee4cda`. |
 | `~/Library/Application Support/Panelyze/upscale-models` | 314 MB | 🟢 Keep (the "Best" models) |
 | `~/.cache/huggingface/hub/models--ragavsachdeva--magiv2` | 1.9 GB | 🟢 Keep (full Magi, for the video text) |
 
@@ -66,7 +66,7 @@ Yes. Deleting ignored folders doesn't touch git history, and none of them are ne
 - [ ] `find . -name __pycache__ -not -path "./venv/*" -exec rm -rf {} +` and `rm -rf .pytest_cache` (best after #14).
 - [ ] If OK'd: delete or move `testing-output/` (17 GB).
 - [ ] If OK'd: `git stash list` (check it's the same 2), `git stash drop` ×2, `git gc --prune=now` (`.git` goes from about 647 MB to a few MB).
-- [ ] If OK'd: delete the older `~/Documents/Panelyze` test folders, keeping `Speed Test 2 - Shachou Ch 3 Full Pipeline`.
+- [ ] Delete the older `~/Documents/Panelyze` test folders (user OK'd on 2026-11-21; leave any spec's own folder that's still being reviewed). Keeping `Speed Test 2 - Shachou Ch 3 Full Pipeline` is optional.
 - [ ] Optional: tidy `--ignore-dirs` in package.json.
 
 ## 7. How to test it
@@ -88,7 +88,7 @@ Yes. Deleting ignored folders doesn't touch git history, and none of them are ne
 | Risk | Losing old outputs the user cares about. That's why `testing-output/` and the stashes are "ask". |
 | Open question | Delete `testing-output/` (17 GB), move it, or keep part of it (e.g. `medals`, `soccer-trophies`, `videos`)? |
 | Open question | Drop the 2 Aug-2025 stashes (about 600 MB, local only)? |
-| Open question | Delete the older `~/Documents/Panelyze` test folders (about 10 GB)? Keep the Shachou ch. 3 source. |
+| Decided | Delete the older `~/Documents/Panelyze` test folders (user, 2026-11-21). Specs download what they need again. |
 | Open question | Remove `NGROK_AUTH_TOKEN` from `.env` (only the unused Colab experiment needs it)? |
 
 ## 9. Sources

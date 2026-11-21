@@ -120,6 +120,6 @@ Note from [08](08-smaller-files.md): the resize step re-saves with Pillow's defa
 
 ## 9. Sources
 - `utils.get_capped_upscale_ratio`, `SMALL_COMIC_FILE_IMAGE_SIZE`; `gui_classes/UpscaleImagesView.py` (`process_image_folder`, `upscale_all_images`); `VideoCreatorFromImages.get_image_clip_fit_to_video_frame`; `janai.upscale_image_with_janai`.
-- Panel sizes measured today with `/private/tmp/claude-501/-Users-curlos-Desktop-Github-Repos-manga-panel-splitter/8ee4c6a0-1364-4871-bb81-d6088b80b372/scratchpad/sizes.py` on `~/Documents/Panelyze/Upscale Comparison - Shachou Ch 3/1 - Original panels` and `.../Upscale Comparison - One Piece Ch 567/1 - Original panels`.
+- Panel sizes measured today with `/private/tmp/claude-501/-Users-curlos-Desktop-Github-Repos-manga-panel-splitter/8ee4c6a0-1364-4871-bb81-d6088b80b372/scratchpad/sizes.py` on `~/Documents/Panelyze/Upscale Comparison - Shachou Ch 3/1 - Original panels` and `.../Upscale Comparison - One Piece Ch 567/1 - Original panels`. The old test folders in `~/Documents/Panelyze/` are no longer kept (user decision, 2026-11-21): download what's needed again into the spec's own folder (`~/Documents/Panelyze/<worktree-folder>/`). (Shachou ch. 3 and One Piece ch. 567, then Panel-By-Panel.)
 - benchmarks/upscaling.md (Fast 30 s / Best 138 s on Shachou ch. 3; 142 s on One Piece).
 - Spec 22 (Panels app, fit-to-screen reading), spec 06, spec 08.

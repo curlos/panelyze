@@ -76,7 +76,7 @@ Reuse as-is: `download_model_file`, `get_coreml_upscale_function` (converts and 
 
 ## 7. How to test it
 - `venv/bin/python -m pytest -q -m "not e2e"` and `-m e2e` (the Best e2e test).
-- In the app: Upscale One Piece ch. 567 with "Best". Check the time in the Progress tab and look at 5 panels next to the old output in `~/Documents/Panelyze/Best Upscale Test`.
+- In the app: Upscale One Piece ch. 567 with "Best". Check the time in the Progress tab and look at 5 panels next to the "before" output. The old test folders in `~/Documents/Panelyze/` are no longer kept (user decision, 2026-11-21): download what's needed again into the spec's own folder (`~/Documents/Panelyze/<worktree-folder>/`). So first download One Piece ch. 567 from MangaDex, run Panel-By-Panel, and upscale the panels with "Best" using the code before the change: that's the "before" set.
 - First-time path: point `MODELS_FOLDER` at an empty scratch folder, so the zip download and conversion run for real.
 
 ## 8. Size, value, risks, open questions

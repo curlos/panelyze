@@ -72,7 +72,7 @@ The roadmap planned **one conversion per page shape**. That doesn't hold up on r
 
 ## 6. Steps
 
-- [ ] **1. Spike (a scratch script, not app code).** On Dragon Ball ch. 93 and Shachou ch. 3:
+- [ ] **1. Spike (a scratch script, not app code).** On Dragon Ball ch. 93 and Shachou ch. 3, downloaded from MangaDex into the spec's own folder (`~/Documents/Panelyze/04-magi-neural-engine/`): Dragon Ball ch. 93 is `https://mangadex.org/chapter/ac33cc50-a1b2-49b0-a388-0d0ee4ebce18`, Shachou ch. 3 is `https://mangadex.org/chapter/f54fb875-d732-42d2-9926-b25767ee4cda`. "Before" is today's code on these two chapters.
   - (a) Time PyTorch GPU as it is now.
   - (b) Time PyTorch GPU with every page padded to 1333×800.
   - (c) Convert the detection transformer with a `pixel_mask` input at 1333×800 and time it on the Neural Engine.
@@ -131,6 +131,6 @@ The roadmap planned **one conversion per page shape**. That doesn't hold up on r
 - ROADMAP.md #3 and #4; HANDOFF.md (coremltools notes, the IllustrationJaNai hang, untested items)
 - Code: `magi.py` (find_panels :391, find_and_read_dialogue :494, run_with_cpu_fallback :371), `magi_model/modelling_magiv2.py:460-505`, `janai.py:125-240`, `build_mac_app.sh`, `requirements.txt`, `magi_model/panels_config.json` (resize: shortest 800 / longest 1333)
 - transformers 4.34.0 `modeling_conditional_detr.py:391, 430, 454-457` (mask handling)
-- Page-shape count: a scratch script over `~/Documents/Panelyze/MangaDex Downloads` (593 pages, 25 chapters), run 2026-11-19
+- Page-shape count: a scratch script over `~/Documents/Panelyze/MangaDex Downloads` (593 pages, 25 chapters), run 2026-11-19. Already measured, so nothing needs downloading again for it (that folder is no longer kept, 2026-11-21).
 - coremltools on PyPI: https://pypi.org/project/coremltools/ (9.0, 2025-11-10; 9.1.dev1, 2026-08-03)
 - coremltools releases: https://github.com/apple/coremltools/releases (9.0: PyTorch 2.7, Python 3.13, macOS 26 targets)

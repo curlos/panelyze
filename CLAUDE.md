@@ -33,7 +33,7 @@ Worktrees are local only. GitHub only sees `main`. Each one is about 5 MB becaus
 
    Use `./venv/bin/python` (it works through the symlink). Run the fast tests (`python -m pytest`) to check the setup. If the worktree already exists and is old, run `git merge main` in it first.
 2. **Work on it** in its own VS Code window, following the spec's steps and the rules below. Tick off the steps in the spec file as they're done.
-3. **Test it**, saving everything to `~/Documents/Panelyze/<worktree-folder-name>/` (for example `~/Documents/Panelyze/27-reading-direction-from-mangadex/`) by passing that folder explicitly in tests and scripts. If an end-to-end test writes to the shared default folder instead, change it to use the spec's folder. This applies to every tool, including the Pipeline, which has its own output folder (scripts pass the spec's folder to it too). If I test by hand in the GUI, I set the output folder of each tab I use (MangaDex Downloader, Panel-By-Panel, Upscale Images, Images To Video and Pipeline) to the spec's folder and put them back afterwards. The app's saved settings and the default `~/Documents/Panelyze` are shared by every worktree. Don't run two worktrees' end-to-end tests at the same time.
+3. **Test it**, saving everything to `~/Documents/Panelyze/<worktree-folder-name>/` (for example `~/Documents/Panelyze/27-reading-direction-from-mangadex/`) by passing that folder explicitly in tests and scripts. If an end-to-end test writes to the shared default folder instead, change it to use the spec's folder. This applies to every tool, including the Pipeline, which has its own output folder (scripts pass the spec's folder to it too). If I test by hand in the GUI, I set the output folder of each tab I use (MangaDex Downloader, Panel-By-Panel, Upscale Images, Images To Video and Pipeline) to the spec's folder and put them back afterwards. The app's saved settings and the default `~/Documents/Panelyze` are shared by every worktree. Don't run two worktrees' end-to-end tests at the same time. Download or import test chapters into the spec's folder too (never reuse old ones from the default folders), and add a row for each new one to `benchmarks/test-chapters.md`: manga, chapter, source with its link (MangaDex, comix.to, Internet Archive, page URL or an imported file), pages, date, and what it was used for.
 4. **Review.** I review the changes in the Source Control panel and test them. Don't commit or push before I say the spec is finished.
 5. **Finish** when I say it's finished (e.g. "we're done, merge it to main"). Do all of this in one go, without asking again:
    1. In the spec's worktree: run the fast tests, then commit everything (staged and unstaged) with a short message that says what the spec added.
@@ -46,5 +46,12 @@ Worktrees are local only. GitHub only sees `main`. Each one is about 5 MB becaus
 ### Rules
 
 - **Check where you are before editing.** Run `pwd` and `git branch --show-current` first. Only edit files inside the worktree for the spec being worked on; never touch another worktree's folder or `panelyze-main/` from a spec's session, except for the git commands in step 5 (Finish).
+- **Merge `main` first.** Before starting work in a worktree, and again before reporting back, run `git log --oneline HEAD..main`. If `main` has new commits, bring them in without touching `main`:
+  1. Set aside the uncommitted changes under a unique name: `git stash push -u -m "<spec>-before-merge-main"`. Note its SHA (the stash is shared by every worktree).
+  2. Run `git merge main`, then `git stash apply --index <sha>`.
+  3. Fix any conflicts, keeping both sides, and re-stage only what was staged before.
+  4. Drop that stash entry (found by its name) and re-run the tests.
+
+  Never merge or push into `main`, or do anything else with the branch, until I've reviewed and approved the changes.
 - **Never delete through the symlinks.** No `rm -rf venv/` or the like. Never use `--force` on `git worktree remove` or `-D` on `git branch` without asking. Remove worktrees only with `git worktree remove`.
 - **The venv is shared.** A `pip install` or upgrade there changes every worktree and `main`. If a spec needs a new package, say so, add it to `requirements.txt` and `requirements-lock.txt`, and install it on purpose.
