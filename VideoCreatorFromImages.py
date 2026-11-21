@@ -18,6 +18,7 @@ from DrawBoxCoords import DrawBoxCoords
 from gui_classes.ProgressPanel import report_progress
 from utils import (
     PANEL_TEXT_FILE_NAME,
+    READING_DIRECTION_FILE_NAME,
     list_images,
 )
 
@@ -117,7 +118,7 @@ class VideoCreatorFromImages:
             self.video_height = int(get_number_setting(storage, "video_height", 1080))
             self.video_aspect_ratio = storage.get("video_aspect_ratio") or "16:9"
             self.speech_text_parser.reading_direction = (
-                storage.get("reading_direction") or "rtl"
+                storage.get("reading_direction") or "auto"
             )
             self.image_displayed_duration = get_number_setting(
                 storage, "image_displayed_duration", 3
@@ -533,11 +534,18 @@ class VideoCreatorFromImages:
 
     def get_magi_data_signature(self, image_folder):
         """
-        What the saved Magi results were made from. If the images or the reading direction change, they can't be used.
+        What the saved Magi results were made from. If the images or the reading direction change, they can't be used. That includes the direction saved next to the images, which "Automatic" uses.
         """
+        saved_reading_direction_file = os.path.join(image_folder, READING_DIRECTION_FILE_NAME)
+        saved_reading_direction = None
+        if os.path.isfile(saved_reading_direction_file):
+            with open(saved_reading_direction_file, encoding="utf-8") as file:
+                saved_reading_direction = file.read().strip()
+
         return {
             "version": MAGI_DATA_FILE_VERSION,
             "reading_direction": self.speech_text_parser.reading_direction,
+            "saved_reading_direction": saved_reading_direction,
             "images": [
                 [os.path.basename(image_path), os.path.getsize(image_path)]
                 for image_path in list_images(image_folder)

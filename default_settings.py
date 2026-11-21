@@ -66,7 +66,7 @@ DEFAULT_SETTINGS = {
         "start_chapter": "",
         "end_chapter": "",
         # Panel-By-Panel and Images To Video
-        "reading_direction": "rtl",
+        "reading_direction": "auto",
         # Panel-By-Panel
         "group_panels_by_page": False,
         "show_full_characters": False,

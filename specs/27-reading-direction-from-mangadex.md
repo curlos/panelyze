@@ -2,11 +2,11 @@
 
 Related: [benchmarks/panel-cropping.md](../benchmarks/panel-cropping.md) (4-koma) · [benchmarks/webtoons.md](../benchmarks/webtoons.md) · [#16 MangaDex options](16-mangadex-options.md)
 
-New item, not on the roadmap yet. This is a plan only: no app code was changed. Researched 2026-11-20.
+New item, not on the roadmap yet. Researched and built 2026-11-20.
 
 ## 1. Summary
 
-Today the user has to pick the Reading Direction (manga, comics, 4-koma, webtoon) by hand. If they don't, a Korean or Chinese **page-format** comic (like *Nán Hào Shàng Fēng*) is read right to left, which is the wrong order. Webtoons are already detected from their image shape (`looks_like_webtoon`).
+Today the user has to pick the Reading Direction (manga, comics, 4-koma, webtoon) by hand. If they don't, a Korean or Chinese **page-format** comic is read right to left, which is the wrong order. Webtoons are already detected from their image shape (`looks_like_webtoon`).
 
 Plan:
 - When a chapter comes from MangaDex, look up the series' **original language and format tags**, decide the direction, and save it next to the chapter.
@@ -29,7 +29,7 @@ Yes. The MangaDex API already gives everything needed, and no new ordering logic
 | "Long Strip" = webtoon, in every language | Long Strip series by original language: ja 893, ko 7,452, zh 4,583, en 670. So the tag must win over the language. | ✅ |
 | 4-koma is only Japanese | **No.** 4-Koma series: ja 2,165, ko 26, zh 41, en 59. | ⚠️ |
 | Non-Japanese 4-koma need a "left strip first" order | **No.** Checked 3 English 4-koma pages: *My Daughter is a Skeleton* and *Snake in the Office* are one strip per page (top to bottom); *The Rhodes Island Experiences* is a 2×2 grid read **row by row**, like a normal comic. The existing `ltr` is right for all three; a left-column-first order would be wrong on the grid. | ✅ |
-| The tags are reliable | **No.** *Bocchi the Rock!* (a 4-koma) has **no format tags at all**. So the tags are a hint; image checks are the fallback. | ⚠️ |
+| The tags are reliable | **Mostly.** *Bocchi the Rock!* is tagged 4-Koma now, but plenty of 4-koma aren't (2,165 tagged out of far more). So for manga order, the 4-koma image check still runs. | ⚠️ |
 | Webtoons are detected from the images | `looks_like_webtoon` in `magi.py`: most images more than 2.5× taller than wide → webtoon | ✅ |
 | 4-koma order exists | `get_four_koma_panel_order` in `magi.py` groups panels into columns, **right column first** | ✅ (right first only) |
 | A chapter can be linked to its series | `GET https://api.mangadex.org/chapter/{id}` → `relationships` with `type: "manga"` → `GET /manga/{id}` | ✅ |
@@ -40,17 +40,19 @@ Yes. The MangaDex API already gives everything needed, and no new ordering logic
 
 | # | Source | Result |
 |---|---|---|
-| 1 | The user picked a direction in the dropdown | Use it. Always wins. |
+| 1 | The user picked a direction in the dropdown | Use it. Wins over everything except very tall images, which are always read as a webtoon (today's behavior, `get_panels_using_local_cpu`). |
 | 2 | MangaDex "Long Strip" tag | `webtoon` |
 | 3 | MangaDex "4-Koma" tag | `4koma` if `originalLanguage` is right to left (below), otherwise `ltr` |
-| 4 | MangaDex `originalLanguage` | Right to left (`ja, ar, he, fa, ur, yi, ps, sd, ug, dv`) → `rtl`; anything else → `ltr` |
+| 4 | MangaDex `originalLanguage` | Right to left (`ja, ar, he, fa, ur, yi, ps, sd, ug, dv`) → `rtl`, then the 4-koma image check can still make it `4koma`; anything else → `ltr` |
 | 5 | No hint (not from MangaDex) | `looks_like_webtoon` → `webtoon`; new `looks_like_four_koma` → `4koma`; otherwise the old default `rtl`, and the log says *"No reading direction found, using manga order (right to left). Pick 'Left to right (Comics)' if this is a Western comic."* |
 
-- **Right-to-left list:** one constant, `RIGHT_TO_LEFT_LANGUAGES`, used by both #3 and #4.
+- **Right-to-left list:** one constant, `RIGHT_TO_LEFT_LANGUAGES` in `download_from_mangadex.py`, used by both #3 and #4.
 
-- **Where the hint lives:** a small `reading-direction.txt` next to the downloaded chapter's images, written by the downloader. It survives restarts and is visible to the user. Panel-By-Panel reads it.
-- **Dropdown:** add a first choice, "Automatic (from the download, or the images)", as the new default (decided). The existing choices stay as explicit overrides.
-- **`looks_like_four_koma`:** most pages have panels in 1–2 columns, each column 3–5 panels of nearly equal width (reuse the column grouping inside `get_four_koma_panel_order`). Japanese order by default.
+- **Where the hint lives:** a small `reading-direction.txt` next to the downloaded chapter's images, written by the downloader. It survives restarts and is visible to the user. Only `.png .jpg .jpeg .webp` count as pages, so it's never read as one. It's written only into chapter folders that are new or changed by this download (the folders and their modified times are listed before the download and compared after), because the output folder can hold other series too. A first try with "modified since the download started" labeled the previous chapter too when two downloads ran back to back.
+- **One place reads it:** `get_saved_reading_direction` in `magi.py`, used by both Panel-By-Panel (`get_panels_using_local_cpu`) and Images To Video (`get_data_from_images`). So Images To Video needs no changes of its own. A direction saved by the download is also saved next to the panels Panel-By-Panel makes, and Upscale Images copies it along with the images (like `panel-text.json`), so Images To Video on a panels folder reads the text in the same order.
+- **The 4-koma check needs panels:** with no hint, Magi finds the panels in manga order first, then `looks_like_four_koma` decides whether to switch to 4-koma order. The only side effect: a speech bubble split between two panels is given to a panel using manga order.
+- **Dropdown:** add a first choice, "Automatic", as the new default (decided). The existing choices stay as explicit overrides.
+- **`looks_like_four_koma`:** most pages are 2 strips of exactly 4 panels of nearly equal width (reusing the column grouping from `get_four_koma_panel_order`, now `get_four_koma_columns`). Pages of one strip don't count either way: they're read top to bottom in both orders, and stacked full-width manga panels look the same. A code review found the first version (1–2 strips of 3–5 panels) also matched normal manga grids like 2 columns of 3, which would have reordered them. On real pages: Bocchi 5 of 6 pages match; Shachou and Bocchi Gaiden 0 of 6.
 
 **Rejected:**
 
@@ -65,21 +67,23 @@ Yes. The MangaDex API already gives everything needed, and no new ordering logic
 
 | File | Change |
 |---|---|
-| `download_from_mangadex.py` | After the download (`tidy_chapter_folder_names`), take the series or chapter id from the URL (`/title/{id}` or `/chapter/{id}`), fetch the series' language + tags once with `requests` (already installed with `mangadex-downloader`), and write `reading-direction.txt` into each chapter folder. If the lookup fails, write nothing and fall back to the image checks. |
-| `magi.py` | New `looks_like_four_koma`; `get_panels_using_local_cpu` resolves "automatic" |
-| `gui_classes/ReadingDirectionSetting.py` | New first choice: "Automatic" |
-| `default_settings.py` | Default `reading_direction` becomes `"auto"` |
-| `SpeechTextParser.py` / `VideoCreatorFromImages.py` | Use the same resolved direction for the video text |
+| `download_from_mangadex.py` | `RIGHT_TO_LEFT_LANGUAGES`, `get_reading_direction_from_manga`, `get_reading_direction_from_mangadex`, `get_chapter_folders`, `save_reading_direction`. After the download (`tidy_chapter_folder_names`), take the series or chapter id from the URL (`/title/{id}` or `/chapter/{id}`), fetch the series' language + tags once with `requests` (already installed with `mangadex-downloader`), and write `reading-direction.txt` into each chapter folder. If the lookup fails, write nothing and fall back to the image checks. |
+| `magi.py` | `get_four_koma_columns` (split out of `get_four_koma_panel_order`), `looks_like_four_koma`, `get_saved_reading_direction`, `get_reading_direction_from_panels`, `get_automatic_reading_direction`; `get_panels_using_local_cpu` and `get_data_from_images` resolve "auto" |
+| `utils.py` | `READING_DIRECTION_FILE_NAME` (`magi.py` loads torch, so the downloader can't import from it) |
+| `gui_classes/ReadingDirectionSetting.py` | New first choice: "Automatic"; 4-koma moved to the end (the rarest); the choices fit the box, so the arrow stays inside |
+| `gui_classes/PipelineView.py` | The review's Panel-By-Panel line says the reading direction, and for Automatic where it comes from ("from MangaDex" when the download step is on) |
+| `gui_classes/UpscaleImagesView.py` | Copies `reading-direction.txt` along with the images, like `panel-text.json` |
+| `default_settings.py` | Default `reading_direction` becomes `"auto"` (and the dropdown's fallback) |
 | Reused | `looks_like_webtoon`, the column grouping in `get_four_koma_panel_order`. (The app makes no MangaDex API calls today: downloads go through the `mangadex-downloader` tool, so this lookup is new, about 15 lines.) |
 | Tests | A new test with a **fake API response** (no network), and auto-detection on fake pages |
 
 ## 6. Steps
 
-- [ ] Add `looks_like_four_koma` with tests (Bocchi-like page → yes; a normal manga page → no).
-- [ ] Add the MangaDex lookup + `reading-direction.txt` in the downloader (fake response in tests).
-- [ ] Add "Automatic" as the default and resolve it in Panel-By-Panel: user pick → file → images → `rtl` (with the log line when nothing was found).
-- [ ] Make Images To Video use the same direction.
-- [ ] Run on real chapters (below), then update `benchmarks/panel-cropping.md` (4-koma) and `README.md`.
+- [x] Add `looks_like_four_koma` with tests (Bocchi-like page → yes; a normal manga page → no).
+- [x] Add the MangaDex lookup + `reading-direction.txt` in the downloader (fake response in tests).
+- [x] Add "Automatic" as the default and resolve it in Panel-By-Panel: user pick → file → images → `rtl` (with the log line when nothing was found).
+- [x] Check Images To Video picks up the same direction (it goes through `get_data_from_images`).
+- [x] Run on real chapters (below), then update `benchmarks/panel-cropping.md` (4-koma) and `README.md`.
 
 ## 7. How to test it
 
@@ -87,11 +91,17 @@ Yes. The MangaDex API already gives everything needed, and no new ordering logic
 |---|---|
 | Fast tests | All pass, including the new ones |
 | Shachou ch. 3 (ja, no format tags) downloaded through the app | Hint file says `rtl`; panels in manga order |
-| Nán Hào Shàng Fēng ch. 3 (zh, page format) | `ltr`; panels left to right |
+| Nán Hào Shàng Fēng ch. 3 (zh, tagged Long Strip: one panel per image, stacked) | `webtoon` |
 | A Long Strip series (e.g. Eleceed) | `webtoon` |
 | A local folder (not from MangaDex) of normal pages | `rtl`, and the log shows the "No reading direction found…" line |
-| Bocchi ch. 2 (ja, untagged 4-koma) | No tag, so `looks_like_four_koma` → `4koma` |
-| An English 4-koma from MangaDex (e.g. *The Rhodes Island Experiences*) | `ltr`; the 2×2 grid read row by row |
+| Bocchi ch. 2 (ja, tagged 4-Koma) | `4koma` |
+| Bocchi ch. 2 copied to a folder with no file | `looks_like_four_koma` → `4koma` |
+| Bocchi Gaiden ch. 2 (ja, untagged, normal pages) | `rtl`; the 4-koma check says no |
+| An English 4-koma from MangaDex (*The Rhodes Island Experiences*) | `ltr`; the 2×2 grid read row by row |
+| A Korean page-format manhwa (*The Breaker* ch. 1) | `ltr`; each row read from the left |
+| A Chinese page-format manhua (*Shen Yin Wang Zuo* ch. 1) | `ltr`; each row read from the left |
+
+Results: all pass (2026-11-20), see [benchmarks/panel-cropping.md](../benchmarks/panel-cropping.md) step 9.
 | The user picks a direction | It overrides everything |
 
 ## 8. Size, value, risks, open questions
@@ -104,7 +114,10 @@ Yes. The MangaDex API already gives everything needed, and no new ordering logic
 | Risk: chapters not from MangaDex | Falls back to the image checks, then `rtl` (today's behavior) |
 | Risk: Western comics not from MangaDex (e.g. a folder of DC/Marvel pages) | The images can't tell a comic from manga, so they get manga order. The log says so and tells the user to pick "Left to right". Actually testing Western comics is [#31](31-format-testing-followups.md) (B), not this item. |
 | Risk: odd cases (flipped Western editions of manga, English "manga" drawn right to left) | Rare on MangaDex; the user's pick wins |
-| Risk: an old saved setting | Users who saved `rtl` explicitly keep it; only the default changes |
+| Known limit: chapters downloaded before this feature | Downloading them again doesn't add the file if the downloader skips them (folder unchanged), so Automatic guesses from the images. Accepted: labeling unchanged folders could label other series in the same output folder. |
+| Known limit: "Group panels by page" | The file is saved in the chapter's panels folder, not in each `page_x` folder. The Pipeline always saves panels together, so it's only for manual use. |
+| Cancelled or failed downloads | No lookup and no file (only after a download that finished) |
+| Risk: an old saved setting | The app saves every default on first open (`set_client_storage_default_values` in `gui.py`), so every current install already has `rtl` saved. Decided: no migration. New installs and "Reset All Settings" get Automatic; current users pick it once. |
 | Decided | "Automatic" is the default; any other dropdown choice overrides it |
 | Decided | No "left strip first" 4-koma mode; non-Japanese 4-koma use `ltr` |
 

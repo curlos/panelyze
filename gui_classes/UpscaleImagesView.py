@@ -7,6 +7,7 @@ from gui_classes.SettingsUpscaleImages import SettingsUpscaleImages
 from utils import (
     MAX_UPSCALED_IMAGE_SIDE,
     PANEL_TEXT_FILE_NAME,
+    READING_DIRECTION_FILE_NAME,
     ProcessManager,
     get_capped_upscale_ratio,
     get_last_directory,
@@ -174,16 +175,15 @@ class UpscaleImagesView(JobView):
                     )
                     pil_image.save(output_image)
 
-        # The text Panel-By-Panel read for these images goes along with them, so Images To Video can still use it. An old one from an earlier run is removed so it can't be used for different images.
-        input_panel_text_file = os.path.join(image_folder, PANEL_TEXT_FILE_NAME)
-        output_panel_text_file = os.path.join(
-            output_directory, series_and_chapter_name_directory, PANEL_TEXT_FILE_NAME
-        )
-        if os.path.exists(input_panel_text_file):
-            os.makedirs(os.path.dirname(output_panel_text_file), exist_ok=True)
-            shutil.copy(input_panel_text_file, output_panel_text_file)
-        elif os.path.exists(output_panel_text_file):
-            os.remove(output_panel_text_file)
+        # The text Panel-By-Panel read for these images, and their reading direction, go along with them, so Images To Video can still use them. An old one from an earlier run is removed so it can't be used for different images.
+        for file_name in (PANEL_TEXT_FILE_NAME, READING_DIRECTION_FILE_NAME):
+            input_file = os.path.join(image_folder, file_name)
+            output_file = os.path.join(output_directory, series_and_chapter_name_directory, file_name)
+            if os.path.exists(input_file):
+                os.makedirs(os.path.dirname(output_file), exist_ok=True)
+                shutil.copy(input_file, output_file)
+            elif os.path.exists(output_file):
+                os.remove(output_file)
 
         comic_file_size = self.parent_gui.page.client_storage.get("save_as_cbz")
         if comic_file_size:

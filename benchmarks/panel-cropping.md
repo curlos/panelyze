@@ -203,6 +203,24 @@ Which panel to use was compared on all 3 split bubbles:
 
 ![4-koma order before and after](images/panel-cropping/8-four-koma-order.jpg)
 
+### Step 9: Picking the reading direction automatically
+
+With the Reading Direction on **Automatic** (the new default), a MangaDex download saves the direction next to each chapter (`reading-direction.txt`), from the series' original language and format tags. Panel-By-Panel uses it, and still checks manga-order chapters for 4-koma pages, because MangaDex doesn't always tag them. Tested on the first 6 pages of each chapter, downloaded through the app (2026-11-20):
+
+| Chapter | MangaDex says | Saved | Used | Correct? |
+|---|---|---|---|---|
+| Dragon Ball ch. 93 | ja | `rtl` | `rtl` | ✅ |
+| Shachou ch. 3 | ja, no format tags | `rtl` | `rtl` | ✅ |
+| Bocchi the Rock ch. 2 | ja, 4-Koma | `4koma` | `4koma` | ✅ |
+| Bocchi Gaiden ch. 2 (normal pages) | ja, no format tags | `rtl` | `rtl` (the 4-koma check said no) | ✅ |
+| Nán Hào Shàng Fēng ch. 3 | zh, Long Strip | `webtoon` | `webtoon` | ✅ One panel per image, stacked |
+| Eleceed ch. 1 | ko, Long Strip | `webtoon` | `webtoon` | ✅ |
+| The Rhodes Island Experiences ch. 1 | en, 4-Koma | `ltr` | `ltr`: the 2×2 grid read row by row | ✅ |
+| Bocchi ch. 2 copied to a folder, nothing saved | – | – | `4koma` from the images | ✅ |
+| Shachou ch. 3 copied to a folder, nothing saved | – | – | `rtl`, and the log says so | ✅ |
+| The Breaker ch. 1 (Korean, page format) | ko, no format tags | `ltr` | `ltr`: each row read from the left | ✅ Used to be read right to left |
+| Shen Yin Wang Zuo ch. 1 (Chinese, page format) | zh, Adaptation | `ltr` | `ltr`: each row read from the left | ✅ Used to be read right to left |
+
 ## What depends on the art style
 
 | Style | Seen in | What happens | Status |

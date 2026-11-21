@@ -7,6 +7,7 @@
 7. Finally, give me a summary of the changes you made and any other relevant information.
 8. When I ask you to work on a spec in `specs/`, go into plan mode first and review it before changing anything. Check that what the spec says is still true in the code (files, functions, numbers) and that the plan makes sense. Tell me what's wrong or out of date, and fix the spec. Only start making changes after I confirm.
 9. After I confirm a spec's plan, work through every step until the feature is done. Don't stop for review between steps. I review and test everything at the end, then give you more prompts.
+10. When the changes are done (and the tests pass), launch a second Claude subagent to review them before reporting back to me. It reads the whole `git diff` and the spec, and looks for bugs, edge cases, anything that contradicts the spec, weak tests, and anything more complicated than it needs to be. It only reports; it doesn't edit. Then fix what it found, re-run the tests, and in your summary list each finding and what you did about it (fixed, or left as is and why). Don't ask me before doing this; it's part of finishing.
 
 ## Specs and git worktrees
 
@@ -32,13 +33,18 @@ Worktrees are local only. GitHub only sees `main`. Each one is about 5 MB becaus
 
    Use `./venv/bin/python` (it works through the symlink). Run the fast tests (`python -m pytest`) to check the setup. If the worktree already exists and is old, run `git merge main` in it first.
 2. **Work on it** in its own VS Code window, following the spec's steps and the rules below. Tick off the steps in the spec file as they're done.
-3. **Test it**, saving everything to `~/Documents/Panelyze/<worktree-folder-name>/` (for example `~/Documents/Panelyze/27-reading-direction-from-mangadex/`) by passing that folder explicitly in tests and scripts. If an end-to-end test writes to the shared default folder instead, change it to use the spec's folder. If I test by hand in the GUI, I set the output folder to the spec's folder and put it back afterwards. The app's saved settings and the default `~/Documents/Panelyze` are shared by every worktree. Don't run two worktrees' end-to-end tests at the same time.
-4. **Review and commit.** I review the changes in the Source Control panel and commit and push with the VS Code buttons. Never commit or push unless I ask.
-5. **Finish** when I ask: from `panelyze-main/`, run `git merge <branch>`, then `git worktree remove ../<folder>` and `git branch -d <branch>`, and delete the spec's output folder in `~/Documents/Panelyze/`.
-6. **Update the others.** Merge specs one at a time. After merging one, run `git merge main` in each other worktree and re-run its tests.
+3. **Test it**, saving everything to `~/Documents/Panelyze/<worktree-folder-name>/` (for example `~/Documents/Panelyze/27-reading-direction-from-mangadex/`) by passing that folder explicitly in tests and scripts. If an end-to-end test writes to the shared default folder instead, change it to use the spec's folder. This applies to every tool, including the Pipeline, which has its own output folder (scripts pass the spec's folder to it too). If I test by hand in the GUI, I set the output folder of each tab I use (MangaDex Downloader, Panel-By-Panel, Upscale Images, Images To Video and Pipeline) to the spec's folder and put them back afterwards. The app's saved settings and the default `~/Documents/Panelyze` are shared by every worktree. Don't run two worktrees' end-to-end tests at the same time.
+4. **Review.** I review the changes in the Source Control panel and test them. Don't commit or push before I say the spec is finished.
+5. **Finish** when I say it's finished (e.g. "we're done, merge it to main"). Do all of this in one go, without asking again:
+   1. In the spec's worktree: run the fast tests, then commit everything (staged and unstaged) with a short message that says what the spec added.
+   2. In `panelyze-main/` (with `git -C ../panelyze-main`): `git merge <branch>`, run the fast tests there, then `git push`.
+   3. Clean up: `git worktree remove ../<folder>`, `git branch -d <branch>`, and delete the spec's output folder in `~/Documents/Panelyze/`.
+   4. **Update the others:** in each other worktree, `git merge main` and re-run its tests.
+   Stop and tell me instead of forcing anything if a merge has conflicts, tests fail, or a push is rejected. Never commit directly on `main` (only the merge), and never force-push.
+6. Merge specs one at a time.
 
 ### Rules
 
-- **Check where you are before editing.** Run `pwd` and `git branch --show-current` first. Only edit files inside the worktree for the spec being worked on; never touch another worktree's folder or `panelyze-main/` from a spec's session.
+- **Check where you are before editing.** Run `pwd` and `git branch --show-current` first. Only edit files inside the worktree for the spec being worked on; never touch another worktree's folder or `panelyze-main/` from a spec's session, except for the git commands in step 5 (Finish).
 - **Never delete through the symlinks.** No `rm -rf venv/` or the like. Never use `--force` on `git worktree remove` or `-D` on `git branch` without asking. Remove worktrees only with `git worktree remove`.
 - **The venv is shared.** A `pip install` or upgrade there changes every worktree and `main`. If a spec needs a new package, say so, add it to `requirements.txt` and `requirements-lock.txt`, and install it on purpose.

@@ -160,6 +160,11 @@ def test_magi_runs_again_when_the_images_or_reading_direction_change(tmp_path, m
     video_creator.get_essential_text_and_magi_data(str(images), str(output), image_count=2)
     assert runs == ["rtl", "rtl", "ltr"]
 
+    # A direction saved next to the images (used by "Automatic") changes too.
+    (images / "reading-direction.txt").write_text("4koma")
+    video_creator.get_essential_text_and_magi_data(str(images), str(output), image_count=2)
+    assert len(runs) == 4
+
 
 def test_a_broken_saved_file_is_ignored(tmp_path, monkeypatch):
     video_creator, runs = get_video_creator_with_fake_magi(monkeypatch)

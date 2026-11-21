@@ -14,11 +14,16 @@ class WrappingCheckbox(ft.Row):
 
         self.controls = [
             self.checkbox,
-            # An optional icon between the checkbox and the label.
-            *([ft.Icon(icon, size=18, color=Nord.TEXT), ft.Container(width=6)] if icon else []),
-            # Clicking the label toggles the checkbox, the same as with a normal one.
+            # Clicking the label (or its optional icon) toggles the checkbox, the same as with a normal one.
             ft.Container(
-                content=ft.Text(label, style=label_style),
+                content=ft.Row(
+                    [
+                        *([ft.Icon(icon, size=18, color=Nord.TEXT), ft.Container(width=6)] if icon else []),
+                        ft.Text(label, style=label_style, expand=True),
+                    ],
+                    spacing=0,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
                 expand=True,
                 on_click=self.handle_label_click,
             ),

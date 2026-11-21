@@ -190,6 +190,15 @@ def test_settings_review_only_lists_the_selected_steps():
     ]
 
 
+def test_settings_review_says_where_the_reading_direction_comes_from():
+    def panel_by_panel_review(storage, steps):
+        return dict(get_settings_review(storage, steps))["Panel-By-Panel"]
+
+    assert "Automatic (from MangaDex)" in panel_by_panel_review({}, ["MangaDex Downloader", "Panel-By-Panel"])
+    assert "Automatic (from the images" in panel_by_panel_review({"reading_direction": "auto"}, ["Panel-By-Panel"])
+    assert "Left to right (Comics)" in panel_by_panel_review({"reading_direction": "ltr"}, ["MangaDex Downloader", "Panel-By-Panel"])
+
+
 def test_old_images_from_a_previous_run_are_not_used(tmp_path, monkeypatch):
     ran_steps = []
     view, error_messages = make_pipeline_view(
@@ -304,6 +313,7 @@ def test_upscaling_keeps_the_text_panel_by_panel_read_with_the_images(make_gui, 
     chapter = tmp_path / "panels" / "Ch 1"
     save_image(str(chapter / "panel_1.png"))
     (chapter / "panel-text.json").write_text('[["Hello."]]')
+    (chapter / "reading-direction.txt").write_text("ltr")
     upscaled_chapter = tmp_path / "upscaled" / "panels" / "Ch 1"
 
     def upscale():
@@ -313,8 +323,11 @@ def test_upscaling_keeps_the_text_panel_by_panel_read_with_the_images(make_gui, 
 
     upscale()
     assert (upscaled_chapter / "panel-text.json").read_text() == '[["Hello."]]'
+    assert (upscaled_chapter / "reading-direction.txt").read_text() == "ltr"
 
     # Panels made later without the text: the old text must not be used for them.
     (chapter / "panel-text.json").unlink()
+    (chapter / "reading-direction.txt").unlink()
     upscale()
     assert not (upscaled_chapter / "panel-text.json").exists()
+    assert not (upscaled_chapter / "reading-direction.txt").exists()

@@ -117,6 +117,9 @@ IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
 # The dialogue Panel-By-Panel read on the pages, saved next to the panels as a list of lines for each panel (in the same order as the images). Images To Video uses it instead of reading the text on every panel again.
 PANEL_TEXT_FILE_NAME = "panel-text.json"
 
+# The reading direction ("rtl", "ltr", "4koma" or "webtoon") the MangaDex download found for a chapter, saved next to its images. Panel-By-Panel and Images To Video use it when the Reading Direction is "Automatic".
+READING_DIRECTION_FILE_NAME = "reading-direction.txt"
+
 
 def is_image_file(file_name):
     # Skip hidden files like macOS "._page_1.jpg" metadata files. They end in an image extension but aren't real images.

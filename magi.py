@@ -9,6 +9,7 @@ import torch
 import numpy
 from utils import (
     PANEL_TEXT_FILE_NAME,
+    READING_DIRECTION_FILE_NAME,
     get_relative_output_path,
     list_images,
     paths_overlap,
@@ -42,6 +43,8 @@ WEBTOON_WINDOW_SCREENS = 2
 WEBTOON_DETAIL_SCALE = 4
 # A chapter whose images are mostly more than this many times taller than wide is split as a webtoon, whatever reading direction was picked.
 WEBTOON_IMAGE_HEIGHT_RATIO = 2.5
+# On a 4-koma page, the narrowest panel in a strip is at least this share of the widest one's width (see "looks_like_four_koma_page").
+FOUR_KOMA_MIN_WIDTH_SHARE = 0.8
 # A phone screen is about 19.5 x 9, so about 2.17 times taller than wide.
 PHONE_SCREEN_HEIGHT_RATIO = 2.17
 # Panels taller than this many phone screens are split into screen-sized pieces (see "split_tall_panel"). Across 10 webtoon chapters, 17 of 1,178 panels were; no manga panel comes close.
@@ -356,7 +359,15 @@ def get_panel_index_of_text(text_box, panel_boxes):
 
 def get_four_koma_panel_order(panels):
     """
-    4-koma pages are strips of panels stacked top to bottom, read one strip (column) at a time from the right. Panels that share most of their width are in the same column.
+    4-koma pages are strips of panels stacked top to bottom, read one strip (column) at a time from the right.
+    """
+    columns = get_four_koma_columns(panels)
+    return [index for column in columns for index in sorted(column, key=lambda index: panels[index][1])]
+
+
+def get_four_koma_columns(panels):
+    """
+    The indices of "panels" grouped into columns, from the right. Panels that share most of their width are in the same column.
     """
     columns = []
 
@@ -371,7 +382,78 @@ def get_four_koma_panel_order(panels):
         else:
             columns.append([index])
 
-    return [index for column in columns for index in sorted(column, key=lambda index: panels[index][1])]
+    return columns
+
+
+def looks_like_four_koma_page(panels):
+    """
+    Whether a page is 2 strips of 4 panels each, all about the same width, like a 4-koma page. None for a page of just one strip: it's read top to bottom either way, and a manga page of stacked full-width panels looks the same. (A normal manga grid, like 2 columns of 3, isn't 4-koma.)
+    """
+    columns = get_four_koma_columns(panels)
+    if len(columns) == 1:
+        return None
+    if len(columns) != 2:
+        return False
+
+    for column in columns:
+        widths = [panels[index][2] - panels[index][0] for index in column]
+        if len(column) != 4 or min(widths) < FOUR_KOMA_MIN_WIDTH_SHARE * max(widths):
+            return False
+
+    return True
+
+
+def looks_like_four_koma(per_page_panels):
+    """
+    Whether most of the chapter's pages (not counting pages of one strip, see "looks_like_four_koma_page") look like 4-koma pages.
+    """
+    answers = [looks_like_four_koma_page(panels) for panels in per_page_panels if panels]
+    answers = [answer for answer in answers if answer is not None]
+    return bool(answers) and sum(answers) > len(answers) / 2
+
+
+def get_saved_reading_direction(reading_direction, chapter_directory):
+    """
+    The reading direction to use for a chapter. A direction picked in the app always wins. For "auto" (Automatic), it's the one the MangaDex download saved next to the images (see "READING_DIRECTION_FILE_NAME"), or still "auto" if there isn't one, to be guessed from the images.
+    """
+    if reading_direction and reading_direction != "auto":
+        return reading_direction
+
+    path = os.path.join(chapter_directory, READING_DIRECTION_FILE_NAME) if chapter_directory else ""
+    if path and os.path.isfile(path):
+        with open(path, encoding="utf-8") as file:
+            saved_direction = file.read().strip()
+        if saved_direction in ("rtl", "ltr", "4koma", "webtoon"):
+            print(f"Reading direction from the MangaDex download: {saved_direction}")
+            return saved_direction
+
+    return "auto"
+
+
+def get_reading_direction_from_panels(per_page_results, nothing_saved=True):
+    """
+    For "auto" in manga order (saved by the download, or nothing saved): 4-koma if the pages look like 4-koma strips, otherwise manga order. MangaDex doesn't tag every 4-koma, so a saved "rtl" is checked too.
+    """
+    if looks_like_four_koma([page_result.get("panels") or [] for page_result in per_page_results]):
+        print("These pages look like 4-koma strips, so they're read as 4-koma (right strip first).")
+        return "4koma"
+
+    if nothing_saved:
+        print(
+            "No reading direction found, using manga order (right to left). "
+            "Pick 'Left to right (Comics)' if this is a Western comic."
+        )
+    return "rtl"
+
+
+def get_automatic_reading_direction(reading_direction, chapter_directory):
+    """
+    "(reading_direction, is_automatic, nothing_saved)" for a chapter: the direction to find the panels with ("auto" becomes manga order until "get_reading_direction_from_panels" decides), whether it was "Automatic", and whether the download saved nothing.
+    """
+    is_automatic = reading_direction in (None, "", "auto")
+    reading_direction = get_saved_reading_direction(reading_direction, chapter_directory)
+    nothing_saved = reading_direction == "auto"
+    return ("rtl" if nothing_saved else reading_direction), is_automatic, nothing_saved
 
 
 def reorder_page_result_four_koma(page_result):
@@ -941,12 +1023,18 @@ class Magi:
 
     def get_data_from_images(self, input_directory, reading_direction="rtl"):
         """
-        Everything Magi finds on each page (panels, text boxes, what the text says, which text is dialogue, etc.), in reading order. "reading_direction" is "rtl" (manga), "ltr" (comics), "4koma" (strips, top to bottom) or "webtoon" (vertical scroll).
+        Everything Magi finds on each page (panels, text boxes, what the text says, which text is dialogue, etc.), in reading order. "reading_direction" is "auto" (see "get_saved_reading_direction"), "rtl" (manga), "ltr" (comics), "4koma" (strips, top to bottom) or "webtoon" (vertical scroll).
         """
         chapter_pages_image_numpy_array = self.get_chapter_pages_image_numpy_array(
             input_directory
         )
         per_page_results = self.get_per_page_results(chapter_pages_image_numpy_array)
+
+        reading_direction, is_automatic, nothing_saved = get_automatic_reading_direction(
+            reading_direction, input_directory
+        )
+        if is_automatic and reading_direction == "rtl":
+            reading_direction = get_reading_direction_from_panels(per_page_results, nothing_saved)
 
         return apply_reading_direction(
             per_page_results, chapter_pages_image_numpy_array, reading_direction
@@ -962,7 +1050,7 @@ class Magi:
         read_text=False,
     ):
         """
-        "reading_direction" is "rtl" (manga, right to left), "ltr" (comics, left to right), "4koma" (strips, top to bottom, right strip first) or "webtoon" (vertical scroll: the chapter is joined into one strip, see "find_webtoon_panels").
+        "reading_direction" is "auto" (from the MangaDex download, or else guessed from the images: see "get_saved_reading_direction"), "rtl" (manga, right to left), "ltr" (comics, left to right), "4koma" (strips, top to bottom, right strip first) or "webtoon" (vertical scroll: the chapter is joined into one strip, see "find_webtoon_panels").
         "group_by_page" saves each page's panels in their own "page_x" folder. Otherwise, all of the chapter's panels are saved together, numbered in reading order.
         "read_text" also reads the dialogue on the pages and saves it next to the panels (see "save_panel_text"), so Images To Video doesn't have to read the text on every panel later.
         "selected_input_directory" is the top-level directory the user picked. The output path keeps the whole path from that directory down (e.g. "One Piece/Vol 1/Ch 1") so different series don't overwrite each other.
@@ -1000,6 +1088,10 @@ class Magi:
         group_by_page=False,
         read_text=False,
     ):
+        reading_direction, is_automatic, nothing_saved = get_automatic_reading_direction(
+            reading_direction, chapter_input_directory
+        )
+
         if reading_direction != "webtoon" and looks_like_webtoon(chapter_pages_image_numpy_array):
             print("These images are much taller than pages, so they're split as a webtoon (vertical scroll).")
             reading_direction = "webtoon"
@@ -1007,8 +1099,13 @@ class Magi:
         if reading_direction == "webtoon":
             chapter_pages_image_numpy_array = [join_webtoon_strip(chapter_pages_image_numpy_array)]
 
+        per_page_predictions = self.predict_panels(chapter_pages_image_numpy_array, reading_direction)
+        # The 4-koma check needs the panels, so with "Automatic" they're found in manga order first.
+        if is_automatic and reading_direction == "rtl":
+            reading_direction = get_reading_direction_from_panels(per_page_predictions, nothing_saved)
+
         per_page_results = apply_reading_direction(
-            self.predict_panels(chapter_pages_image_numpy_array, reading_direction),
+            per_page_predictions,
             chapter_pages_image_numpy_array,
             reading_direction,
         )
@@ -1057,6 +1154,12 @@ class Magi:
 
             if not group_by_page:
                 copy_panels_to_one_level_directory(pages_dir, not_grouped_by_page_dir)
+
+            # A direction saved by the MangaDex download goes along with the panels, so Images To Video (on "Automatic") reads their text in the same order.
+            if is_automatic and not nothing_saved:
+                os.makedirs(panels_output_dir, exist_ok=True)
+                with open(os.path.join(panels_output_dir, READING_DIRECTION_FILE_NAME), "w", encoding="utf-8") as file:
+                    file.write(reading_direction)
         finally:
             if not group_by_page:
                 shutil.rmtree(pages_dir, ignore_errors=True)

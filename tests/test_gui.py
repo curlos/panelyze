@@ -188,7 +188,7 @@ def test_picked_images_are_processed_like_a_folder_then_cleaned_up(make_gui, tmp
 
 def test_reading_direction_dropdown_saves_the_setting(make_gui):
     gui = make_gui()
-    assert gui.page.client_storage.get("reading_direction") == "rtl"
+    assert gui.page.client_storage.get("reading_direction") == "auto"
     dropdown = find_control(
         gui.MagiPanelByPanelView, lambda c: getattr(c, "label", None) == "Reading Direction"
     )

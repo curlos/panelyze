@@ -3,6 +3,7 @@ import shutil
 import flet as ft
 from gui_classes import Nord
 from gui_classes.AppBar import TAB_ICONS
+from gui_classes.ReadingDirectionSetting import READING_DIRECTIONS
 from gui_classes.WrappingCheckbox import WrappingCheckbox
 from default_settings import get_output_directory
 from download_from_mangadex import download_from_mangadex
@@ -117,6 +118,18 @@ def video_will_use_text_read_by_panel_by_panel(storage, selected_steps):
     )
 
 
+def get_reading_direction_review(storage, selected_steps):
+    """
+    The Reading Direction, and for "Automatic", where it will come from.
+    """
+    reading_direction = storage.get("reading_direction") or "auto"
+    if reading_direction != "auto":
+        return f"reading direction {READING_DIRECTIONS.get(reading_direction, reading_direction)}"
+    if "MangaDex Downloader" in selected_steps:
+        return "reading direction Automatic (from MangaDex)"
+    return "reading direction Automatic (from the images, unless the folder was downloaded from MangaDex)"
+
+
 def get_settings_review(storage, selected_steps):
     """
     A short summary of the settings (from each step's own tab) that the pipeline will use, as (step, details) pairs.
@@ -134,7 +147,7 @@ def get_settings_review(storage, selected_steps):
         review.append(("MangaDex Downloader", details))
 
     if "Panel-By-Panel" in selected_steps:
-        details = "Magi AI Model, panels saved together (not grouped by page)"
+        details = f"Magi AI Model, {get_reading_direction_review(storage, selected_steps)}, panels saved together (not grouped by page)"
         if get("show_full_characters"):
             details += ", shows full characters"
         if get("split_tall_panels"):
