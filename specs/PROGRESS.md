@@ -22,7 +22,7 @@ Which specs are done and which are left. The plans are in [README.md](README.md)
 | [ ] | 14 | [Folder structure](14-folder-structure.md) | ⬜ | |
 | [ ] | 15 | [Format, lint, CI](15-format-lint-ci.md) | ⬜ | |
 | [ ] | 16 | [More MangaDex options](16-mangadex-options.md) | ⬜ | |
-| [ ] | 17 | [More sources for pages](17-second-downloader.md) | 🔨 | |
+| [x] | 17 | [More sources for pages](17-second-downloader.md) | ✅ | 2026-11-22 |
 | [ ] | 18 | [Type-check fixes](18-type-check-fixes.md) | ⬜ | |
 | [ ] | 19 | [Downloadable app on GitHub](19-github-release-app.md) | ⬜ | |
 | [ ] | 20 | [Optional free NVIDIA GPU](20-optional-nvidia-gpu.md) | ⬜ | |
