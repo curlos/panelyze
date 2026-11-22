@@ -2,11 +2,12 @@ from types import SimpleNamespace
 
 import flet as ft
 
+from gui_classes import Nord
 from gui_classes.WrappingCheckbox import WrappingCheckbox
 from tests.fake_gui import fake_event, get_all_controls
 
 TABS = [
-    "MangaDex Downloader",
+    "Download",
     "Panel-By-Panel",
     "Upscale Images",
     "Images To Video",
@@ -128,9 +129,11 @@ def test_the_app_opens_on_the_tab_picked_in_settings(make_gui, monkeypatch):
         return make_gui()
 
     assert make_gui().current_view == "Panel-By-Panel"
-    assert make_gui_with_start_tab("MangaDex Downloader").current_view == "MangaDex Downloader"
+    assert make_gui_with_start_tab("Download").current_view == "Download"
     # Not a tab (e.g. a tab that was renamed): Panel-By-Panel.
     assert make_gui_with_start_tab("Old Tab Name").current_view == "Panel-By-Panel"
+    # Picked before the Download tab was renamed.
+    assert make_gui_with_start_tab("MangaDex Downloader").current_view == "Download"
 
 
 def test_the_arrow_keys_move_between_the_tabs_while_a_tab_is_focused(make_gui, monkeypatch):
@@ -148,10 +151,110 @@ def test_the_arrow_keys_move_between_the_tabs_while_a_tab_is_focused(make_gui, m
 
     gui.focused_tab = "Panel-By-Panel"
     assert press("Arrow Right") == "Upscale Images"
-    assert press("Home") == "MangaDex Downloader"
+    assert press("Home") == "Download"
     # Going around at the ends.
     assert press("Arrow Left") == "Settings"
-    assert press("Arrow Right") == "MangaDex Downloader"
+    assert press("Arrow Right") == "Download"
     assert press("End") == "Settings"
     # The newly opened tab is the one that's focused.
     assert focused[-1].startswith("Settings")
+
+
+def test_the_content_is_capped_and_centered_like_a_bootstrap_container():
+    from gui import MAX_CONTENT_WIDTH, get_content_width
+
+    assert MAX_CONTENT_WIDTH == 1400
+    # A narrower window is filled completely, a wider one only gets more margin.
+    assert [get_content_width(width) for width in (360, 760, 1100, 1400, 1920, 3440)] == [360, 760, 1100, 1400, 1400, 1400]
+
+
+def test_the_content_width_follows_the_window(make_gui):
+    gui = make_gui()
+    gui.page.width = 3440
+
+    gui.handle_resized(None)
+    assert gui.content_container.width == 1400
+
+    gui.page.width = 1000
+    gui.handle_resized(None)
+    assert gui.content_container.width == 1000
+
+
+def test_after_a_restart_the_content_fills_the_window_without_a_resize(make_gui, monkeypatch):
+    from tests import fake_gui
+
+    original_init = fake_gui.FakePage.__init__
+
+    def init_like_after_flet_run_r(self):
+        original_init(self)
+        # After "flet run -r" restarts the app, "page.width" is a stale 800, but the window is really 1300 wide.
+        self.width = 800
+        self.window.width = 1300
+
+    monkeypatch.setattr(fake_gui.FakePage, "__init__", init_like_after_flet_run_r)
+    gui = make_gui()
+
+    assert gui.content_container.width == 1300
+
+
+def test_in_a_browser_the_content_follows_the_page_width(make_gui, monkeypatch):
+    from tests import fake_gui
+
+    original_init = fake_gui.FakePage.__init__
+
+    def init_in_a_browser(self):
+        original_init(self)
+        # A browser has no app window, so its window width means nothing.
+        self.web = True
+        self.width = 900
+        self.window.width = 1300
+
+    monkeypatch.setattr(fake_gui.FakePage, "__init__", init_in_a_browser)
+
+    assert make_gui().content_container.width == 900
+
+
+def test_the_terminal_only_has_side_borders_when_the_window_is_wider_than_the_content(make_gui):
+    gui = make_gui()
+    terminal = gui.terminal_output
+
+    gui.page.width = 1400
+    gui.handle_resized(None)
+    assert terminal.border is None
+
+    gui.page.width = 2000
+    gui.handle_resized(None)
+    assert terminal.border.left.width == 1 and terminal.border.right.width == 1
+    assert terminal.border.left.color == terminal.border.right.color == Nord.BLUE
+
+    gui.page.width = 1000
+    gui.handle_resized(None)
+    assert terminal.border is None
+
+
+def test_the_tabs_settings_have_no_border_on_their_left(make_gui):
+    gui = make_gui()
+
+    # The Download tab used to be the only one with a border.
+    assert gui.MangaDexDownloaderView.settings.border is None
+
+
+def test_a_dropdown_with_descriptions_shows_the_one_of_the_selected_choice():
+    import flet as ft
+    from gui_classes.DropdownTextOptions import DropdownTextOptions
+
+    changed = []
+    dropdown = DropdownTextOptions(
+        label="Upscale Model",
+        options=[ft.dropdown.Option(key="fast", text="Fast"), ft.dropdown.Option(key="best", text="Best")],
+        value="fast",
+        on_change=lambda e: changed.append(e.data),
+        descriptions={"fast": "About 30 seconds a chapter", "best": "Slower, bigger download"},
+    )
+    assert dropdown.helper_text == "About 30 seconds a chapter"
+
+    dropdown.value = "best"
+    dropdown.on_change(type("Event", (), {"data": "best"})())
+
+    assert dropdown.helper_text == "Slower, bigger download"
+    assert changed == ["best"]

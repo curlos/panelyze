@@ -186,7 +186,7 @@ def test_panel_by_panel_saves_the_text_for_each_saved_panel_in_order(tmp_path, m
 
     magi.get_panels_using_local_cpu(pages, "Series/Ch 1", str(tmp_path), read_text=True)
 
-    chapter = tmp_path / "panel-by-panel" / "not-grouped-by-page" / "Series" / "Ch 1"
+    chapter = tmp_path / "Series" / "Ch 1"
     assert sorted(os.listdir(chapter)) == ["panel-text.json", "panel_1.png", "panel_2.png", "panel_3.png"]
     assert json.loads((chapter / "panel-text.json").read_text()) == [["Right."], ["Left."], ["Page two."]]
 
@@ -204,7 +204,7 @@ def test_panel_by_panel_does_not_read_the_text_unless_asked(tmp_path, monkeypatc
         [drawn_page()], "Series/Ch 1", str(tmp_path)
     )
 
-    chapter = tmp_path / "panel-by-panel" / "not-grouped-by-page" / "Series" / "Ch 1"
+    chapter = tmp_path / "Series" / "Ch 1"
     assert os.listdir(chapter) == ["panel_1.png"]
 
 
@@ -217,10 +217,10 @@ def test_finding_and_reading_the_text_shows_its_progress(monkeypatch):
     get_magi_with_model(FakeModel()).get_per_page_results(["page 1", "page 2"])
 
     assert reports == [
-        {"pages_done": 0, "pages_total": 2, "unit": "images", "detail": "Finding the text"},
+        {"stage": "Finding the text", "pages_done": 0, "pages_total": 2, "unit": "images", "detail": "Finding the text"},
         {"pages_done": 1},
         {"pages_done": 2},
-        {"pages_done": 0, "pages_total": 2, "unit": "lines", "detail": "Reading the text"},
+        {"stage": "Reading the text", "pages_done": 0, "pages_total": 2, "unit": "text boxes", "detail": "Reading the text"},
         {"pages_done": 2},
     ]
 

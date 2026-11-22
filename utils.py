@@ -1,5 +1,6 @@
 from functools import wraps
 import io
+import json
 import re
 import tempfile
 import shutil
@@ -8,6 +9,7 @@ import subprocess
 import sys
 import os
 import platform
+import threading
 import zipfile
 import flet as ft
 import math
@@ -101,6 +103,203 @@ def copy_picked_images_to_folder(image_paths):
     return picked_images_folder
 
 
+# Comic files that can be picked as input. .cbz, .zip and .epub are zip files with the pages inside, and .cbr is a RAR file.
+COMIC_FILE_EXTENSIONS = (".cbz", ".zip", ".epub", ".cbr", ".pdf")
+
+# How sharp PDF pages are rendered (most comic PDFs are made for about 150-300 DPI).
+PDF_RENDER_DPI = 200
+
+
+def is_comic_file(file_name):
+    return file_name.lower().endswith(COMIC_FILE_EXTENSIONS)
+
+
+def pluralize(count, word):
+    return f"{count} {word}" if count == 1 else f"{count} {word}s"
+
+
+def count_comic_file_pages(comic_path):
+    """
+    The number of pages in a comic file, or None when that can't be told cheaply (.cbr files are RAR files, which are only opened when they're processed).
+    """
+    try:
+        if comic_path.lower().endswith(".pdf"):
+            import pypdfium2
+
+            pdf = pypdfium2.PdfDocument(comic_path)
+            try:
+                return len(pdf)
+            finally:
+                pdf.close()
+
+        if comic_path.lower().endswith(".cbr"):
+            return None
+
+        with zipfile.ZipFile(comic_path) as comic_file:
+            return sum(
+                1
+                for name in comic_file.namelist()
+                if not name.startswith("__MACOSX/") and is_image_file(os.path.basename(name))
+            )
+    except Exception:
+        return None
+
+
+def get_input_summary(input_directory="", image_paths=(), comic_paths=()):
+    """
+    A short description of what was picked, shown under it: "3 chapters · 87 pages", "12 images", or a warning when a folder has no images.
+    """
+    if image_paths:
+        return pluralize(len(image_paths), "image")
+
+    if comic_paths:
+        # Each comic file becomes a chapter.
+        summary = pluralize(len(comic_paths), "chapter")
+        page_counts = [count_comic_file_pages(comic_path) for comic_path in comic_paths]
+        if None not in page_counts:
+            summary += f" · {pluralize(sum(page_counts), 'page')}"
+        return summary
+
+    image_folders = list(get_image_folders(input_directory)) if os.path.isdir(input_directory) else []
+    page_count = sum(len(images) for _, images in image_folders)
+
+    if not page_count:
+        return "No images found in this folder"
+    # A single folder of images isn't worth calling "1 chapter".
+    if len(image_folders) == 1:
+        return pluralize(page_count, "page")
+    return f"{pluralize(len(image_folders), 'chapter')} · {pluralize(page_count, 'page')}"
+
+
+def extract_comic_files_to_folder(comic_paths):
+    """
+    Like "copy_picked_images_to_folder", but for comic files (.cbz, .zip, .epub, .pdf): their pages are saved into a new temporary folder, so every tool can process them exactly like a picked folder.
+
+    One file gives a folder named after it with its pages ("Invincible 001/001.jpg"). Several files give a folder with one chapter folder for each of them ("Comics - 2 comic files/Invincible 001/001.jpg"). Delete the returned folder's parent when done.
+    """
+    for comic_path in comic_paths:
+        if not is_comic_file(comic_path):
+            raise ValueError(f"Not a comic file: {comic_path}")
+
+    def get_name(comic_path):
+        return os.path.splitext(os.path.basename(comic_path))[0]
+
+    if len(comic_paths) == 1:
+        folder_name = get_name(comic_paths[0])
+    else:
+        parent_folder_name = get_last_directory(os.path.dirname(comic_paths[0]))
+        folder_name = f"{parent_folder_name} - {len(comic_paths)} comic files"
+
+    comic_files_folder = os.path.join(tempfile.mkdtemp(prefix="panelyze-"), folder_name)
+
+    try:
+        for comic_path in comic_paths:
+            if len(comic_paths) == 1:
+                chapter_folder = comic_files_folder
+            else:
+                # Files with the same name but another extension (e.g. "Issue 1.cbz" and "Issue 1.pdf") must not overwrite each other's pages.
+                chapter_folder = os.path.join(comic_files_folder, get_name(comic_path))
+                number = 2
+                while os.path.exists(chapter_folder):
+                    chapter_folder = os.path.join(comic_files_folder, f"{get_name(comic_path)} ({number})")
+                    number += 1
+            os.makedirs(chapter_folder)
+            extract_comic_file(comic_path, chapter_folder)
+    except BaseException:
+        # A file that couldn't be opened: the pages saved so far aren't left behind.
+        shutil.rmtree(os.path.dirname(comic_files_folder), ignore_errors=True)
+        raise
+
+    return comic_files_folder
+
+
+def extract_comic_file(comic_path, folder):
+    """
+    Save the pages of one comic file into "folder" as 001.jpg, 002.png, ... in reading order.
+    """
+    if comic_path.lower().endswith(".pdf"):
+        save_pdf_pages(comic_path, folder)
+    elif comic_path.lower().endswith(".cbr"):
+        save_rar_pages(comic_path, folder)
+    else:
+        with zipfile.ZipFile(comic_path) as comic_file:
+            save_pages_in_order(
+                [
+                    (entry.filename, lambda entry=entry: comic_file.read(entry))
+                    for entry in comic_file.infolist()
+                    if not entry.is_dir()
+                ],
+                folder,
+            )
+
+
+def save_pages_in_order(entries, folder):
+    """
+    Save the images among "entries" ((path inside the comic file, function that reads it)) into "folder" as 001.jpg, 002.png, ... in natural order of their paths.
+    """
+    image_entries = sorted(
+        (
+            (name, read)
+            for name, read in entries
+            if not name.startswith("__MACOSX/") and is_image_file(os.path.basename(name))
+        ),
+        key=lambda entry: [natural_sort_key(part) for part in entry[0].split("/")],
+    )
+
+    # Only the page number and the extension are used as the file name, never the path inside the file, so a file can't write outside "folder" (e.g. an entry named "../../page.png").
+    for number, (name, read) in enumerate(image_entries, start=1):
+        extension = os.path.splitext(name)[1].lower()
+        with open(os.path.join(folder, f"{number:03d}{extension}"), "wb") as page_file:
+            page_file.write(read())
+
+
+def save_rar_pages(cbr_path, folder):
+    """
+    .cbr files are RAR files, which Python can't open. bsdtar (built into macOS) can.
+    """
+    bsdtar_path = shutil.which("bsdtar") or "/usr/bin/bsdtar"
+    if not os.path.exists(bsdtar_path):
+        raise RuntimeError(".cbr files need bsdtar, which wasn't found (it comes with macOS).")
+
+    extracted_folder = tempfile.mkdtemp(prefix="panelyze-cbr-")
+    try:
+        # bsdtar refuses paths with ".." or starting with "/", so nothing is written outside "extracted_folder".
+        result = subprocess.run(
+            [bsdtar_path, "-xf", cbr_path, "-C", extracted_folder],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Couldn't open {os.path.basename(cbr_path)}: {result.stderr.strip()}")
+
+        entries = []
+        for directory, _, file_names in os.walk(extracted_folder):
+            for file_name in file_names:
+                path = os.path.join(directory, file_name)
+                # A link could point to a file outside the comic.
+                if os.path.islink(path):
+                    continue
+                name = os.path.relpath(path, extracted_folder).replace(os.sep, "/")
+                entries.append((name, lambda path=path: open(path, "rb").read()))
+
+        save_pages_in_order(entries, folder)
+    finally:
+        shutil.rmtree(extracted_folder, ignore_errors=True)
+
+
+def save_pdf_pages(pdf_path, folder):
+    import pypdfium2
+
+    pdf = pypdfium2.PdfDocument(pdf_path)
+    try:
+        for number, page in enumerate(pdf, start=1):
+            image = page.render(scale=PDF_RENDER_DPI / 72).to_pil()
+            image.save(os.path.join(folder, f"{number:03d}.png"))
+            page.close()
+    finally:
+        pdf.close()
+
+
 def list_images(directory):
     """
     Full paths of the images directly inside "directory", in natural order (page_2 before page_10).
@@ -116,6 +315,8 @@ IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
 
 # The dialogue Panel-By-Panel read on the pages, saved next to the panels as a list of lines for each panel (in the same order as the images). Images To Video uses it instead of reading the text on every panel again.
 PANEL_TEXT_FILE_NAME = "panel-text.json"
+# What a chapter's panels were made from (its pages and the settings), so a chapter that's already split can be skipped (see "get_panels_info").
+PANELS_INFO_FILE_NAME = "panels-info.json"
 
 # The reading direction ("rtl", "ltr", "4koma" or "webtoon") the MangaDex download found for a chapter, saved next to its images. Panel-By-Panel and Images To Video use it when the Reading Direction is "Automatic".
 READING_DIRECTION_FILE_NAME = "reading-direction.txt"
@@ -175,9 +376,143 @@ def is_showing_all_output_in_app():
     return AppOutput.current_app_output is not None
 
 
+# A small file in each folder that was downloaded, saying where it's from and how many pages (or images) it has. A download is only skipped as "already downloaded" when this is still true of the folder, so deleting the folder or some of its pages means it's downloaded again.
+DOWNLOAD_INFO_FILE_NAME = "download-info.json"
+
+
+def count_images(folder):
+    return sum(1 for file_name in os.listdir(folder) if is_image_file(file_name))
+
+
+def write_download_info(folder, **info):
+    with open(os.path.join(folder, DOWNLOAD_INFO_FILE_NAME), "w", encoding="utf-8") as info_file:
+        json.dump(info, info_file)
+
+
+def read_download_info(folder):
+    """
+    What "write_download_info" saved in the folder, or None if there's none.
+    """
+    try:
+        with open(os.path.join(folder, DOWNLOAD_INFO_FILE_NAME), encoding="utf-8") as info_file:
+            info = json.load(info_file)
+    except (OSError, ValueError):
+        return None
+    return info if isinstance(info, dict) else None
+
+
+def is_download_intact(folder, info):
+    """
+    Whether the folder still has all the pages its download info says it had. Images added to it later (by the user) don't count against it, so the folder isn't downloaded again and replaced, which would delete them.
+    """
+    return bool(info.get("pages")) and os.path.isdir(folder) and count_images(folder) >= info["pages"]
+
+
+def find_downloaded_folder(directory, only_if_intact=True, **match):
+    """
+    The folder inside "directory" whose download info has all of "match", as (folder, info), or None. With "only_if_intact" (the default) that's only a folder that still has all its pages; without it a folder with pages missing is found too (to be replaced).
+    """
+    if not os.path.isdir(directory):
+        return None
+
+    for name in sorted(os.listdir(directory)):
+        folder = os.path.join(directory, name)
+        info = read_download_info(folder) if os.path.isdir(folder) else None
+        if info and all(info.get(key) == value for key, value in match.items()):
+            if not only_if_intact or is_download_intact(folder, info):
+                return folder, info
+    return None
+
+
+def get_library_directory(output_directory, storage):
+    """
+    The Download tab's folder when "output_directory" is another one (a Pipeline's Download step), so what was already downloaded there can be copied instead of downloaded again. None when they're the same folder.
+    """
+    from default_settings import get_output_directory
+
+    if not storage:
+        return None
+    library_directory = get_output_directory(storage, "output_directory_mangadex")
+    if os.path.realpath(library_directory) == os.path.realpath(output_directory):
+        return None
+    return library_directory
+
+
+def copy_from_library(folder, library_directory, output_directory):
+    """
+    Copies a downloaded folder (inside "library_directory") to the same place inside "output_directory", and returns the copy's path.
+    """
+    destination = os.path.join(output_directory, os.path.relpath(folder, library_directory))
+    os.makedirs(os.path.dirname(destination), exist_ok=True)
+    shutil.copytree(folder, destination, dirs_exist_ok=True)
+    return destination
+
+
+class DownloadSummary(str):
+    """
+    What a download saved, in one line (it's a string, to show), and the folder it was saved in ("folder", to open it in Finder when it's done).
+    """
+
+    def __new__(cls, text, folder=None):
+        summary = super().__new__(cls, text)
+        summary.folder = folder
+        return summary
+
+
+class DownloadCancelled(Exception):
+    """
+    Raised when the user cancels a download. It's not an error, so it's shown as "cancelled" instead.
+    """
+
+
+CANCEL_TEXT = "Cancel"
+CANCELLING_TEXT = "Cancelling..."
+
+
+def set_cancel_click(cancel_button, stop, message="Cancelling..."):
+    """
+    What clicking "cancel_button" does: "stop" (what stops the job), and right away it can't be clicked again, says "Cancelling..." and shows "message" (when it will stop, e.g. "Cancelling after the image being upscaled...") in the Status view. The job's tab puts the button back with "reset_cancel_button" when the job is over.
+    """
+    def handle_click(e):
+        if getattr(cancel_button, "disabled", False):
+            return
+        cancel_button.disabled = True
+        cancel_button.text = CANCELLING_TEXT
+        try:
+            cancel_button.update()
+        except Exception:
+            pass
+
+        from gui_classes.ProgressPanel import report_cancelling
+
+        report_cancelling(message() if callable(message) else message)
+        stop()
+
+    cancel_button.on_click = handle_click
+    # Cancel was already clicked before the job said what it stops (e.g. while a download was starting), so it's stopped now instead of never.
+    if getattr(cancel_button, "text", None) == CANCELLING_TEXT:
+        stop()
+
+
+def reset_cancel_button(cancel_button):
+    cancel_button.disabled = False
+    cancel_button.text = CANCEL_TEXT
+
+
+def get_cancel_event(cancel_button=None, message="Cancelling the download..."):
+    """
+    A flag that's set when "cancel_button" is clicked, for a download to check as it goes.
+    """
+    cancel_event = threading.Event()
+    if cancel_button:
+        set_cancel_click(cancel_button, cancel_event.set, message)
+    return cancel_event
+
+
 class ProcessManager:
     def __init__(self):
         self.process = None  # To store the running process
+        self.cancelled = False
 
     def monitor_terminal_output(
         self,
@@ -203,6 +538,9 @@ class ProcessManager:
             bufsize=0,  # Don't wait for a buffer to fill up. Read the output as soon as it's written.
             env=env,  # Use the modified "env" variable so that it takes "PYTHONUNBUFFERED" which will give us access to each line output immediately instead of after the program is done executing.
         )
+        # Cancelled while it was being started.
+        if self.cancelled:
+            self.process.terminate()
         # newline="" keeps "\r" as it is (instead of turning it into a new line), so progress bars that redraw themselves with "\r" show up as one live line instead of hundreds of lines.
         process_output = io.TextIOWrapper(
             self.process.stdout, encoding="utf-8", errors="replace", newline=""
@@ -243,7 +581,8 @@ class ProcessManager:
         return lines
 
     def cancel_process(self):
-
+        # Also before the process has started: "monitor_terminal_output" then stops it as soon as it starts.
+        self.cancelled = True
         if self.process:
             self.process.terminate()  # Gracefully terminate the process
             print("Process terminated by user.")
@@ -379,6 +718,31 @@ def paths_overlap(path_a, path_b):
     return is_same_or_inside(path_a, path_b) or is_same_or_inside(path_b, path_a)
 
 
+def get_panels_folder(output_directory, relative_path, group_by_page=False):
+    """
+    Where Panel-By-Panel saves a chapter's panels: "<output>/One Piece/Ch 1", like every other tab, or "<output>/One Piece (grouped by page)/Ch 1" with a folder for each page. The two never mix, also not in the series' folder that the next tab reads.
+    """
+    if group_by_page:
+        first_folder, *other_folders = os.path.normpath(relative_path).split(os.sep)
+        relative_path = os.path.join(f"{first_folder} (grouped by page)", *other_folders)
+    return os.path.join(output_directory, relative_path)
+
+
+def remove_old_panels(folder):
+    """
+    Delete what an earlier Panel-By-Panel run saved in "folder" (its panels, page folders, their text and reading direction), so leftovers don't mix with new panels. Only those: the output folder can be picked, so this folder might also hold other files (e.g. a downloaded chapter's pages), which are kept.
+    """
+    if not os.path.isdir(folder):
+        return
+    for name in os.listdir(folder):
+        path = os.path.join(folder, name)
+        if name.startswith("page_") and os.path.isdir(path):
+            shutil.rmtree(path)
+        # Also the reading direction an earlier run saved: Magi only writes it when a download saved one, so an old one would be used for panels made in another order.
+        elif (name.startswith("panel_") and is_image_file(name)) or name in (PANEL_TEXT_FILE_NAME, PANELS_INFO_FILE_NAME, READING_DIRECTION_FILE_NAME):
+            os.remove(path)
+
+
 def get_relative_output_path(chapter_directory, input_directory):
     """
     Get the path of "chapter_directory" relative to the parent of the selected "input_directory". For example, if the input directory is "/Manga/One Piece" and the chapter directory is "/Manga/One Piece/Vol 1/Ch 1", this returns "One Piece/Vol 1/Ch 1". This keeps outputs from different series apart, unlike only taking the last two directories.
@@ -423,11 +787,13 @@ def natural_sort_key(filename):
 SMALL_COMIC_FILE_IMAGE_SIZE = (2048, 2732)
 
 
-def save_folder_as_cbz(folder, size="full"):
+def save_folder_as_cbz(folder, size="full", reading_direction=None, one_image_at_a_time=False):
     """
     Save the images in "folder" (and its folders, e.g. one for each page) as a comic file, "<folder>.cbz" next to it, in reading order. Comic reader apps (e.g. Panels on iPhone and iPad, Mihon on Android) open it like a book. Returns its path, or None if there were no images.
 
     "size" is "full" (the images as they are) or "small" (WebP sized for phones and tablets, and grayscale for black and white pages: a chapter is about 15-25 MB instead of 150-250 MB).
+
+    A "ComicInfo.xml" inside tells reader apps that read it how to show the images (see "get_comic_info"). "reading_direction" is the one picked in the app, or for "auto" (or None), the one saved next to the images.
     """
     image_paths = sorted(
         (
@@ -452,10 +818,38 @@ def save_folder_as_cbz(folder, size="full"):
                 cbz.writestr(f"{number:04d}.webp", get_small_comic_file_image(image_path))
             else:
                 cbz.write(image_path, f"{number:04d}{os.path.splitext(image_path)[1]}")
+        if reading_direction in (None, "auto"):
+            reading_direction = read_saved_reading_direction(folder)
+        comic_info = get_comic_info(len(image_paths), reading_direction, one_image_at_a_time)
+        if comic_info:
+            cbz.writestr("ComicInfo.xml", comic_info)
     os.replace(f"{cbz_path}.tmp", cbz_path)
 
     print(f"Saved a comic file to read in comic reader apps: {cbz_path}")
     return cbz_path
+
+
+def read_saved_reading_direction(folder):
+    path = os.path.join(folder, READING_DIRECTION_FILE_NAME)
+    if not os.path.isfile(path):
+        return None
+    with open(path, encoding="utf-8") as file:
+        return file.read().strip()
+
+
+def get_comic_info(image_count, reading_direction, one_image_at_a_time):
+    """
+    The "ComicInfo.xml" for a comic file, or None if it has nothing to say. Manga (and 4-koma) is marked right to left, so pages turn the right way. With "one_image_at_a_time" (panels), every image is marked as a two-page spread, so apps in two-page view still show one panel at a time instead of putting two narrow panels side by side.
+    """
+    parts = []
+    if reading_direction in ("rtl", "4koma"):
+        parts.append("<Manga>YesAndRightToLeft</Manga>")
+    if one_image_at_a_time:
+        pages = "".join(f'<Page Image="{number}" DoublePage="true"/>' for number in range(image_count))
+        parts.append(f"<Pages>{pages}</Pages>")
+    if not parts:
+        return None
+    return f'<?xml version="1.0" encoding="utf-8"?>\n<ComicInfo>{"".join(parts)}</ComicInfo>\n'
 
 
 def get_small_comic_file_image(image_path):

@@ -7,9 +7,12 @@ class AppBarButton(ft.Container):
     A tab at the top. The selected one has the main area's color and a line under it, like a tab in VS Code. When "show_text" is False, only the icon is shown (the name is in the tooltip).
     """
 
-    def __init__(self, text, icon, shortcut, current_view, change_view, show_text, on_focus_change):
+    def __init__(self, text, icon, shortcut, current_view, change_view, show_text, on_focus_change, running_job_name=""):
         super().__init__()
         is_selected = current_view == text
+        # While a job runs, only its own tab can be open.
+        is_waiting = bool(running_job_name) and not is_selected
+        self.opacity = 0.5 if is_waiting else 1
 
         self.bgcolor = Nord.BACKGROUND if is_selected else None
         self.border = ft.border.only(
@@ -24,7 +27,7 @@ class AppBarButton(ft.Container):
         button_class = ft.TextButton if show_text else ft.IconButton
         self.content = button_class(
             icon=icon,
-            tooltip=f"{text} ({shortcut})",
+            tooltip=f'Wait for "{running_job_name}" to finish (only one job runs at a time)' if is_waiting else f"{text} ({shortcut})",
             on_click=lambda e: change_view(text),
             # Lets the arrow keys know a tab is focused (see "AppBar.move_to_tab").
             on_focus=lambda e: on_focus_change(text, True),
@@ -35,7 +38,7 @@ class AppBarButton(ft.Container):
 
 
 TAB_NAMES = [
-    "MangaDex Downloader",
+    "Download",
     "Panel-By-Panel",
     "Upscale Images",
     "Images To Video",
@@ -44,7 +47,7 @@ TAB_NAMES = [
 
 
 TAB_ICONS = {
-    "MangaDex Downloader": ft.Icons.DOWNLOAD,
+    "Download": ft.Icons.DOWNLOAD,
     "Panel-By-Panel": ft.Icons.GRID_VIEW,
     "Upscale Images": ft.Icons.HIGH_QUALITY,
     "Images To Video": ft.Icons.MOVIE,
@@ -87,6 +90,7 @@ class AppBar(ft.Container):
                 change_view=self.change_view,
                 show_text=show_text,
                 on_focus_change=self.handle_tab_focus_change,
+                running_job_name=self.parent_gui.running_job_name if self.parent_gui.is_job_running else "",
             )
 
         self.buttons = {
@@ -122,6 +126,10 @@ class AppBar(ft.Container):
         """
         Opens the tab before or after the open one (one of "TAB_LIST_KEYS"), and keeps the keyboard focus on it.
         """
+        # The other tabs can't be opened while a job runs.
+        if self.parent_gui.is_job_running:
+            return
+
         index = ALL_TABS.index(self.parent_gui.current_view)
         view_name = {
             "Arrow Left": ALL_TABS[index - 1],
@@ -135,7 +143,8 @@ class AppBar(ft.Container):
         self.parent_gui.app_bar.buttons[view_name].content.focus()
 
     def change_view(self, view_name):
-        if view_name == self.parent_gui.current_view:
+        # While a job runs, the other tabs can't be opened (clicked, or with a shortcut or the arrow keys).
+        if view_name == self.parent_gui.current_view or self.parent_gui.is_job_running:
             return
 
         self.parent_gui.current_view = view_name

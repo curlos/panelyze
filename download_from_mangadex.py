@@ -4,9 +4,14 @@ import sys
 import requests
 from gui_classes.ProgressPanel import report_progress
 from utils import (
+    set_cancel_click,
     READING_DIRECTION_FILE_NAME,
+    DownloadCancelled,
+    DownloadSummary,
     ProcessManager,
+    is_image_file,
     is_running_as_packaged_app,
+    pluralize,
 )
 import flet as ft
 
@@ -30,6 +35,7 @@ all_options_with_terminal_command = {
     "no_oneshot_chapters": "--no-oneshot-chapter",
     "use_chapter_cover": "--use-chapter-cover",
     "use_volume_cover": "--use-volume-cover",
+    "upload_choice": "",
 }
 
 
@@ -64,6 +70,16 @@ def get_additional_terminal_options(flet_page_client_storage):
         elif key == "end_chapter" and storage_value:
             if use_start_and_end_chapters:
                 additional_terminal_options.extend(["--end-chapter", storage_value])
+        elif key == "upload_choice":
+            # By default, the downloader takes the newest upload of each chapter.
+            preferred_group = (flet_page_client_storage.get("preferred_group") or "").strip()
+            if storage_value == "first":
+                additional_terminal_options.extend(["--order", "oldest"])
+            elif storage_value == "group" and preferred_group:
+                # This group's upload of each chapter, or the newest when that group skipped the chapter.
+                additional_terminal_options.extend(
+                    ["--group", preferred_group, "--group-nomatch-behaviour", "fallback"]
+                )
         elif storage_value:
             if isinstance(terminal_command, list):
                 additional_terminal_options.extend(terminal_command)
@@ -86,30 +102,9 @@ def get_download_folder(output_directory):
 
 def get_tidy_chapter_folder_name(folder_name):
     """
-    A chapter without a title is named "Vol. 1 Ch. 3 - " by the chapter name template. This drops the dash that has nothing after it.
+    A chapter without a title is named "Vol. 1 Ch. 3 - " by the chapter name template. This drops the dash that has nothing after it, for showing the name. The folder itself keeps the downloader's name: the downloader finds a chapter's pages by it, and a renamed folder was downloaded again into a second "Vol. 1 Ch. 3 - " folder.
     """
     return re.sub(r"\s*-\s*$", "", folder_name)
-
-
-def tidy_chapter_folder_names(output_directory):
-    """
-    Rename the chapter folders (<output>/<manga>/<chapter>) that end with a dash and no title. A folder that would end up with the same name as one that's already there is left alone.
-    """
-    if not os.path.isdir(output_directory):
-        return
-
-    for manga_folder_name in os.listdir(output_directory):
-        manga_directory = os.path.join(output_directory, manga_folder_name)
-
-        if not os.path.isdir(manga_directory):
-            continue
-
-        for chapter_folder_name in os.listdir(manga_directory):
-            tidy_name = get_tidy_chapter_folder_name(chapter_folder_name)
-            new_path = os.path.join(manga_directory, tidy_name)
-
-            if tidy_name != chapter_folder_name and tidy_name and not os.path.exists(new_path):
-                os.rename(os.path.join(manga_directory, chapter_folder_name), new_path)
 
 
 def get_mangadex_downloader_command():
@@ -205,6 +200,17 @@ def get_reading_direction_from_mangadex(mangadex_url):
         return None
 
 
+def get_changed_chapter_folders(output_directory, chapter_folders_before):
+    """
+    The chapter folders that are new or changed since "chapter_folders_before" (see "get_chapter_folders").
+    """
+    return [
+        chapter_directory
+        for chapter_directory, changed_at in get_chapter_folders(output_directory).items()
+        if chapter_folders_before.get(chapter_directory) != changed_at
+    ]
+
+
 def get_chapter_folders(output_directory):
     """
     Each chapter folder (<output>/<manga>/<chapter>) in the output folder, with when it was last changed.
@@ -236,15 +242,44 @@ def save_reading_direction(output_directory, reading_direction, chapter_folders_
                 file.write(reading_direction)
 
 
+def get_download_summary(output_directory, chapter_folders_before, series_name=None, chapter_name=None):
+    """
+    The result of a download in one line, like "Downloaded Slam Dunk Vol. 1 Ch. 3 - Blood · 20 pages" or "Downloaded Slam Dunk: 3 chapters · 77 pages". It's worked out from the chapter folders that are new or changed since "chapter_folders_before" (see "get_chapter_folders"), or None when there are none. "series_name" and "chapter_name" are used instead of the folders' names, if given.
+    """
+    changed_folders = get_changed_chapter_folders(output_directory, chapter_folders_before)
+    if not changed_folders:
+        return None
+
+    page_count = sum(
+        1
+        for chapter_directory in changed_folders
+        for file_name in os.listdir(chapter_directory)
+        if is_image_file(file_name)
+    )
+    if not series_name:
+        series_names = {os.path.basename(os.path.dirname(folder)) for folder in changed_folders}
+        series_name = next(iter(series_names)) if len(series_names) == 1 else pluralize(len(series_names), "series")
+
+    if len(changed_folders) == 1:
+        chapter_name = chapter_name or get_tidy_chapter_folder_name(os.path.basename(changed_folders[0]))
+        return DownloadSummary(
+            f"Downloaded {series_name} {chapter_name} · {pluralize(page_count, 'page')}", changed_folders[0]
+        )
+    return DownloadSummary(
+        f"Downloaded {series_name}: {pluralize(len(changed_folders), 'chapter')} · {pluralize(page_count, 'page')}",
+        os.path.commonpath(changed_folders),
+    )
+
+
 def download_from_mangadex(
     mangadex_url_to_download_from: str = "",
     output_directory: str = "",
     terminal_output_list_view: ft.ListView = None,
     flet_page_client_storage=None,
     cancel_process_button=None,
-) -> None:
+) -> str:
     """
-    @description Use the third-party "mangadex_downloader" command line tool to download manga from the given URL. URL must be a valid MangaDex URL.
+    @description Use the third-party "mangadex_downloader" command line tool to download manga from the given URL. URL must be a valid MangaDex URL. Returns what was downloaded in one line (see "get_download_summary"), and raises "DownloadCancelled" if the user cancelled.
     @IMPORTANT "mangadex_downloader" MUST be installed on your system to use this.
     """
 
@@ -264,16 +299,26 @@ def download_from_mangadex(
     chapter_folders_before = get_chapter_folders(output_directory)
 
     if cancel_process_button:
-        cancel_process_button.on_click = lambda _: process_manager.cancel_process()
+        set_cancel_click(cancel_process_button, process_manager.cancel_process, "Stopping the download...")
 
-    process_manager.monitor_terminal_output(
-        terminal_command,
-        terminal_output_list_view,
-        output_directory,
-        on_line=get_mangadex_progress_reporter(),
-    )
+    # No output folder is given, so it doesn't open Finder by itself: the Download tab opens the folder that was downloaded, for every kind of link.
+    report_line = get_mangadex_progress_reporter()
+    # Where the downloader keeps the series and which chapters it found already downloaded, so "Nothing new" can still open their folder.
+    series_folders, verified_chapters = [], []
 
-    tidy_chapter_folder_names(output_directory)
+    def on_line(line):
+        report_line(line)
+        series_match = re.search(r'Download directory is set to "(.+)"', line)
+        if series_match:
+            series_folders.append(series_match.group(1))
+        verified_match = re.search(r"'(.+)' is verified", line)
+        if verified_match:
+            verified_chapters.append(verified_match.group(1))
+
+    process_manager.monitor_terminal_output(terminal_command, terminal_output_list_view, on_line=on_line)
+
+    if process_manager.cancelled:
+        raise DownloadCancelled("Download cancelled")
 
     # Only after a download that finished (not one that was cancelled or failed).
     process = process_manager.process
@@ -285,3 +330,18 @@ def download_from_mangadex(
     if reading_direction:
         print(f"Reading direction from MangaDex: {reading_direction}")
         save_reading_direction(output_directory, reading_direction, chapter_folders_before)
+
+    summary = get_download_summary(output_directory, chapter_folders_before)
+    if summary is None and process and process.returncode != 0:
+        raise RuntimeError(
+            "MangaDex couldn't download anything from that link. Check the link, and see Raw Output for details."
+        )
+    if summary:
+        return summary
+    # The chapter's folder for one chapter, the series' folder otherwise (only one that's really there).
+    # A MangaDex list of several series: the folder they're all in.
+    series_folder = os.path.commonpath(series_folders) if series_folders else None
+    folders = [os.path.join(series_folder, verified_chapters[0])] if series_folder and len(verified_chapters) == 1 else []
+    folders += [series_folder] if series_folder else []
+    folder = next((folder for folder in folders if os.path.isdir(folder)), None)
+    return DownloadSummary("Nothing new to download: it's already in the folder.", folder)

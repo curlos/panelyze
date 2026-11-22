@@ -1,4 +1,5 @@
 import multiprocessing
+import threading
 import sys
 
 # In the packaged app, Python libraries (e.g. torch) sometimes start helper processes by running the app itself with special arguments. This makes the app recognize those and act as the helper, instead of opening another window.
@@ -39,11 +40,19 @@ MIN_WINDOW_WIDTH = 360
 MIN_WINDOW_HEIGHT = 600
 # When the window is narrower than this, each tab's settings go under it instead of on its right, and the tabs at the top only show their icons.
 NARROW_WINDOW_WIDTH = 760
+# Everything (the tabs at the top, the tab's content and the terminal) is no wider than this (a bit wider than Bootstrap's largest container, 1320, and narrower than Tailwind's, 1536). A wider window only gets more margin on its sides, so on an ultra-wide screen the margins keep growing. A narrower window is filled completely.
+MAX_CONTENT_WIDTH = 1400
+
+
+def get_content_width(window_width):
+    return min(window_width, MAX_CONTENT_WIDTH)
 
 
 class GUI:
     def __init__(self, page: ft.Page):
         self.page = page
+        # After "flet run -r" restarts the app, "page.width" is a stale 800 until the window is resized, but the window's own width is right. In a browser, there's no window.
+        self.window_width = page.width if page.web else page.window.width or page.width
         self.set_window_size()
 
         self.page.theme_mode = "dark"
@@ -60,11 +69,16 @@ class GUI:
 
         self.current_view = self.get_start_tab()
         self.is_job_running = False
+        # Flet runs click handlers in separate threads, so two clicks could both find no job running (see "try_to_start_job").
+        self.job_lock = threading.Lock()
+        self.running_job_name = ""
         self.is_narrow = self.get_is_narrow()
         # The tab in the app bar that's focused with the keyboard (None when the focus is somewhere else).
         self.focused_tab = None
         self.app_bar_slot = None
         self.view_slot = None
+        # Holds everything on the page, at "get_content_width" (see "update_content_width").
+        self.content_container = None
         self.terminal_output = TerminalOutput(self.page)
         # From here on, everything printed (including errors and progress bars) also shows up in the app's terminal and the log file. This matters most when the app wasn't opened from a terminal.
         show_all_output_in_app(self.terminal_output.terminal_output_list_view)
@@ -91,10 +105,13 @@ class GUI:
     def get_start_tab(self):
         # The tab picked in Settings. Panel-By-Panel if it isn't one of the tabs (e.g. a tab that was renamed).
         start_tab = self.page.client_storage.get("start_tab")
+        # The Download tab's old name, saved before it was renamed.
+        if start_tab == "MangaDex Downloader":
+            return "Download"
         return start_tab if start_tab in TAB_NAMES else "Panel-By-Panel"
 
     def get_is_narrow(self):
-        return (self.page.width or DEFAULT_WINDOW_WIDTH) < NARROW_WINDOW_WIDTH
+        return (self.window_width or DEFAULT_WINDOW_WIDTH) < NARROW_WINDOW_WIDTH
 
     def set_views_narrow(self):
         # The tabs with settings on their right. (Pipeline and Settings are one column, so they already fit.)
@@ -106,7 +123,58 @@ class GUI:
         ]:
             view.set_narrow(self.is_narrow)
 
+    def update_content_width(self):
+        if not self.content_container:
+            return
+
+        window_width = self.window_width or DEFAULT_WINDOW_WIDTH
+        content_width = get_content_width(window_width)
+        if self.content_container.width != content_width:
+            self.content_container.width = content_width
+            self.content_container.update()
+
+        # With margin on both sides, the terminal gets side borders too.
+        self.terminal_output.set_side_borders(window_width > MAX_CONTENT_WIDTH)
+
+    def try_to_start_job(self, job_name):
+        """
+        Start "job_name" if no other job is running (only one runs at a time), and say so if one is. Checked and claimed in one go, so a double-click (or a click and Enter) can't start two. Returns whether it started.
+        """
+        with self.job_lock:
+            if self.is_job_running:
+                already_running = True
+            else:
+                already_running = False
+                self.is_job_running = True
+        if already_running:
+            self.terminal_output.update_terminal_with_error_message(
+                "ERROR: Another job is still running. Please wait for it to finish."
+            )
+            return False
+        self.set_job_running(True, job_name)
+        return True
+
+    def set_job_running(self, running, job_name=""):
+        """
+        Only one job runs at a time. While one runs, the other tabs are faded and can't be opened (with a hint saying which job they're waiting for), so nothing can start another job or change a setting the job is using.
+        """
+        self.is_job_running = running
+        self.running_job_name = job_name
+        # The new tabs aren't focused (the old ones are gone without telling).
+        self.focused_tab = None
+        # A new app bar, with the other tabs faded or back to normal.
+        self.app_bar = AppBar(self)
+        self.app_bar_slot.content = self.app_bar
+        try:
+            self.app_bar_slot.update()
+        except Exception:
+            # E.g. the page has closed.
+            pass
+
     def handle_resized(self, e):
+        self.window_width = self.page.width
+        self.update_content_width()
+
         is_narrow = self.get_is_narrow()
         if is_narrow == self.is_narrow:
             return
@@ -184,22 +252,39 @@ class GUI:
         self.app_bar_slot = ft.Container(content=self.app_bar)
         self.view_slot = ft.Container(content=self.view_element, expand=True)
 
-        self.page.add(
-            self.app_bar_slot,
-            ft.Container(
-                content=ft.Column(
-                    controls=[
-                        self.view_slot,
-                        ft.Container(
-                            content=self.terminal_output,
-                            alignment=ft.alignment.bottom_left,
+        self.content_container = ft.Container(
+            content=ft.Column(
+                controls=[
+                    self.app_bar_slot,
+                    ft.Container(
+                        content=ft.Column(
+                            controls=[
+                                self.view_slot,
+                                ft.Container(
+                                    content=self.terminal_output,
+                                    alignment=ft.alignment.bottom_left,
+                                ),
+                            ],
+                            expand=True,
                         ),
-                    ],
-                    expand=True,
-                ),
+                        expand=True,
+                    ),
+                ],
                 expand=True,
+                spacing=self.page.spacing,
             ),
+            width=get_content_width(self.window_width or DEFAULT_WINDOW_WIDTH),
         )
+        # Centered, and as tall as the window.
+        self.page.add(
+            ft.Row(
+                controls=[self.content_container],
+                alignment=ft.MainAxisAlignment.CENTER,
+                vertical_alignment=ft.CrossAxisAlignment.STRETCH,
+                expand=True,
+            )
+        )
+        self.update_content_width()
 
     def get_view_element(self):
         if self.current_view == "Pipeline":
@@ -207,7 +292,7 @@ class GUI:
             self.PipelineView.refresh_review()
 
         return {
-            "MangaDex Downloader": self.MangaDexDownloaderView,
+            "Download": self.MangaDexDownloaderView,
             "Panel-By-Panel": self.MagiPanelByPanelView,
             "Upscale Images": self.UpscaleImagesView,
             "Images To Video": self.ImagesToVideoView,

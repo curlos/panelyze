@@ -1,4 +1,6 @@
 import json
+import proglog
+from difflib import SequenceMatcher
 import shutil
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -24,6 +26,15 @@ from utils import (
 
 # What Magi found in a folder of images is saved here, next to the transcript. Reading the text is the slowest part of making a video (minutes), so it's never done twice for the same images.
 MAGI_DATA_FILE_NAME = "magi-data.json"
+# A text box this close (in pixels) to its image's edge is cut off: part of the panel next to it (see "is_cut_off").
+CUT_OFF_EDGE = 6
+# How alike a cut-off line and a whole one next door must be to be the same bubble (0 to 1).
+CUT_OFF_MIN_SIMILARITY = 0.6
+# The stages of making a video, shown in the Status view (see "ProgressPanel.get_stages_text"). Magi moves on to the first two itself (see "magi.py").
+FINDING_STAGE = "Finding the text"
+READING_STAGE = "Reading the text"
+VOICE_OVER_STAGE = "Making the voice-over"
+WRITING_STAGE = "Writing the video"
 MAGI_DATA_FILE_VERSION = 1
 
 # If this many voice-over lines in a row fail, something is wrong (like no internet), so the video stops instead of going on without a voice.
@@ -72,6 +83,115 @@ def get_number_setting(flet_page_client_storage, setting_key, default_value):
         return float(flet_page_client_storage.get(setting_key))
     except (TypeError, ValueError):
         return default_value
+
+
+def remove_lines_said_in_the_image_before(text_matrix):
+    """
+    The text of each image without the lines the image before it already has, so the voice doesn't say them twice. A speech bubble on the border of two panels is kept whole in both (or Magi's boxes for two panels overlap), so when the panels' own text is read, it's in both. For the voice and the transcript.
+    """
+    spoken = []
+    previous_lines = set()
+    for lines in text_matrix:
+        spoken.append([line for line in lines if not is_repeated_line(line, previous_lines)])
+        previous_lines = {normalize_line(line) for line in lines}
+    return spoken
+
+
+def normalize_line(line):
+    return " ".join(line.lower().split())
+
+
+def is_repeated_line(line, previous_lines):
+    """
+    Whether "line" is one of "previous_lines" (the image before's lines, see "normalize_line"). Short lines ("No!", "Huh?") are often really said again in the next panel, by someone else, so only lines of 3+ words or 15+ characters count.
+    """
+    return is_long_line(line) and normalize_line(line) in previous_lines
+
+
+def is_long_line(line):
+    # Short lines ("No!", "Huh?") are often really said again, or alike by chance, so they're never skipped.
+    return len(line.split()) >= 3 or len(line) >= 15
+
+
+def get_image_size(image_path):
+    from PIL import Image
+
+    with Image.open(image_path) as image:
+        return image.size
+
+
+def is_cut_off(box, image_size):
+    """
+    Whether a text box touches the edge of its image: part of a bubble that belongs to the panel next to it. A panel's own text is never that close, since panels grow to fit their text with a margin ("TEXT_MARGIN" in "magi.py").
+    """
+    width, height = image_size
+    return box[0] <= CUT_OFF_EDGE or box[1] <= CUT_OFF_EDGE or box[2] >= width - CUT_OFF_EDGE or box[3] >= height - CUT_OFF_EDGE
+
+
+def get_whole_dialogue(image_data, image_size):
+    # The image's dialogue lines that aren't cut off by its edge.
+    return [
+        normalize_line(text)
+        for text, box, is_dialogue in zip(image_data["ocr"], image_data["texts"], image_data["is_essential_text"])
+        if is_dialogue and not is_cut_off(box, image_size)
+    ]
+
+
+def is_whole_elsewhere(text, other_lines):
+    # A cut-off copy is only read partly ("me to think it..." for "come to think of it..."), so it's compared loosely.
+    return any(SequenceMatcher(None, normalize_line(text), line).ratio() >= CUT_OFF_MIN_SIMILARITY for line in other_lines)
+
+
+def mark_repeated_lines_as_not_dialogue(magi_output_data, image_sizes=None):
+    """
+    When Images To Video reads each panel on its own (Magi doesn't see the page), some lines are in two panels. They're marked as not dialogue, like a sound effect, so they're not read, highlighted or written in the transcript twice:
+    - a line repeated from the image before (see "remove_lines_said_in_the_image_before");
+    - with "image_sizes", a line cut off by the image's edge whose whole bubble is in the image before or after (Shachou ch. 8: "me to think it..." on the edge of panel 17, "come to think of it..." whole in panel 18). One that isn't whole anywhere is kept, so every line is still read once.
+    """
+    marked = []
+    previous_lines = set()
+    for image_index, image_data in enumerate(magi_output_data):
+        texts, is_dialogue = image_data["ocr"], list(image_data["is_essential_text"])
+        lines_here = set()
+        if len(texts) == len(is_dialogue):
+            whole_lines_next_door = []
+            if image_sizes and len(image_data["texts"]) == len(texts):
+                for other_index in (image_index - 1, image_index + 1):
+                    if 0 <= other_index < len(magi_output_data):
+                        whole_lines_next_door += get_whole_dialogue(magi_output_data[other_index], image_sizes[other_index])
+            for index, text in enumerate(texts):
+                if not is_dialogue[index]:
+                    continue
+                if (
+                    whole_lines_next_door
+                    and is_long_line(text)
+                    and is_cut_off(image_data["texts"][index], image_sizes[image_index])
+                    and is_whole_elsewhere(text, whole_lines_next_door)
+                ):
+                    # Not "said" here, so its whole copy in the next image isn't taken for a repeat.
+                    is_dialogue[index] = False
+                    continue
+                lines_here.add(normalize_line(text))
+                if is_repeated_line(text, previous_lines):
+                    is_dialogue[index] = False
+        else:
+            # Lists that don't line up: every line counts as dialogue (like "get_essential_text_list_from_magi_data" does).
+            lines_here = {normalize_line(text) for text in texts}
+        marked.append({**image_data, "is_essential_text": is_dialogue})
+        previous_lines = lines_here
+    return marked
+
+
+class VideoWritingProgress(proglog.ProgressBarLogger):
+    """
+    Shows MoviePy's progress while it writes the video: "120 of 600 frames · Writing the video file".
+    """
+
+    def bars_callback(self, bar, attr, value, old_value=None):
+        # "total" is sent first (it would show the bar full for a moment), then each frame's "index".
+        if bar == "frame_index" and attr == "index":
+            total = self.bars[bar].get("total")
+            report_progress(pages_done=value, pages_total=total, unit="frames", detail="Writing the video file")
 
 
 class VideoCreatorFromImages:
@@ -175,12 +295,27 @@ class VideoCreatorFromImages:
 
         images = list_images(image_folder)
 
+        # Only the stages this video needs (the text is only read for a voice, a reading speed or highlighting).
+        text_is_needed = self.use_text_to_speech_azure or self.use_reading_speed_wpm or self.highlight_text_boxes_in_images
+        stages = [
+            # When the text was already read (e.g. by Panel-By-Panel in a Pipeline), these two are ticked right away.
+            *([FINDING_STAGE, READING_STAGE] if text_is_needed else []),
+            *([VOICE_OVER_STAGE] if self.use_text_to_speech_azure else []),
+            WRITING_STAGE,
+        ]
+        report_progress(stages=tuple(stages), stage=stages[0])
         report_progress(detail="Reading the text in the images...")
         (essential_text_in_images_matrix, magi_output_data) = (
             self.get_essential_text_and_magi_data(
                 image_folder, full_output_directory, image_count=len(images)
             )
         )
+        # A bubble in two panels (repeated, or cut off by one panel's edge) is only read, highlighted and written in the transcript once.
+        if magi_output_data and len(magi_output_data) == len(images):
+            image_sizes = [get_image_size(image) for image in images]
+            magi_output_data = mark_repeated_lines_as_not_dialogue(magi_output_data, image_sizes)
+            essential_text_in_images_matrix = self.speech_text_parser.get_essential_text_list_from_magi_data(magi_output_data)
+            self.save_essential_text_to_transcript(essential_text_in_images_matrix, full_output_directory)
 
         if images_with_highlighted_text_boxes_folder and os.path.exists(
             images_with_highlighted_text_boxes_folder
@@ -256,9 +391,16 @@ class VideoCreatorFromImages:
             video_extension, VIDEO_CODECS_BY_EXTENSION["mp4"]
         )
         report_progress(
-            pages_done=None, pages_total=None, detail="Writing the video file..."
+            stage=WRITING_STAGE, pages_done=None, pages_total=None, detail="Writing the video file..."
         )
-        video.write_videofile(output_file, fps=fps, **codecs)
+        video.write_videofile(
+            output_file,
+            fps=fps,
+            temp_audiofile_path=os.path.dirname(output_file),
+            # Hundreds of frames a second would mean as many updates of the window.
+            logger=VideoWritingProgress(min_time_interval=0.25),
+            **codecs,
+        )
 
         if (
             self.highlight_text_boxes_in_images
@@ -299,7 +441,12 @@ class VideoCreatorFromImages:
 
         # Every voice-over file to make, as (text lines, audio file), in the order they're shown: one for each line when highlighting, otherwise one for each image. "None" is an image without text.
         voice_overs = []
-        for image_path, panel_text_arr in zip(images, essential_text_in_images_matrix):
+        spoken_text_matrix = (
+            essential_text_in_images_matrix
+            if self.highlight_text_boxes_in_images
+            else remove_lines_said_in_the_image_before(essential_text_in_images_matrix)
+        )
+        for image_path, panel_text_arr in zip(images, spoken_text_matrix):
             base_name, _ = os.path.splitext(os.path.basename(image_path))
 
             if not panel_text_arr:
@@ -317,7 +464,12 @@ class VideoCreatorFromImages:
         voice_overs_to_make = [voice_over for voice_over in voice_overs if voice_over]
         voice_overs_made = 0
         report_progress(
-            pages_done=0, pages_total=len(voice_overs_to_make), detail="Making the voice-over"
+            stage=VOICE_OVER_STAGE,
+            pages_done=0,
+            pages_total=len(voice_overs_to_make),
+            # One voice-over for each text box when they're highlighted, otherwise one for each image.
+            unit="text boxes" if self.highlight_text_boxes_in_images else "images",
+            detail="Making the voice-over",
         )
 
         voice_over_stopped = threading.Event()
@@ -341,7 +493,7 @@ class VideoCreatorFromImages:
         with ThreadPoolExecutor(max_workers=VOICE_OVERS_AT_ONCE) as executor:
             list(executor.map(make_voice_over, voice_overs_to_make))
 
-        # No audio file is made for an image without text, or for text that can't be said out loud, so it's shown for 1 second.
+        # No audio file is made for an image without text (or whose lines were all said in the image before), or for text that can't be said out loud, so it's shown for 1 second.
         return [
             get_audio_duration(voice_over[1])
             if voice_over and os.path.exists(voice_over[1])
@@ -622,9 +774,9 @@ class VideoCreatorFromImages:
         # Ensure the directory exists
         os.makedirs(full_output_directory, exist_ok=True)
 
-        # Save each sentence on a new line with a separator between arrays
+        # Save each sentence on a new line with a separator between arrays. A bubble that's in two overlapping panels is only written once, like the voice only says it once.
         with open(f"{full_output_directory}/transcript.txt", "w") as file:
-            for image_text_arr in essential_text_in_images_matrix:
+            for image_text_arr in remove_lines_said_in_the_image_before(essential_text_in_images_matrix):
                 if image_text_arr:  # Non-empty array
                     for sentence in image_text_arr:
                         file.write(sentence + "\n")

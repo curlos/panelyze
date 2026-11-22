@@ -54,7 +54,7 @@ Yes, all of it is running existing features on new chapters.
 ## 6. Steps
 
 - [ ] A: download + run, make the spreads sheet, show the user.
-- [ ] B: find a downloadable Western comic, run, check the order.
+- [x] B: find a downloadable Western comic, run, check the order. Done in #17 (2026-11-20): Absolute Batman preview, Pepper&Carrot, Pirates Comics, all in the right order. See `benchmarks/panel-cropping.md` Step 10.
 - [ ] C: one more Bocchi chapter + another 4-koma.
 - [ ] D: time fast and Best upscaling on Eleceed ch. 2.
 - [ ] E: time the video text reading on Eleceed ch. 2.

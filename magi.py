@@ -10,6 +10,8 @@ import numpy
 from utils import (
     PANEL_TEXT_FILE_NAME,
     READING_DIRECTION_FILE_NAME,
+    get_panels_folder,
+    remove_old_panels,
     get_relative_output_path,
     list_images,
     paths_overlap,
@@ -924,8 +926,9 @@ class Magi:
 
         # Set to "no_grad()" so that there's inference without tracking gradients. Basically, this saves memory and computational resources by turning off gradient tracking.
         with torch.no_grad():
+            # "stage" moves Images To Video's stages line on (see "VideoCreatorFromImages.create_video_from_images").
             report_progress(
-                pages_done=0, pages_total=len(chapter_pages), unit="images", detail="Finding the text"
+                stage="Finding the text", pages_done=0, pages_total=len(chapter_pages), unit="images", detail="Finding the text"
             )
             for batch_start in tqdm(range(0, len(chapter_pages), FIND_TEXT_BATCH_SIZE)):
                 per_page_results += model.predict_detections_and_associations(
@@ -965,7 +968,8 @@ class Magi:
             for box in boxes
         ]
         text_on_each_page = [[] for _ in chapter_pages]
-        report_progress(pages_done=0, pages_total=len(lines), unit="lines", detail="Reading the text")
+        # Each is one text box (a speech bubble or a caption), not a line of words.
+        report_progress(stage="Reading the text", pages_done=0, pages_total=len(lines), unit="text boxes", detail="Reading the text")
 
         with tqdm(total=len(lines)) as progress_bar:
             for part_start in range(0, len(lines), READ_TEXT_BATCH_SIZE):
@@ -1125,21 +1129,16 @@ class Magi:
 
         per_page_results = remove_junk_panels(per_page_results, chapter_pages_image_numpy_array)
 
-        grouped_by_page_dir = f"{output_directory}/panel-by-panel/grouped-by-page/{series_and_chapter_name_directory}"
-        not_grouped_by_page_dir = f"{output_directory}/panel-by-panel/not-grouped-by-page/{series_and_chapter_name_directory}"
-        panels_output_dir = grouped_by_page_dir if group_by_page else not_grouped_by_page_dir
+        panels_output_dir = get_panels_folder(output_directory, series_and_chapter_name_directory, group_by_page)
 
         # Remove this chapter's panels from any previous run first. Otherwise, if this run finds fewer panels or pages, the old leftover panels would get mixed in with the new ones.
-        # Never delete a folder that holds the images being processed (e.g. when re-running Magi on its own previous output).
-        if os.path.exists(panels_output_dir) and not (
-            chapter_input_directory
-            and paths_overlap(panels_output_dir, chapter_input_directory)
-        ):
-            shutil.rmtree(panels_output_dir)
+        # Never in a folder that holds the images being processed (e.g. when re-running Magi on its own previous output).
+        if not (chapter_input_directory and paths_overlap(panels_output_dir, chapter_input_directory)):
+            remove_old_panels(panels_output_dir)
 
         # Only the chosen version is saved. Not grouped panels are first saved page by page in a temporary folder, so they can be numbered in reading order across the whole chapter.
         pages_dir = (
-            grouped_by_page_dir if group_by_page else tempfile.mkdtemp(prefix="panelyze-")
+            panels_output_dir if group_by_page else tempfile.mkdtemp(prefix="panelyze-")
         )
 
         try:
@@ -1153,7 +1152,7 @@ class Magi:
                 )
 
             if not group_by_page:
-                copy_panels_to_one_level_directory(pages_dir, not_grouped_by_page_dir)
+                copy_panels_to_one_level_directory(pages_dir, panels_output_dir)
 
             # A direction saved by the MangaDex download goes along with the panels, so Images To Video (on "Automatic") reads their text in the same order.
             if is_automatic and not nothing_saved:
@@ -1169,7 +1168,7 @@ class Magi:
             self.save_panel_text(
                 chapter_pages_image_numpy_array,
                 per_page_results,
-                not_grouped_by_page_dir,
+                panels_output_dir,
                 reading_direction,
             )
 

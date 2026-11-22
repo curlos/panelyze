@@ -89,6 +89,12 @@ mkdir -p "$PACK_DIR"
         "--pyinstaller-build-args=--workpath=$PACK_DIR/work" \
         "--pyinstaller-build-args=--specpath=$PACK_DIR" \
         "--pyinstaller-build-args=--paths=$REPO_DIR" \
+        "--pyinstaller-build-args=--paths=$REPO_DIR/comix_downloader" \
+        --pyinstaller-build-args=--collect-submodules=src \
+        --pyinstaller-build-args=--collect-all=nodriver \
+        --pyinstaller-build-args=--collect-all=pypdfium2 \
+        --pyinstaller-build-args=--collect-all=pypdfium2_raw \
+        --pyinstaller-build-args=--collect-data=spellchecker \
         --pyinstaller-build-args=--collect-all=transformers \
         --pyinstaller-build-args=--collect-all=timm \
         --pyinstaller-build-args=--collect-all=pulp \

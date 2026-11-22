@@ -27,11 +27,14 @@ RED_BUTTON = "#b25d66"
 YELLOW = "#ebcb8b"
 GREEN = "#a3be8c"
 
+# Folder and file paths ("Save to: /Users/..."), everywhere in the app, so where things go stands out from the text around them.
+PATH = TEAL
+
 # Buttons have square corners, like the panels in a manga page.
 SQUARE = ft.RoundedRectangleBorder(radius=0)
 
 BUTTON_COLORS = {
-    # The button that starts the tab's job (Submit, Download, Run Pipeline).
+    # The button that starts the tab's job (Split Into Panels, Upscale, Create Video, Download, Run Pipeline).
     "primary": (ACCENT, BACKGROUND),
     "secondary": (SURFACE_HIGH, TEXT),
     # Buttons that stop or undo something (Cancel, Reset All Settings).
@@ -91,7 +94,13 @@ def get_theme():
         ),
         # The background of open dropdown menus (otherwise Flet's near-black).
         canvas_color=SURFACE_HIGH,
-        checkbox_theme=ft.CheckboxTheme(shape=SQUARE),
+        # No lighter box behind a dropdown (and the grey line under it) while it has the focus after a choice is picked. Dropdowns ignore their own "focus_color".
+        focus_color=ft.Colors.TRANSPARENT,
+        checkbox_theme=ft.CheckboxTheme(
+            shape=SQUARE,
+            # Its own focus color, since the theme's is turned off above (for the dropdowns).
+            overlay_color={ft.ControlState.FOCUSED: ft.Colors.with_opacity(0.24, ACCENT)},
+        ),
         tooltip_theme=ft.TooltipTheme(
             decoration=ft.BoxDecoration(bgcolor=SURFACE_HIGH),
             text_style=ft.TextStyle(color=TEXT_BRIGHT),

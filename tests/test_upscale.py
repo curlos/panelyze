@@ -142,7 +142,26 @@ def test_the_upscaled_chapter_is_also_saved_as_a_comic_file_when_turned_on(make_
     output = run_upscale(gui, tmp_path, [(100, 80), (60, 90)])
 
     with zipfile.ZipFile(f"{output}.cbz") as cbz:
-        assert cbz.namelist() == ["0001.png", "0002.png"]
+        assert cbz.namelist() == ["0001.png", "0002.png", "ComicInfo.xml"]
+        # They're panels, so they're shown one at a time like Panel-By-Panel's comic files.
+        assert cbz.read("ComicInfo.xml").decode().count('DoublePage="true"') == 2
+
+
+def test_upscaled_pages_are_not_marked_as_one_image_at_a_time(make_gui, tmp_path, monkeypatch):
+    import zipfile
+
+    make_fake_waifu2x(monkeypatch, [])
+    gui = make_gui()
+    gui.page.client_storage.set("save_as_cbz", "full")
+    chapter = tmp_path / "pages" / "Ch 1"
+    chapter.mkdir(parents=True)
+    Image.new("RGB", (60, 90), "white").save(chapter / "001.png")
+
+    gui.UpscaleImagesView.process_image_folder(str(chapter), [{"name": "001.png"}], str(tmp_path / "pages"), str(tmp_path / "upscaled"))
+
+    with zipfile.ZipFile(tmp_path / "upscaled" / "pages" / "Ch 1.cbz") as cbz:
+        # Pages can still be shown two at a time, like a book. Nothing else to say, so no ComicInfo.xml.
+        assert cbz.namelist() == ["0001.png"]
 
 
 def test_an_image_is_copied_when_a_hard_link_cant_be_made(tmp_path, monkeypatch):

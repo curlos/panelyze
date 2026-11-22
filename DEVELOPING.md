@@ -14,7 +14,7 @@ Tested on macOS with Python 3.12.
 | `dev` | Start the app and restart it every time a file is saved |
 | `test` | The fast tests (a few seconds) |
 | `test:all` | The fast tests plus the end-to-end tests with the real tools |
-| `self-test` | Check that Magi, waifu2x, video, MangaDex Downloader and text-to-speech work, without opening the window |
+| `self-test` | Check that Magi, waifu2x, video, MangaDex Downloader, text-to-speech, opening comic files (.pdf, .cbz) and the comix.to downloader work, without opening the window |
 | `build-mac-app` | Build the downloadable `Panelyze.app` and its zip |
 
 They use the project's `venv`, so set it up first (below).
@@ -47,7 +47,7 @@ echo 'export PATH=$PATH:~/Downloads/waifu2x-ncnn-vulkan' >> ~/.zshrc
 - `python gui.py` (with the venv activated).
 - `flet run -r gui.py` restarts the app every time a file in the repo is saved.
 - `flet run --web --port 8577 gui.py` opens the app in your web browser instead of a window. Handy for checking how it looks, including at phone sizes (make the browser window narrow). Its settings are separate from the window's.
-- `python gui.py --self-test` checks that Magi, waifu2x, video, MangaDex Downloader and text-to-speech all work, without opening the window.
+- `python gui.py --self-test` checks that Magi, waifu2x, video, MangaDex Downloader, text-to-speech, opening comic files (.pdf, .cbz) and the comix.to downloader all work, without opening the window.
 
 ## Tests
 
@@ -68,10 +68,10 @@ It bundles everything (including waifu2x and the panels-only Magi model) into `d
 
 ## How it works
 
-- **Output folders** keep the same structure as the input folder. For example, picking `One Piece` as the input gives `<output>/panel-by-panel/not-grouped-by-page/One Piece/<chapter>/panel_1.png, panel_2.png, ...`. With "Group panels by page" checked, it saves `<output>/panel-by-panel/grouped-by-page/One Piece/<chapter>/page_1/panel_1.png, ...` instead (only one of the two is made).
+- **Output folders** keep the same structure as the input folder. For example, picking `One Piece` as the input gives `<output>/One Piece/<chapter>/panel_1.png, panel_2.png, ...` (`get_panels_folder` in `utils.py`). With "Group panels by page" checked, it saves `<output>/One Piece (grouped by page)/<chapter>/page_1/panel_1.png, ...` instead, so the two never mix (the next tab reads `<output>/One Piece`). A new run deletes only the chapter's old panels, page folders and `panel-text.json` (`remove_old_panels`), never other files in that folder.
 - **Default output folders:** every tool saves to its own folder in the Panelyze folder (`panelyze_folder` setting, `~/Documents/Panelyze` by default, changed in Settings) unless the user picks another one for that tool, which is remembered in the `output_directory_*` settings (empty means the default). `get_output_directory` in `default_settings.py` works out the folder. **Run from source** (the repo has a `.git`), the Panelyze folder is `~/Documents/Panelyze/<repo folder>` instead, e.g. `.../Panelyze/panelyze-main` or `.../Panelyze/17-second-downloader` for a spec's worktree (`get_dev_output_folder`), so development never mixes with the packaged app's folders. The `panelyze_folder` setting and folders picked for one tool are ignored there, and the buttons to pick output folders are hidden (`can_pick_output_folders`): picked folders are saved in settings that every run shares, so a pick made while developing would send other runs' files to the wrong place. When a job finishes, the next tab's input folder is filled in with the result (`JobView.fill_in_next_tab_input`), unless the user picked a folder there themselves.
-- **Downloads** go to `<output>/<manga title>/Vol. 1 Ch. 3 - <chapter title>/`. The downloader is given its own placeholders for this (`download_from_mangadex.py`), because passing it a plain folder drops the manga folder, and its "use chapter title" option doesn't change these folder names for the raw format. A chapter without a title gets no trailing dash.
-- **Pipeline:** each step saves to its own numbered folder (`1-mangadex-download`, `2-panel-by-panel`, ...) inside the output folder, and the pipeline stops if a step fails or saves no images.
+- **Downloads** go to `<output>/<manga title>/Vol. 1 Ch. 3 - <chapter title>/`. The downloader is given its own placeholders for this (`download_from_mangadex.py`), because passing it a plain folder drops the manga folder, and its "use chapter title" option doesn't change these folder names for the raw format. A chapter without a title keeps the downloader's folder name, `Vol. 1 Ch. 3 - ` (the downloader finds its pages by it); only the result line drops the dash. Pages keep the downloader's names, from `00.jpg`.
+- **Pipeline:** each step saves to its own numbered folder (`1-download`, `2-panel-by-panel`, ...) inside the output folder, and the pipeline stops if a step fails or saves no images.
 - **Terminal Output** shows everything the app prints (progress, errors, tool output) and also saves it to `~/Library/Logs/Panelyze/panelyze.log`.
 
 ## Magi models

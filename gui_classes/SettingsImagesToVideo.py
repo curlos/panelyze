@@ -42,14 +42,17 @@ class SettingsImagesToVideo(
         self.video_aspect_ratio_dropdown = DropdownTextOptions(
             label="Video Shape",
             options=[
-                ft.dropdown.Option(key="16:9", text="16:9 Landscape (YouTube)"),
-                ft.dropdown.Option(
-                    key="9:16", text="9:16 Vertical (TikTok, Shorts, Reels)"
-                ),
+                ft.dropdown.Option(key="16:9", text="16:9 Landscape"),
+                ft.dropdown.Option(key="9:16", text="9:16 Vertical"),
                 ft.dropdown.Option(key="1:1", text="1:1 Square"),
             ],
             value=self.get_setting_value("video_aspect_ratio"),
             on_change=lambda e: self.change_setting("video_aspect_ratio", e.data),
+            descriptions={
+                "16:9": "For YouTube.",
+                "9:16": "For TikTok, Shorts and Reels.",
+                "1:1": "",
+            },
         )
 
         self.video_extensions_dropdown = DropdownTextOptions(

@@ -22,14 +22,18 @@ from PIL import Image
 
 
 class UpscaleImagesView(JobView):
+    submit_text = "Upscale"
     loading_text = "Upscaling images..."
     finished_text = "Upscaling finished!"
     failed_text = "Upscaling failed."
     next_view_name = "ImagesToVideoView"
+    open_output_directory_when_finished = True
     # Any images can be upscaled, not just manga pages.
     group_label = "Folder"
 
     def __init__(self, parent_gui):
+        self.process_manager = None
+        self.janai_is_running = False
         super().__init__(
             parent_gui,
             settings_container=SettingsUpscaleImages(parent_gui.page),
@@ -40,11 +44,24 @@ class UpscaleImagesView(JobView):
         return os.path.join(output_directory, get_last_directory(input_directory))
 
     def before_job(self):
+        # An earlier run may have stopped in the middle of MangaJaNai.
+        self.janai_is_running = False
         # Without this check, a missing waifu2x binary would make the button silently do nothing.
         if not get_waifu2x_path():
             raise RuntimeError(
                 '"waifu2x-ncnn-vulkan" was not found. Download it from https://github.com/nihui/waifu2x-ncnn-vulkan/releases and add its folder to your PATH (see the README).'
             )
+
+    def get_cancel_message(self):
+        # MangaJaNai runs inside the app, so it can only stop between images. waifu2x is a program of its own and is stopped at once.
+        if self.janai_is_running:
+            return "Cancelling after the image being upscaled (MangaJaNai can't stop in the middle of one)..."
+        return "Stopping waifu2x..."
+
+    def cancel_job(self):
+        # waifu2x is a program of its own, so it's stopped right away.
+        if self.process_manager:
+            self.process_manager.cancel_process()
 
     def process_image_folder(self, image_folder, images, input_directory, output_directory):
         series_and_chapter_name_directory = get_relative_output_path(
@@ -187,7 +204,14 @@ class UpscaleImagesView(JobView):
 
         comic_file_size = self.parent_gui.page.client_storage.get("save_as_cbz")
         if comic_file_size:
-            save_folder_as_cbz(full_image_output_directory, size=comic_file_size)
+            # Panels from Panel-By-Panel (named "panel_1.png", ...) are shown one at a time, like Panel-By-Panel's own comic files.
+            save_folder_as_cbz(
+                full_image_output_directory,
+                size=comic_file_size,
+                # A direction picked in the app, or (on "Automatic") the one saved next to the images.
+                reading_direction=self.parent_gui.page.client_storage.get("reading_direction"),
+                one_image_at_a_time=all(image_info["name"].startswith("panel_") for image_info in images),
+            )
 
         print(
             f"Waifu2X: Finished upscaling all images to {output_directory}/{series_and_chapter_name_directory}"
@@ -210,7 +234,7 @@ class UpscaleImagesView(JobView):
 
         waifu2x runs as few times as possible: one for each upscale ratio (usually just one). That's about 2x faster than one run for each image, because waifu2x only starts up and loads its model once.
         """
-        process_manager = ProcessManager()
+        process_manager = self.process_manager = ProcessManager()
         images_done = 0
 
         def count_finished_image(line=" done"):
@@ -225,12 +249,14 @@ class UpscaleImagesView(JobView):
         if upscale_model == "best":
             from janai import upscale_image_with_janai
 
+            self.janai_is_running = True
             for file_name, upscale_ratio in image_upscale_ratios.items():
                 # Images that aren't made bigger (already 4K) are only cleaned up, by waifu2x.
                 if upscale_ratio == 1:
                     continue
 
                 del waifu2x_image_upscale_ratios[file_name]
+                self.raise_if_cancelled()
                 try:
                     upscale_image_with_janai(
                         os.path.join(image_folder, file_name),
@@ -244,6 +270,7 @@ class UpscaleImagesView(JobView):
                     # The image is reported as failed afterwards, and the others still get upscaled.
                     print(f"Couldn't upscale {file_name}: {error}")
                 count_finished_image()
+            self.janai_is_running = False
 
         for upscale_ratio in sorted(set(waifu2x_image_upscale_ratios.values())):
             # waifu2x upscales a whole folder, so the images with this ratio go in a temporary folder of their own. Hard links take no time or space (waifu2x skips symlinks).
@@ -256,6 +283,7 @@ class UpscaleImagesView(JobView):
                             os.path.join(group_folder, file_name),
                         )
 
+                self.raise_if_cancelled()
                 upscale_with_waifu2x(
                     input_image=group_folder,
                     output_image=output_folder,
@@ -267,6 +295,8 @@ class UpscaleImagesView(JobView):
                     model=get_waifu2x_model(upscale_model, upscale_ratio),
                     on_line=count_finished_image,
                 )
+                # Cancel stops waifu2x, which then ends like it finished.
+                self.raise_if_cancelled()
             finally:
                 shutil.rmtree(group_folder, ignore_errors=True)
 

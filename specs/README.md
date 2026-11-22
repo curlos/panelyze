@@ -22,7 +22,7 @@ Speed numbers in some specs were measured while other jobs ran on the same Mac, 
 | 14 | [Folder structure](14-folder-structure.md) | Yes | Medium (mechanical) | Medium | `panelyze/` package with core / tools / gui; `gui.py` stays in the root |
 | 15 | [Format, lint, CI](15-format-lint-ci.md) | Yes | Small | High | Ruff + Pyright + pre-commit + GitHub Actions |
 | 16 | [More MangaDex options](16-mangadex-options.md) | Yes | Small | Medium–High | "Chapters" box (`1-5, 7-10`), Volumes box, cover option |
-| 17 | [More sources for pages](17-second-downloader.md) | Yes (import, page URL, Internet Archive), No (piracy sites) | Small–Medium | High | Import .cbz/.zip/.epub/.pdf + "Download pages from a URL" (e.g. DC preview pages), then a public-domain Internet Archive downloader; first test of American, Western and French comics |
+| 17 | [More sources for pages](17-second-downloader.md) | Yes (import, page URL, comix.to, Internet Archive) | Medium | High | Import .cbz/.zip/.epub/.pdf + "Download pages from a URL" (e.g. DC preview pages), then a comix.to downloader (headless browser) and a public-domain Internet Archive downloader; first test of American, Western and French comics |
 | 18 | [Type-check fixes](18-type-check-fixes.md) | Yes | Small–Medium | Medium | 88 real-code errors, about 20 real bugs; about 60 one-line edits |
 | 19 | [Downloadable app on GitHub](19-github-release-app.md) | Yes | Small | High | Rebuild, test, `gh release create` unsigned; CI builds later |
 | 20 | [Optional free NVIDIA GPU](20-optional-nvidia-gpu.md) | Yes | Small | Low–Medium | A Kaggle/Colab notebook that runs Magi on uploaded chapters |

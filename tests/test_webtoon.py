@@ -125,7 +125,7 @@ def test_panel_by_panel_joins_a_webtoon_chapter_and_leaves_the_text_to_the_video
     )
 
     assert pages_seen == [(600, 100, 3)]
-    chapter = tmp_path / "panel-by-panel" / "not-grouped-by-page" / "Series" / "Ch 1"
+    chapter = tmp_path / "Series" / "Ch 1"
     assert sorted(os.listdir(chapter)) == ["panel_1.png", "panel_2.png"]
 
 

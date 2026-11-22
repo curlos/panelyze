@@ -293,7 +293,7 @@ def test_when_the_voice_over_stops_the_waiting_lines_are_not_tried(tmp_path, mon
     images = [str(tmp_path / f"panel_{number}.png") for number in range(1, 41)]
 
     with pytest.raises(RuntimeError, match="No audio was received"):
-        get_durations(video_creator, images, tmp_path, [["line"]] * 40)
+        get_durations(video_creator, images, tmp_path, [[f"line {number}"] for number in range(40)])
 
     assert len(spoken) < 40
 
@@ -335,3 +335,112 @@ def test_highlighting_still_reads_the_panels_because_it_needs_where_the_text_is(
     video_creator.get_essential_text_and_magi_data(str(images), str(tmp_path / "out"), image_count=2)
 
     assert len(runs) == 1
+
+
+def test_writing_the_video_shows_how_many_frames_are_written(monkeypatch):
+    import VideoCreatorFromImages as video_module
+
+    reported = []
+    monkeypatch.setattr(video_module, "report_progress", lambda **fields: reported.append(fields))
+    logger = video_module.VideoWritingProgress()
+
+    # What MoviePy does while it writes the frames.
+    for _ in logger.iter_bar(frame_index=range(3)):
+        pass
+
+    # Counting up from 0, never shown full before the frames are written.
+    assert [fields["pages_done"] for fields in reported] == [0, 1, 2, 3]
+    assert reported[-1] == {"pages_done": 3, "pages_total": 3, "unit": "frames", "detail": "Writing the video file"}
+
+
+def test_a_bubble_in_two_panels_is_only_said_once():
+    from VideoCreatorFromImages import remove_lines_said_in_the_image_before
+
+    text = [
+        ["Stop the print!", "A call will go through to you."],
+        # The same bubble, kept whole in the next panel too.
+        ["A call will go  through to you.", "Got it!"],
+        # Short lines are often really said again, by someone else.
+        ["Got it!", "We made it just in time, huh?"],
+        ["We made it just in time, huh?"],
+        # Not right after it, so it's said again.
+        ["A call will go through to you."],
+    ]
+
+    assert remove_lines_said_in_the_image_before(text) == [
+        ["Stop the print!", "A call will go through to you."],
+        ["Got it!"],
+        ["Got it!", "We made it just in time, huh?"],
+        [],
+        ["A call will go through to you."],
+    ]
+
+
+def test_a_bubble_in_two_panels_is_only_in_the_transcript_once(tmp_path):
+    from VideoCreatorFromImages import VideoCreatorFromImages
+
+    late = "Your report is late!"
+    nonsense = "Don't give me that early morning nonsense!"
+    VideoCreatorFromImages.save_essential_text_to_transcript(None, [[late, nonsense], [nonsense, "No!"], ["No!"]], str(tmp_path))
+
+    # Shachou ch. 3, page 1: Magi's boxes for two panels overlap, so both have the same bubbles. A short line is kept: it's often really said again.
+    assert (tmp_path / "transcript.txt").read_text().split("\n") == [
+        late, nonsense, "------ new image ------",
+        "No!", "------ new image ------",
+        "No!", "------ new image ------",
+        "",
+    ]
+
+
+def test_with_highlighting_a_repeated_bubble_gets_no_frame_and_no_audio():
+    from VideoCreatorFromImages import mark_repeated_lines_as_not_dialogue
+
+    late = "Your report is late!"
+    nonsense = "Don't give me that early morning nonsense!"
+    magi_data = [
+        {"texts": [[0, 0, 1, 1]] * 3, "ocr": [late, nonsense, "CHUN"], "is_essential_text": [True, True, False]},
+        # The next panel has the same two bubbles, a short line, and its own line.
+        {"texts": [[0, 0, 1, 1]] * 4, "ocr": [late, nonsense, "No!", "It's been half a year"], "is_essential_text": [True, True, True, True]},
+    ]
+
+    marked = mark_repeated_lines_as_not_dialogue(magi_data)
+
+    # Marked as not dialogue, like a sound effect: no highlighted frame and no audio for them.
+    assert marked[0]["is_essential_text"] == [True, True, False]
+    assert marked[1]["is_essential_text"] == [False, False, True, True]
+    # Magi's saved results aren't changed.
+    assert magi_data[1]["is_essential_text"] == [True, True, True, True]
+
+
+def test_a_bubble_cut_off_by_a_panel_s_edge_is_only_read_where_it_s_whole():
+    from VideoCreatorFromImages import mark_repeated_lines_as_not_dialogue
+
+    # Shachou to Sake to Hoshi ch. 8, panels 17 and 18 (Magi's real boxes and reading, after a 2x upscale).
+    magi_data = [
+        {"texts": [[3, 90, 147, 325], [200, 900, 260, 980]], "ocr": ["me to think it...", "Hah..."], "is_essential_text": [True, True]},
+        {"texts": [[1370, 85, 1599, 314]], "ocr": ["come to think of it..."], "is_essential_text": [True]},
+    ]
+    sizes = [(434, 1108), (1614, 1116)]
+
+    marked = mark_repeated_lines_as_not_dialogue(magi_data, sizes)
+
+    assert marked[0]["is_essential_text"] == [False, True]
+    assert marked[1]["is_essential_text"] == [True]
+
+    # Cut off, but not whole in a panel next to it: kept, so it's still read once.
+    alone = mark_repeated_lines_as_not_dialogue([magi_data[0]], [sizes[0]])
+    assert alone[0]["is_essential_text"] == [True, True]
+
+    # Read exactly, even though it's cut off: the whole copy next door is still read (not taken for a repeat).
+    exact = [
+        {"texts": [[100, 900, 300, 1108]], "ocr": ["Come to think of it, where is he?"], "is_essential_text": [True]},
+        {"texts": [[100, 100, 300, 300]], "ocr": ["Come to think of it, where is he?"], "is_essential_text": [True]},
+    ]
+    assert [image["is_essential_text"] for image in mark_repeated_lines_as_not_dialogue(exact, [(434, 1108), (434, 1108)])] == [[False], [True]]
+    # The other way around: whole first, cut off in the next image.
+    assert [image["is_essential_text"] for image in mark_repeated_lines_as_not_dialogue(exact[::-1], [(434, 1108), (434, 1108)])] == [[True], [False]]
+    # Not alike enough, or too short: kept.
+    different = [dict(exact[0], ocr=["Where did everyone go today?"]), exact[1]]
+    assert [image["is_essential_text"] for image in mark_repeated_lines_as_not_dialogue(different, [(434, 1108), (434, 1108)])] == [[True], [True]]
+    short = [dict(exact[0], ocr=["No way!"]), dict(exact[1], ocr=["No way..."])]
+    assert [image["is_essential_text"] for image in mark_repeated_lines_as_not_dialogue(short, [(434, 1108), (434, 1108)])] == [[True], [True]]

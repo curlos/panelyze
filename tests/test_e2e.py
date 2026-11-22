@@ -114,7 +114,7 @@ def test_panel_by_panel_splits_real_pages(gui, tmp_path, test_chapter):
     run_submit(gui.MagiPanelByPanelView, test_chapter, tmp_path / "out")
 
     # The cover has no panels, but pages 2 and 3 are story pages.
-    assert image_files(tmp_path / "out" / "panel-by-panel" / "not-grouped-by-page")
+    assert image_files(tmp_path / "out")
 
 
 @needs_waifu2x

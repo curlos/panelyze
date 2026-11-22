@@ -180,7 +180,7 @@ def get_saved_panels_direction(tmp_path):
     """
     The direction saved next to the panels by "find_panels_automatically", or None.
     """
-    saved = tmp_path / "out" / "panel-by-panel" / "not-grouped-by-page" / "Series" / "Ch 1" / READING_DIRECTION_FILE_NAME
+    saved = tmp_path / "out" / "Series" / "Ch 1" / READING_DIRECTION_FILE_NAME
     return saved.read_text() if saved.exists() else None
 
 

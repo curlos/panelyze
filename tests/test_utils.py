@@ -62,9 +62,17 @@ def test_output_dir_would_overwrite_input(tmp_path):
     assert not output_dir_would_overwrite_input(str(series), str(manga / "One Piece 2"))
 
 
+def test_the_panels_folder_is_like_every_other_tab_s_and_grouped_panels_get_a_series_folder_of_their_own():
+    from utils import get_panels_folder
+
+    assert get_panels_folder("/out", "One Piece/Ch 1") == os.path.join("/out", "One Piece", "Ch 1")
+    assert get_panels_folder("/out", "One Piece/Ch 1", group_by_page=True) == os.path.join("/out", "One Piece (grouped by page)", "Ch 1")
+    assert get_panels_folder("/out", "Ch 1/", group_by_page=True) == os.path.join("/out", "Ch 1 (grouped by page)")
+
+
 def test_paths_overlap(tmp_path):
     out = tmp_path / "out"
-    chapter = out / "panel-by-panel" / "not-grouped-by-page" / "Series" / "Ch 1"
+    chapter = out / "Series" / "Ch 1"
     chapter.mkdir(parents=True)
 
     # Re-running Magi on its own output: the folder it would clear IS the input chapter.
@@ -225,6 +233,47 @@ def test_a_folder_is_saved_as_a_comic_file_in_reading_order(tmp_path):
         ]
 
 
+def test_a_panel_comic_file_shows_one_panel_at_a_time_and_reads_right_to_left(tmp_path):
+    import zipfile
+
+    from utils import save_folder_as_cbz
+
+    chapter = tmp_path / "Ch 1"
+    chapter.mkdir()
+    for name in ["panel_1.png", "panel_2.png"]:
+        (chapter / name).write_bytes(b"x")
+
+    with zipfile.ZipFile(save_folder_as_cbz(str(chapter), reading_direction="rtl", one_image_at_a_time=True)) as cbz:
+        assert cbz.namelist() == ["0001.png", "0002.png", "ComicInfo.xml"]
+        comic_info = cbz.read("ComicInfo.xml").decode()
+
+    # Every panel is marked as a two-page spread, so apps in two-page view never put two side by side.
+    assert '<Page Image="0" DoublePage="true"/><Page Image="1" DoublePage="true"/>' in comic_info
+    assert "<Manga>YesAndRightToLeft</Manga>" in comic_info
+
+
+def test_a_comic_file_reads_right_to_left_from_the_saved_reading_direction(tmp_path):
+    import zipfile
+
+    from utils import READING_DIRECTION_FILE_NAME, get_comic_info, save_folder_as_cbz
+
+    manga, comic = tmp_path / "Manga", tmp_path / "Comic"
+    for chapter, direction in [(manga, "rtl"), (comic, "ltr")]:
+        chapter.mkdir()
+        (chapter / "001.jpg").write_bytes(b"x")
+        (chapter / READING_DIRECTION_FILE_NAME).write_text(direction)
+
+    with zipfile.ZipFile(save_folder_as_cbz(str(manga), reading_direction="auto")) as cbz:
+        comic_info = cbz.read("ComicInfo.xml").decode()
+    assert "<Manga>YesAndRightToLeft</Manga>" in comic_info
+    assert "DoublePage" not in comic_info
+    # 4-koma pages turn right to left too.
+    assert "<Manga>YesAndRightToLeft</Manga>" in get_comic_info(1, "4koma", False)
+    # Left to right is what apps do anyway, so there's nothing to tell them.
+    with zipfile.ZipFile(save_folder_as_cbz(str(comic))) as cbz:
+        assert cbz.namelist() == ["0001.jpg"]
+
+
 def test_a_folder_without_images_makes_no_comic_file(tmp_path):
     from utils import save_folder_as_cbz
 
@@ -256,3 +305,227 @@ def test_a_small_comic_file_has_webp_images_sized_for_tablets_and_grayscale_for_
     assert red.tobytes() == green.tobytes() == blue.tobytes()
     # Small images aren't made bigger, and color stays color.
     assert color.size == (500, 400) and color.mode == "RGB"
+
+
+def make_comic_file(path, entries):
+    """
+    A comic file (a zip) with "entries" as {path inside the file: content}.
+    """
+    import zipfile
+
+    with zipfile.ZipFile(path, "w") as comic_file:
+        for entry_name, content in entries.items():
+            comic_file.writestr(entry_name, content)
+    return str(path)
+
+
+def read_pages(folder):
+    return [
+        (file_name, open(os.path.join(folder, file_name), "rb").read())
+        for file_name in sorted(os.listdir(folder))
+    ]
+
+
+def delete_temporary_folder(folder):
+    import shutil
+
+    shutil.rmtree(os.path.dirname(folder))
+
+
+def test_a_cbz_becomes_one_chapter_folder_in_page_order(tmp_path):
+    cbz_path = make_comic_file(
+        tmp_path / "Invincible 001.cbz", {"2.png": b"2", "10.png": b"10", "1.png": b"1"}
+    )
+
+    folder = utils.extract_comic_files_to_folder([cbz_path])
+
+    assert os.path.basename(folder) == "Invincible 001"
+    assert read_pages(folder) == [("001.png", b"1"), ("002.png", b"2"), ("003.png", b"10")]
+    delete_temporary_folder(folder)
+
+
+def test_two_comic_files_make_two_chapter_folders(tmp_path):
+    comics = tmp_path / "Comics"
+    comics.mkdir()
+    first = make_comic_file(comics / "Issue 1.cbz", {"a.jpg": b"a"})
+    second = make_comic_file(comics / "Issue 2.zip", {"b.jpg": b"b"})
+
+    folder = utils.extract_comic_files_to_folder([first, second])
+
+    assert os.path.basename(folder) == "Comics - 2 comic files"
+    assert sorted(os.listdir(folder)) == ["Issue 1", "Issue 2"]
+    assert read_pages(os.path.join(folder, "Issue 2")) == [("001.jpg", b"b")]
+    delete_temporary_folder(folder)
+
+
+def test_a_comic_file_can_not_write_outside_its_folder(tmp_path):
+    cbz_path = make_comic_file(tmp_path / "Evil.cbz", {"../../evil.png": b"evil"})
+
+    folder = utils.extract_comic_files_to_folder([cbz_path])
+
+    assert read_pages(folder) == [("001.png", b"evil")]
+    assert not (tmp_path / "evil.png").exists()
+    assert not os.path.exists(os.path.join(os.path.dirname(os.path.dirname(folder)), "evil.png"))
+    delete_temporary_folder(folder)
+
+
+def test_a_comic_file_keeps_only_its_images(tmp_path):
+    cbz_path = make_comic_file(
+        tmp_path / "Ch 1.cbz",
+        {
+            "ComicInfo.xml": b"<xml/>",
+            "__MACOSX/._1.png": b"metadata",
+            ".DS_Store": b"finder",
+            "pages/1.png": b"1",
+        },
+    )
+
+    folder = utils.extract_comic_files_to_folder([cbz_path])
+
+    assert read_pages(folder) == [("001.png", b"1")]
+    delete_temporary_folder(folder)
+
+
+def test_an_epub_gives_its_images(tmp_path):
+    epub_path = make_comic_file(
+        tmp_path / "Book.epub",
+        {"mimetype": b"application/epub+zip", "OEBPS/images/p1.jpg": b"p1", "OEBPS/p1.xhtml": b"<html/>"},
+    )
+
+    folder = utils.extract_comic_files_to_folder([epub_path])
+
+    assert read_pages(folder) == [("001.jpg", b"p1")]
+    delete_temporary_folder(folder)
+
+
+def test_a_pdf_gives_one_image_per_page(tmp_path):
+    from PIL import Image
+
+    pdf_path = str(tmp_path / "Pepper&Carrot.pdf")
+    pages = [Image.new("RGB", (100, 150), color) for color in ("red", "green", "blue")]
+    pages[0].save(pdf_path, save_all=True, append_images=pages[1:])
+
+    folder = utils.extract_comic_files_to_folder([pdf_path])
+
+    assert sorted(os.listdir(folder)) == ["001.png", "002.png", "003.png"]
+    with Image.open(os.path.join(folder, "002.png")) as page:
+        assert page.convert("RGB").getpixel((page.width // 2, page.height // 2))[1] > 100
+    delete_temporary_folder(folder)
+
+
+def test_only_comic_files_can_be_extracted(tmp_path):
+    with pytest.raises(ValueError, match="Not a comic file"):
+        utils.extract_comic_files_to_folder([str(tmp_path / "page.png")])
+
+
+def test_a_cbr_gives_its_pages_in_order(tmp_path):
+    # Many .cbr files are really zip files, which bsdtar opens too (real RAR files can't be made in a test).
+    cbr_path = make_comic_file(tmp_path / "Pirates.cbr", {"p/10.jpg": b"10", "p/2.jpg": b"2"})
+
+    folder = utils.extract_comic_files_to_folder([cbr_path])
+
+    assert read_pages(folder) == [("001.jpg", b"2"), ("002.jpg", b"10")]
+    delete_temporary_folder(folder)
+
+
+def test_a_cbr_without_bsdtar_gives_a_clear_error(tmp_path, monkeypatch):
+    cbr_path = make_comic_file(tmp_path / "Pirates.cbr", {"1.jpg": b"1"})
+    monkeypatch.setattr(utils.shutil, "which", lambda name: None)
+    monkeypatch.setattr(utils.os.path, "exists", lambda path: False)
+
+    with pytest.raises(RuntimeError, match="need bsdtar"):
+        utils.extract_comic_files_to_folder([cbr_path])
+
+
+def make_chapter_folder(folder, page_count):
+    folder.mkdir(parents=True)
+    for number in range(1, page_count + 1):
+        (folder / f"{number}.png").write_bytes(b"image")
+
+
+def test_a_picked_series_folder_says_how_many_chapters_and_pages_it_has(tmp_path):
+    series = tmp_path / "One Piece"
+    make_chapter_folder(series / "Ch 1", 20)
+    make_chapter_folder(series / "Ch 2", 22)
+
+    assert utils.get_input_summary(str(series)) == "2 chapters · 42 pages"
+
+
+def test_a_single_folder_of_images_only_says_how_many_pages(tmp_path):
+    chapter = tmp_path / "Ch 1"
+    make_chapter_folder(chapter, 1)
+    assert utils.get_input_summary(str(chapter)) == "1 page"
+
+    make_chapter_folder(tmp_path / "Ch 2", 22)
+    assert utils.get_input_summary(str(tmp_path / "Ch 2")) == "22 pages"
+
+
+def test_a_folder_without_images_gives_a_warning(tmp_path):
+    (tmp_path / "Empty").mkdir()
+    (tmp_path / "Empty" / "notes.txt").write_text("hi")
+
+    assert utils.get_input_summary(str(tmp_path / "Empty")) == "No images found in this folder"
+    assert utils.get_input_summary(str(tmp_path / "Gone")) == "No images found in this folder"
+
+
+def test_picked_images_and_comic_files_are_counted(tmp_path):
+    from PIL import Image
+
+    assert utils.get_input_summary(image_paths=["a.png"]) == "1 image"
+    assert utils.get_input_summary(image_paths=["a.png", "b.png", "c.png"]) == "3 images"
+
+    cbz = make_comic_file(tmp_path / "One.cbz", {"1.png": b"1", "2.png": b"2", "ComicInfo.xml": b"x", "__MACOSX/._1.png": b"m"})
+    pages = [Image.new("RGB", (50, 50), "red") for _ in range(3)]
+    pdf = str(tmp_path / "Two.pdf")
+    pages[0].save(pdf, save_all=True, append_images=pages[1:])
+
+    assert utils.get_input_summary(comic_paths=[cbz]) == "1 chapter · 2 pages"
+    assert utils.get_input_summary(comic_paths=[cbz, pdf]) == "2 chapters · 5 pages"
+
+
+def test_a_cbr_is_counted_as_a_chapter_without_its_pages(tmp_path):
+    cbr = make_comic_file(tmp_path / "Old.cbr", {"1.jpg": b"1"})
+    cbz = make_comic_file(tmp_path / "New.cbz", {"1.png": b"1"})
+
+    # A .cbr's pages can't be counted without opening it, so no total is shown.
+    assert utils.get_input_summary(comic_paths=[cbr, cbz]) == "2 chapters"
+
+
+def test_a_cancel_clicked_before_the_job_set_what_it_stops_stops_it_right_away():
+    from types import SimpleNamespace
+
+    # Clicked while it was still starting: the button already says "Cancelling..." and can't be clicked again.
+    cancel_button = SimpleNamespace(on_click=None, disabled=True, text=utils.CANCELLING_TEXT)
+    stopped = []
+
+    utils.set_cancel_click(cancel_button, lambda: stopped.append(True))
+
+    assert stopped == [True]
+
+
+def test_a_program_cancelled_before_it_started_is_stopped_as_soon_as_it_starts():
+    import time
+
+    process_manager = ProcessManager()
+    process_manager.cancel_process()
+    started_at = time.monotonic()
+
+    process_manager.monitor_terminal_output([sys.executable, "-c", "import time; time.sleep(30)"])
+
+    assert process_manager.cancelled and process_manager.process.returncode != 0
+    assert time.monotonic() - started_at < 10
+
+
+def test_a_comic_file_that_cannot_be_opened_leaves_nothing_behind(tmp_path, monkeypatch):
+    import tempfile
+
+    broken = tmp_path / "Broken.cbz"
+    broken.write_bytes(b"not a zip file")
+    made_folders = []
+    real_mkdtemp = tempfile.mkdtemp
+    monkeypatch.setattr(utils.tempfile, "mkdtemp", lambda *args, **kwargs: made_folders.append(real_mkdtemp(*args, **kwargs)) or made_folders[-1])
+
+    with pytest.raises(Exception):
+        utils.extract_comic_files_to_folder([str(broken)])
+
+    assert made_folders and not os.path.exists(made_folders[0])

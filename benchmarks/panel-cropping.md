@@ -221,6 +221,18 @@ With the Reading Direction on **Automatic** (the new default), a MangaDex downlo
 | The Breaker ch. 1 (Korean, page format) | ko, no format tags | `ltr` | `ltr`: each row read from the left | ✅ Used to be read right to left |
 | Shen Yin Wang Zuo ch. 1 (Chinese, page format) | zh, Adaptation | `ltr` | `ltr`: each row read from the left | ✅ Used to be read right to left |
 
+### Step 10: American, Western and French comics (left to right)
+
+The first comics that aren't manga (2026-11-20, spec #17). Each was run through the Pipeline with "Left to right", and the panel order was checked by eye on a run of 20+ panels.
+
+| Comic | Kind | How it got in | Pages | Panels | Time | Order |
+|---|---|---|---|---|---|---|
+| Absolute Batman #1 (DC's official preview) | Modern American, color | Page URL (Comic Book Club article) | 6 (incl. the article's banner) | 22 | 10 s | ✅ Right, including a page of 7 narrow panels with a caption in each |
+| Pepper&Carrot, book 1 (CC-BY) | French webcomic, painted | PDF (82 pages) | 82 | 265 | 62 s | ✅ Right |
+| Pirates Comics #1 (Hillman, 1950, public domain) | Golden Age American, printed color | Internet Archive link (.cbz) | 52 | 264 | 36 s | ✅ Right, including captions over the panel borders |
+
+Western comics have the same kind of panel grids as classic manga, read the other way, so nothing needed changing. The page-URL download also keeps a big article banner as page 1 (it's bigger than the 600 px filter); it's split like any picture.
+
 ## What depends on the art style
 
 | Style | Seen in | What happens | Status |
@@ -232,6 +244,7 @@ With the Reading Direction on **Automatic** (the new default), a MangaDex downlo
 | Action | Chainsaw Man, Gachiakuta, Kingdom | Full-page splash panels (up to 7 per chapter), two-page spreads (small on a phone), overlapping panels (up to 15 pairs) | 🟡 Spreads are hard to read on a phone |
 | Panels inside panels | One Piece, Kingdom | 15–17 overlapping pairs, so some art shows up in two crops | 🟡 Minor |
 | Classic layouts | Dragon Ball, Slam Dunk, Hunter x Hunter, FMA, Vagabond | Everything stays inside the panels | ✅ The limit makes no difference |
+| Western comics (left to right) | Absolute Batman, Pepper&Carrot, Pirates Comics | Same grids as manga, read left to right | ✅ Right order (Step 10) |
 | Text outside every panel | 22 of 6,354 text boxes (0.3%) | Gutter narration and side notes aren't in any crop | 🟢 Rare |
 | Pages with no panels | Horimiya (2 pages) | Skipped. Both were blank pages. | ✅ Correct |
 | Color pages | Dragon Ball, One Piece, Vagabond | Upscaled by the slower color model (IllustrationJaNai) | 🟡 See [Upscaling](upscaling.md) |

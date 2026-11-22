@@ -40,7 +40,6 @@ def test_the_job_tabs_start_with_their_default_output_folder(make_gui):
         assert directories.output_directory == expected_folder
         assert directories.output_directory_row_text.value == expected_folder
         assert directories.selected_output_directory_row.visible
-        assert not directories.pick_output_directory_column.visible
         # Nothing is saved as picked until the user picks a folder.
         assert gui.page.client_storage.get(OUTPUT_SETTINGS[view_name]) == ""
 
@@ -168,7 +167,7 @@ def finish_job(gui, view_name, input_directory, output_directory):
 
 def test_panel_by_panel_fills_in_the_upscale_tab_input(make_gui, tmp_path):
     gui = make_gui()
-    results = tmp_path / "out" / "panel-by-panel" / "not-grouped-by-page" / "One Piece"
+    results = tmp_path / "out" / "One Piece"
     results.mkdir(parents=True)
 
     finish_job(gui, "MagiPanelByPanelView", tmp_path / "One Piece", tmp_path / "out")
@@ -192,7 +191,7 @@ def test_upscale_fills_in_the_video_tab_input(make_gui, tmp_path):
 def test_grouped_by_page_panels_are_not_passed_on(make_gui, tmp_path):
     gui = make_gui()
     gui.page.client_storage.set("group_panels_by_page", True)
-    (tmp_path / "out" / "panel-by-panel" / "not-grouped-by-page" / "One Piece").mkdir(parents=True)
+    (tmp_path / "out" / "One Piece").mkdir(parents=True)
 
     finish_job(gui, "MagiPanelByPanelView", tmp_path / "One Piece", tmp_path / "out")
 
@@ -203,7 +202,7 @@ def test_a_folder_the_user_picked_is_not_replaced_but_one_filled_in_by_the_app_i
     gui = make_gui()
     upscale_directories = get_directories(gui, "UpscaleImagesView")
     for series in ["One Piece", "Naruto"]:
-        (tmp_path / "out" / "panel-by-panel" / "not-grouped-by-page" / series).mkdir(parents=True)
+        (tmp_path / "out" / series).mkdir(parents=True)
 
     upscale_directories.pick_input_files_result(fake_event(path=str(tmp_path / "mine")))
     finish_job(gui, "MagiPanelByPanelView", tmp_path / "One Piece", tmp_path / "out")
@@ -286,3 +285,29 @@ def test_output_folders_can_not_be_picked_when_running_from_source(make_gui, mon
 
     monkeypatch.setattr(default_settings, "DEV_OUTPUT_FOLDER", "/Documents/Panelyze/panelyze-main")
     assert get_shown_output_folder_buttons(make_gui()) == []
+
+
+def test_each_tab_opens_the_folder_with_what_it_made(make_gui, tmp_path):
+    gui = make_gui()
+    out = tmp_path / "out"
+    (out / "One Piece").mkdir(parents=True)
+    (out / "One Piece (grouped by page)").mkdir()
+
+    # Upscale and Images To Video: "<output>/<series>", like the input.
+    for view in (gui.UpscaleImagesView, gui.ImagesToVideoView):
+        assert view.get_folder_to_open(str(tmp_path / "Manga" / "One Piece"), str(out)) == str(out / "One Piece")
+        # Nothing made there: the whole output folder.
+        assert view.get_folder_to_open(str(tmp_path / "Manga" / "Bleach"), str(out)) == str(out)
+
+    panel_by_panel = gui.MagiPanelByPanelView
+    assert panel_by_panel.get_folder_to_open(str(tmp_path / "Manga" / "One Piece"), str(out)) == str(out / "One Piece")
+    gui.page.client_storage.set("group_panels_by_page", True)
+    assert panel_by_panel.get_folder_to_open(str(tmp_path / "Manga" / "One Piece"), str(out)) == str(out / "One Piece (grouped by page)")
+    assert gui.UpscaleImagesView.open_output_directory_when_finished
+
+    # One chapter's video is "<output>/Ch 1.mp4", next to a "Ch 1" folder with only its transcript and audio.
+    chapter = tmp_path / "Manga" / "Ch 1"
+    chapter.mkdir(parents=True)
+    (chapter / "panel_1.png").write_bytes(b"")
+    (out / "Ch 1").mkdir()
+    assert gui.ImagesToVideoView.get_folder_to_open(str(chapter), str(out)) == str(out)

@@ -51,6 +51,9 @@ class FakePage:
         self.window = SimpleNamespace(height=900, width=1400)
         self.height = 900
         self.width = 1400
+        self.web = False
+        # Like a real Flet page: the space between what's added to it.
+        self.spacing = 10
 
     def add(self, *controls):
         # Like a real Flet page: controls put on the screen get linked to the page.

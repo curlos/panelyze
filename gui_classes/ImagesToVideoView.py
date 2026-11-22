@@ -2,13 +2,15 @@ import os
 from gui_classes.JobView import JobView
 from gui_classes.SettingsImagesToVideo import SettingsImagesToVideo
 from VideoCreatorFromImages import VideoCreatorFromImages, VIDEO_CODECS_BY_EXTENSION
-from utils import get_relative_output_path
+from utils import get_relative_output_path, is_image_file
 
 
 class ImagesToVideoView(JobView):
+    submit_text = "Create Video"
     loading_text = "Creating Video..."
     finished_text = "Video has been created!"
     failed_text = "Video creation failed."
+    cancel_message = "Cancelling after the video being made..."
     open_output_directory_when_finished = True
 
     def __init__(self, parent_gui):
@@ -20,6 +22,12 @@ class ImagesToVideoView(JobView):
         self.video_creator_from_images = VideoCreatorFromImages(
             flet_page_client_storage=self.parent_gui.page.client_storage,
         )
+
+    def get_folder_to_open(self, input_directory, output_directory):
+        # One chapter (its images are right in the input folder) is saved as "<output>/Ch 1.mp4". The "Ch 1" folder next to it only has its transcript and audio.
+        if os.path.isdir(input_directory) and any(is_image_file(name) for name in os.listdir(input_directory)):
+            return output_directory
+        return super().get_folder_to_open(input_directory, output_directory)
 
     def before_job(self):
         # Use the latest settings.

@@ -16,7 +16,6 @@ from download_from_mangadex import (
     get_reading_direction_from_mangadex,
     get_tidy_chapter_folder_name,
     save_reading_direction,
-    tidy_chapter_folder_names,
 )
 from utils import READING_DIRECTION_FILE_NAME
 from tests.fake_gui import FakeClientStorage
@@ -42,9 +41,37 @@ def test_chapter_titles_can_be_left_out_of_the_folder_names():
     assert "--filename-chapter" not in options
 
 
+def test_by_default_the_newest_upload_of_each_chapter_is_downloaded():
+    options = get_additional_terminal_options(get_storage())
+
+    assert "--group" not in options
+    assert "--order" not in options
+
+
+def test_a_preferred_group_is_used_when_it_uploaded_the_chapter():
+    group = "https://mangadex.org/group/4f1de6a2-f0c5-4ac5-bce5-02c7dbb67deb/mangaplus"
+    options = get_additional_terminal_options(get_storage(upload_choice="group", preferred_group=f"  {group} "))
+
+    # Another group's upload is used for the chapters that group skipped.
+    assert options[options.index("--group") : options.index("--group") + 4] == [
+        "--group", group, "--group-nomatch-behaviour", "fallback",
+    ]
+
+
+def test_the_first_upload_can_be_used_instead_of_the_newest():
+    options = get_additional_terminal_options(get_storage(upload_choice="first"))
+
+    assert options[options.index("--order") + 1] == "oldest"
+
+
+def test_a_group_link_is_only_used_when_that_choice_is_picked():
+    options = get_additional_terminal_options(get_storage(upload_choice="newest", preferred_group="https://mangadex.org/group/x"))
+
+    assert "--group" not in options
+
 def test_each_manga_gets_its_own_folder_in_the_output_folder():
-    assert get_download_folder("/Users/me/Panelyze/MangaDex Downloads") == os.path.join(
-        "/Users/me/Panelyze/MangaDex Downloads", "{manga.title}"
+    assert get_download_folder("/Users/me/Panelyze/Downloads") == os.path.join(
+        "/Users/me/Panelyze/Downloads", "{manga.title}"
     )
 
 
@@ -59,28 +86,18 @@ def test_a_dash_with_no_title_after_it_is_dropped():
     assert get_tidy_chapter_folder_name("Vol. 1 Ch. 3") == "Vol. 1 Ch. 3"
 
 
-def test_titleless_chapter_folders_are_renamed_and_the_others_are_left_alone(tmp_path):
-    manga = tmp_path / "Some Manga"
-    for name in ["Vol. 1 Ch. 1 - ", "Vol. 1 Ch. 2 - A Title", "Vol. 1 Ch. 3"]:
-        (manga / name).mkdir(parents=True)
+def test_a_chapter_folder_without_a_title_keeps_the_downloader_s_name_but_the_result_line_drops_the_dash(tmp_path):
+    from download_from_mangadex import get_download_summary
 
-    tidy_chapter_folder_names(str(tmp_path))
+    # Renaming it made the next download of the same link miss its pages and download it again (Eleceed ch. 2).
+    chapter = tmp_path / "Eleceed" / "Ch. 2 - "
+    chapter.mkdir(parents=True)
+    (chapter / "00.jpg").write_bytes(b"page")
 
-    assert sorted(os.listdir(manga)) == ["Vol. 1 Ch. 1", "Vol. 1 Ch. 2 - A Title", "Vol. 1 Ch. 3"]
+    summary = get_download_summary(str(tmp_path), {})
 
-
-def test_a_folder_is_not_renamed_over_one_that_already_exists(tmp_path):
-    manga = tmp_path / "Some Manga"
-    (manga / "Vol. 1 Ch. 1 - ").mkdir(parents=True)
-    (manga / "Vol. 1 Ch. 1").mkdir()
-
-    tidy_chapter_folder_names(str(tmp_path))
-
-    assert sorted(os.listdir(manga)) == ["Vol. 1 Ch. 1", "Vol. 1 Ch. 1 - "]
-
-
-def test_tidying_a_missing_output_folder_does_nothing(tmp_path):
-    tidy_chapter_folder_names(str(tmp_path / "missing"))
+    assert summary == "Downloaded Eleceed Ch. 2 · 1 page"
+    assert os.listdir(tmp_path / "Eleceed") == ["Ch. 2 - "]
 
 
 MANGA_ID = "a1c7c817-4e59-43b7-9365-09675a149a6f"
@@ -192,6 +209,7 @@ def test_the_reading_direction_is_saved_only_after_a_finished_download(tmp_path,
 
     class FakeProcessManager:
         process = None
+        cancelled = False
 
         def monitor_terminal_output(self, *args, **kwargs):
             chapter.mkdir(parents=True)
@@ -205,3 +223,109 @@ def test_the_reading_direction_is_saved_only_after_a_finished_download(tmp_path,
     saved_file = chapter / READING_DIRECTION_FILE_NAME
     assert (saved_file.read_text() if saved_file.exists() else None) == saved
     assert bool(asked_urls) == (returncode == 0)
+
+
+def make_chapter(output, series, chapter, page_count):
+    folder = output / series / chapter
+    folder.mkdir(parents=True)
+    for number in range(page_count):
+        (folder / f"{number:02d}.jpg").write_bytes(b"page")
+    (folder / READING_DIRECTION_FILE_NAME).write_text("rtl")
+    return str(folder)
+
+
+def test_a_download_is_summed_up_in_one_line(tmp_path):
+    from download_from_mangadex import get_chapter_folders, get_download_summary
+
+    old = make_chapter(tmp_path, "Other Series", "Ch. 1", 9)
+    before = get_chapter_folders(str(tmp_path))
+    assert old in before
+
+    # Nothing new yet.
+    assert get_download_summary(str(tmp_path), before) is None
+
+    make_chapter(tmp_path, "Slam Dunk", "Vol. 1 Ch. 3 - Blood", 20)
+    assert get_download_summary(str(tmp_path), before) == "Downloaded Slam Dunk Vol. 1 Ch. 3 - Blood · 20 pages"
+
+    make_chapter(tmp_path, "Slam Dunk", "Vol. 1 Ch. 4", 1)
+    # Older downloads aren't counted, and the reading direction file isn't a page.
+    assert get_download_summary(str(tmp_path), before) == "Downloaded Slam Dunk: 2 chapters · 21 pages"
+    assert get_download_summary(str(tmp_path), before, series_name="Slam Dunk!") == "Downloaded Slam Dunk!: 2 chapters · 21 pages"
+
+
+def run_fake_mangadex_download(tmp_path, monkeypatch, returncode=0, cancelled=False, make_chapter_folder=True, lines=()):
+    class FakeProcessManager:
+        process = None
+
+        def __init__(self):
+            self.cancelled = cancelled
+
+        def monitor_terminal_output(self, *args, on_line=None, **kwargs):
+            for line in lines:
+                on_line(line)
+            if make_chapter_folder:
+                make_chapter(tmp_path, "Slam Dunk", "Vol. 1 Ch. 3", 5)
+            self.process = SimpleNamespace(returncode=returncode)
+
+    fake_mangadex_api(monkeypatch, get_manga_attributes("ja"))
+    monkeypatch.setattr(download_from_mangadex, "ProcessManager", FakeProcessManager)
+    return download_from_mangadex.download_from_mangadex(f"https://mangadex.org/title/{MANGA_ID}", str(tmp_path))
+
+
+def test_a_finished_mangadex_download_returns_what_was_downloaded(tmp_path, monkeypatch):
+    assert run_fake_mangadex_download(tmp_path, monkeypatch) == "Downloaded Slam Dunk Vol. 1 Ch. 3 · 5 pages"
+
+
+def test_a_cancelled_mangadex_download_says_so(tmp_path, monkeypatch):
+    from utils import DownloadCancelled
+
+    with pytest.raises(DownloadCancelled):
+        run_fake_mangadex_download(tmp_path, monkeypatch, returncode=-15, cancelled=True)
+
+
+def test_a_mangadex_download_that_got_nothing_is_an_error(tmp_path, monkeypatch):
+    with pytest.raises(RuntimeError, match="couldn't download anything from that link"):
+        run_fake_mangadex_download(tmp_path, monkeypatch, returncode=1, make_chapter_folder=False)
+
+
+def test_a_mangadex_link_that_is_already_downloaded_is_not_an_error(tmp_path, monkeypatch):
+    assert "Nothing new" in run_fake_mangadex_download(tmp_path, monkeypatch, make_chapter_folder=False)
+
+
+def test_a_download_summary_is_a_line_of_text_that_knows_its_folder(tmp_path):
+    from download_from_mangadex import get_chapter_folders, get_download_summary
+
+    before = get_chapter_folders(str(tmp_path))
+    one = make_chapter(tmp_path, "Slam Dunk", "Vol. 1 Ch. 3", 2)
+
+    summary = get_download_summary(str(tmp_path), before)
+    assert summary == "Downloaded Slam Dunk Vol. 1 Ch. 3 · 2 pages"
+    assert summary.folder == one
+
+    make_chapter(tmp_path, "Slam Dunk", "Vol. 1 Ch. 4", 2)
+    # Several chapters: the series' folder.
+    assert get_download_summary(str(tmp_path), before).folder == str(tmp_path / "Slam Dunk")
+
+
+def test_a_mangadex_link_that_is_already_downloaded_still_knows_its_folder(tmp_path, monkeypatch):
+    chapter = tmp_path / "Slam Dunk" / "Vol. 1 Ch. 3 - Goku's Charge"
+    chapter.mkdir(parents=True)
+    # What the downloader prints when everything is already there.
+    series_line = f'[INFO] Download directory is set to "{tmp_path / "Slam Dunk"}"'
+
+    one = run_fake_mangadex_download(tmp_path, monkeypatch, make_chapter_folder=False, lines=[series_line, "[INFO] 'Vol. 1 Ch. 3 - Goku's Charge' is verified. no need to re-download"])
+    several = run_fake_mangadex_download(
+        tmp_path, monkeypatch, make_chapter_folder=False,
+        lines=[series_line, "[INFO] 'Vol. 1 Ch. 3' is verified. no need to re-download", "[INFO] 'Vol. 1 Ch. 4' is verified. no need to re-download"],
+    )
+
+    # One chapter: its folder. Several: the series' folder (opened in Finder by the Download tab).
+    assert one.folder == str(chapter)
+    assert several.folder == str(tmp_path / "Slam Dunk")
+    # A MangaDex list of several series: the folder they're all in.
+    (tmp_path / "Bleach").mkdir()
+    listed = run_fake_mangadex_download(
+        tmp_path, monkeypatch, make_chapter_folder=False,
+        lines=[series_line, "[INFO] 'Vol. 1 Ch. 3' is verified.", f'[INFO] Download directory is set to "{tmp_path / "Bleach"}"'],
+    )
+    assert listed.folder == str(tmp_path)

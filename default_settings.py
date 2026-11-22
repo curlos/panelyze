@@ -27,7 +27,7 @@ def can_pick_output_folders():
 
 # The folder of each tool inside the Panelyze folder, by the setting that holds the output folder picked for that tool.
 OUTPUT_SUBFOLDERS = {
-    "output_directory_mangadex": "MangaDex Downloads",
+    "output_directory_mangadex": "Downloads",
     "output_directory_panel_by_panel": "Panel-By-Panel",
     "output_directory_upscale_images": "Upscaled Images",
     "output_directory_images_to_video": "Videos",
@@ -68,7 +68,7 @@ DEFAULT_SETTINGS = {
         "output_directory_upscale_images": "",
         "output_directory_images_to_video": "",
         "output_directory_pipeline": "",
-        # Also save the panels (Panel-By-Panel) and upscaled images (Upscale) of each chapter as a comic file to read in comic reader apps: "" (don't), "small" (for phones and tablets) or "full".
+        # Also save the downloaded chapters (Download tab), panels (Panel-By-Panel) and upscaled images (Upscale) of each chapter as a comic file to read in comic reader apps: "" (don't), "small" (for phones and tablets) or "full".
         "save_as_cbz": "",
         # The tab that's open when Panelyze starts (one of the tabs at the top, picked in Settings).
         "start_tab": "Panel-By-Panel",
@@ -86,12 +86,20 @@ DEFAULT_SETTINGS = {
         "end_page": "",
         "start_chapter": "",
         "end_chapter": "",
+        # Which upload to take when a chapter was uploaded by several groups: "newest", "first", or "group" (the "preferred_group" link's, or the newest when that group skipped the chapter).
+        "upload_choice": "newest",
+        "preferred_group": "",
+        # A web page: every image is saved, or only the ones whose shorter side is at least this many pixels.
+        "use_web_page_min_size": False,
+        "web_page_min_size": "600",
         # Panel-By-Panel and Images To Video
         "reading_direction": "auto",
         # Panel-By-Panel
         "group_panels_by_page": False,
         "show_full_characters": False,
         "split_tall_panels": True,
+        # A chapter whose panels are already up to date (same pages and settings, see "panels-info.json") is skipped, unless this is on.
+        "split_panels_again": False,
         # Upscale Images
     "use_custom_panel_image_height": False,
     "custom_panel_image_height": "",

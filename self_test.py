@@ -108,12 +108,50 @@ def check_text_to_speech_libraries(work_directory):
     return "edge-tts and Azure Speech load"
 
 
+def check_comic_files(work_directory):
+    import shutil
+    import zipfile
+    from utils import extract_comic_files_to_folder
+
+    pdf_path = os.path.join(work_directory, "comic.pdf")
+    make_test_page(os.path.join(work_directory, "page.png"))
+    Image.open(os.path.join(work_directory, "page.png")).save(pdf_path)
+    cbz_path = os.path.join(work_directory, "comic.cbz")
+    with zipfile.ZipFile(cbz_path, "w") as cbz:
+        cbz.write(os.path.join(work_directory, "page.png"), "page.png")
+
+    # Rendering the PDF loads pypdfium2's native library.
+    folder = extract_comic_files_to_folder([pdf_path, cbz_path])
+    try:
+        pages = sorted(os.listdir(os.path.join(folder, "comic")))
+    finally:
+        shutil.rmtree(os.path.dirname(folder))
+
+    assert pages == ["001.png"], pages
+    return ".pdf and .cbz files open"
+
+
+def check_comix_downloader(work_directory):
+    # Only loads the code (comix.to itself isn't contacted).
+    from download_from_comix import parse_comix_url
+    from src.api.comix import ComixAPI
+    from src.core.downloader import MangaDownloader
+    from src.utils.nodriver_compat import load_nodriver
+
+    assert ComixAPI and MangaDownloader
+    assert load_nodriver().start
+    assert parse_comix_url("https://comix.to/title/w25zn-slam-dunk") == ("w25zn", None)
+    return "comix.to downloader and nodriver load"
+
+
 CHECKS = [
     check_magi_panels,
     check_waifu2x,
     check_video,
     check_mangadex_downloader,
     check_text_to_speech_libraries,
+    check_comic_files,
+    check_comix_downloader,
 ]
 
 

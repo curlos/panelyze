@@ -210,3 +210,32 @@ def test_lines_with_nothing_to_say_are_left_out_of_the_voice_over(tmp_path, monk
     text_to_speech.generate_audio(["!", "?", "..."], str(tmp_path / "b.mp3"))
 
     assert spoken == ["Hello there. Why?!"]
+
+
+def test_words_split_across_lines_of_a_speech_bubble_are_read_as_one_word():
+    from TextToSpeech import join_words_split_across_lines
+
+    # As Magi reads them from the bubbles of a real chapter (Shachou to Sake to Hoshi ch. 8).
+    assert join_words_split_across_lines("The Presi- dential Office") == "The Presidential Office"
+    assert join_words_split_across_lines("So embar-\nrassing!") == "So embarrassing!"
+    # With a capital, only when it makes a real word (as Magi read them in that chapter).
+    assert join_words_split_across_lines("Well, Presi- Dent?") == "Well, President?"
+    assert join_words_split_across_lines("Communica- Tions from the client") == "Communications from the client"
+    assert join_words_split_across_lines("PRESI- DENT") == "PRESIDENT"
+    # Someone cut off, real hyphens (no space after them) and stutters stay.
+    assert join_words_split_across_lines("Wait- Stop! HEY- YOU") == "Wait- Stop! HEY- YOU"
+    assert join_words_split_across_lines("Wait- what?! I want- you to go") == "Wait- what?! I want- you to go"
+    assert join_words_split_across_lines("hard-working chit-chats") == "hard-working chit-chats"
+    assert join_words_split_across_lines("Wh- what? N-NO!") == "Wh- what? N-NO!"
+
+
+def test_the_voice_reads_split_words_as_one_word(monkeypatch, tmp_path):
+    from TextToSpeech import TextToSpeech
+
+    tts = TextToSpeech({})
+    said = []
+    monkeypatch.setattr(tts, "generate_audio_for_text", lambda text, output_file: said.append(text))
+
+    tts.generate_audio(["It's impos- sible!"], str(tmp_path / "line.mp3"))
+
+    assert said == ["It's impossible!"]

@@ -46,7 +46,7 @@ The context of a long working session (Nov 18–19, 2026) on Panelyze, so a new 
 - **GPU:** `get_device()` picks the Mac GPU (mps), then CUDA, then the CPU. `PYTORCH_ENABLE_MPS_FALLBACK=1` is set before torch is imported. On a GPU `RuntimeError`, `run_with_cpu_fallback` moves the model to the CPU and runs again. This applies to both the full and the panels-only model.
 - **Dialogue only:** `find_and_read_dialogue` reads only the `is_essential_text` boxes and puts `""` for the others, so `ocr` stays the same length as `texts`.
 - **Batch sizes:** `FIND_TEXT_BATCH_SIZE = 1`; `READ_TEXT_BATCH_SIZE = 8`. `read_text_in_parts` reads exactly 8 lines per call (a page's lines can be split between calls), so the progress counts lines without slowing down.
-- **Progress:** the Progress tab shows "Finding the text · x of y images" and "Reading the text · x of y lines".
+- **Progress:** the Status tab (called Progress before) shows "Finding the text · x of y images" and "Reading the text · x of y lines".
 - **Page height:** Panel-By-Panel saves each panel's **page height** in the panel PNG (text key `panelyze_page_height`, via `janai.get_page_height_info`).
 
 ### Speed: reading text from pages for the video

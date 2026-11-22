@@ -41,4 +41,6 @@ class ResponsiveColumns(ft.Container):
             self.content = ft.Row(
                 controls=[self.main, ft.Column(controls=[self.settings])],
                 expand=True,
+                # A main part that's shorter than the window stays at the top instead of being centered.
+                vertical_alignment=ft.CrossAxisAlignment.START,
             )

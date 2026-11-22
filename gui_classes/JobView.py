@@ -3,9 +3,9 @@ import traceback
 import flet as ft
 from gui_classes import Nord
 from gui_classes.AppOutput import write_to_log_file_only
-from gui_classes.ProgressPanel import report_progress
+from gui_classes.ProgressPanel import report_output_folder, report_progress
 from gui_classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
-from utils import get_image_folders, get_input_and_output_error, open_directory
+from utils import DownloadCancelled, get_image_folders, get_input_and_output_error, get_last_directory, open_directory
 
 
 class JobView(ft.Container):
@@ -20,8 +20,12 @@ class JobView(ft.Container):
     open_output_directory_when_finished = False
     # What each folder of images is called in the progress panel (e.g. "Chapter 2 of 5").
     group_label = "Chapter"
+    # The text of the button that starts the job: what it does, e.g. "Upscale".
+    submit_text = "Submit"
     # The tab that works on this tab's results next. When this tab finishes, that tab's input folder is filled in with the results (see "get_next_tab_input_directory").
     next_view_name = None
+    # Shown as soon as Cancel is clicked: when the job will really stop.
+    cancel_message = "Cancelling after the chapter being worked on..."
 
     def __init__(self, parent_gui, settings_container, output_setting_key=None):
         super().__init__()
@@ -34,8 +38,28 @@ class JobView(ft.Container):
             parent_gui=parent_gui,
             settings_container=settings_container,
             output_setting_key=output_setting_key,
+            submit_text=self.submit_text,
         )
         self.content = self.pick_input_output_directories_container
+        # Clicking Cancel sets this, and the job stops at its next check ("raise_if_cancelled"). A tab with something running that can be stopped right away overrides "cancel_job".
+        self.cancel_event = self.pick_input_output_directories_container.cancel_event
+        self.pick_input_output_directories_container.on_cancel = self.cancel_job
+        self.pick_input_output_directories_container.get_cancel_message = self.get_cancel_message
+
+    def get_cancel_message(self):
+        return self.cancel_message
+
+    def cancel_job(self):
+        """
+        Called when Cancel is clicked, to stop anything running that doesn't check "cancel_event" itself.
+        """
+
+    def raise_if_cancelled(self):
+        if self.cancel_event.is_set():
+            raise DownloadCancelled("Cancelled. The chapters that finished are kept.")
+
+    def set_locked(self, locked):
+        self.pick_input_output_directories_container.set_locked(locked)
 
     def set_narrow(self, is_narrow):
         self.pick_input_output_directories_container.responsive_columns.set_narrow(is_narrow)
@@ -47,7 +71,14 @@ class JobView(ft.Container):
         self.fill_in_next_tab_input(input_directory, output_directory)
 
         if self.open_output_directory_when_finished:
-            open_directory(output_directory)
+            open_directory(self.get_folder_to_open(input_directory, output_directory))
+
+    def get_folder_to_open(self, input_directory, output_directory):
+        """
+        The folder with what this job made, to open when it's done: "<output>/<series>" (or "<output>/<chapter>" for one chapter), like the input. The whole output folder if it isn't there.
+        """
+        folder = os.path.join(output_directory, get_last_directory(input_directory))
+        return folder if os.path.isdir(folder) else output_directory
 
     def get_next_tab_input_directory(self, input_directory, output_directory):
         """
@@ -84,12 +115,14 @@ class JobView(ft.Container):
             return False
 
         terminal_output.show_loading_text(self.loading_text)
+        report_output_folder(output_directory)
 
         try:
             self.before_job()
             image_folders = list(get_image_folders(input_directory))
 
             for chapter_number, (image_folder, images) in enumerate(image_folders, start=1):
+                self.raise_if_cancelled()
                 report_progress(
                     chapter=chapter_number,
                     chapters=len(image_folders),
@@ -101,15 +134,25 @@ class JobView(ft.Container):
                 self.process_image_folder(
                     image_folder, images, input_directory, output_directory
                 )
+        except DownloadCancelled as cancelled:
+            terminal_output.hide_loading_text(str(cancelled), success=False, cancelled=True)
+            return False
         except Exception as error:
             # The full details go in the log file. The app shows a short message.
             write_to_log_file_only(traceback.format_exc())
-            terminal_output.update_terminal_with_error_message(f"ERROR: {error}")
+            # After the "failed" title, so the error stays under it in the Status view.
             terminal_output.hide_loading_text(self.failed_text, success=False)
+            terminal_output.update_terminal_with_error_message(f"ERROR: {error}")
             return False
 
-        terminal_output.hide_loading_text(self.finished_text)
+        terminal_output.hide_loading_text(self.get_finished_text(len(image_folders)))
         return True
+
+    def get_finished_text(self, chapter_count):
+        """
+        The result line when the job finished, for "chapter_count" folders of images.
+        """
+        return self.finished_text
 
     def before_job(self):
         """

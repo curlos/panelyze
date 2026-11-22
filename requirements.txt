@@ -40,6 +40,15 @@ edge-tts==7.3.1
 azure-cognitiveservices-speech==1.42.0
 python-dotenv==1.0.1
 
+# Import comic files (.pdf pages are rendered to images)
+pypdfium2==5.15.2
+
+# comix.to downloader (see comix_downloader/README.md). It drives the user's own Chrome, Brave or Edge, because comix.to only lets real browsers through.
+nodriver==0.50.3
+
+# The voice joins a word split over two lines of a speech bubble ("Presi- Dent") only if the result is a real English word (see "join_words_split_across_lines").
+pyspellchecker==0.9.1
+
 # Tests
 pytest==9.2.0
 

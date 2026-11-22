@@ -1,3 +1,4 @@
+import re
 import asyncio
 import os
 import time
@@ -65,6 +66,38 @@ _cached_azure_voice_styles = {}
 _cached_locale_voice_mapping = None
 
 
+# A word split across two lines of a speech bubble, like "Presi- dential": letters, a hyphen, a space or line break, then letters. A hyphen with no space after it (like "hard-working") is a real one.
+WORD_SPLIT_ACROSS_LINES = re.compile(r"([^\W\d_]{2,})-\s+([^\W\d_]+)")
+
+
+_english_words = None
+
+
+def is_english_word(word):
+    # The English word list of "pyspellchecker" (about 160,000 words, plurals and other forms included), loaded the first time it's needed.
+    global _english_words
+    if _english_words is None:
+        from spellchecker import SpellChecker
+
+        _english_words = SpellChecker(language="en", distance=1)
+    return word.lower() in _english_words
+
+
+def join_words_split_across_lines(text):
+    """
+    "Presi- dential" becomes "Presidential", so the voice says it as one word. Someone being cut off looks the same ("Wait- what?!", "Wait- Stop!"), so it's only joined if that makes a real English word. A stutter ("Wh- what") stays as it is.
+    """
+    def join(match):
+        first, second = match.groups()
+        if second.lower().startswith(first.lower()):
+            return match.group(0)
+        # "Presi- Dent" doesn't get a capital in the middle, but all-capital text stays in capitals.
+        joined = first + (second.lower() if first[-1].islower() else second)
+        return joined if is_english_word(joined) else match.group(0)
+
+    return WORD_SPLIT_ACROSS_LINES.sub(join, text)
+
+
 def run_async(coroutine):
     """
     edge-tts is async. Run the coroutine in its own thread so this works whether or not an event loop is already running (Flet may have one running).
@@ -123,7 +156,7 @@ class TextToSpeech:
 
         # A line with no letters or digits (like "!" or "...") can't be spoken. The voice service fails on it ("No audio was received"), so it's left out.
         text_list = [
-            text.strip()
+            join_words_split_across_lines(text.strip())
             for text in text_list
             if text and any(character.isalnum() for character in text)
         ]

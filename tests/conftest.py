@@ -25,7 +25,7 @@ def never_open_finder_windows(monkeypatch):
     The app opens a job's output folder in Finder when it finishes. Tests must never do that (it would open a window every time one runs), whichever part of the app starts the job.
     """
     import utils
-    from gui_classes import AppSettingsView, JobView, PipelineView
+    from gui_classes import AppSettingsView, JobView, MangaDexDownloaderView, PipelineView
 
-    for module in (utils, AppSettingsView, JobView, PipelineView):
+    for module in (utils, AppSettingsView, JobView, MangaDexDownloaderView, PipelineView):
         monkeypatch.setattr(module, "open_directory", lambda path: None)

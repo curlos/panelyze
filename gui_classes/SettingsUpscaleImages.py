@@ -1,14 +1,16 @@
 import flet as ft
+from gui_classes.DropdownTextOptions import DropdownTextOptions
 from gui_classes import Nord
 from gui_classes.WrappingCheckbox import WrappingCheckbox
 from gui_classes.SettingsBase import SettingsBase
 
 
 # The upscalers to pick from, as (setting value, what's shown). Measured on a 97-panel chapter on an M1 MacBook.
-UPSCALE_MODELS = {
-    "fast": "Fast: waifu2x (about 30 seconds a chapter)",
-    "better": "Better: waifu2x cunet (cleaner gray shading, about 2x slower)",
-    "best": "Best: MangaJaNai, or IllustrationJaNai for color (best for manga, slower; downloads about 600 MB the first time)",
+UPSCALE_MODELS = {"fast": "Fast", "better": "Better", "best": "Best"}
+UPSCALE_MODEL_DESCRIPTIONS = {
+    "fast": "waifu2x, about 30 seconds a chapter",
+    "better": "waifu2x cunet: cleaner gray shading, about 2x slower",
+    "best": "MangaJaNai, or IllustrationJaNai for color. Best for manga, slower; downloads about 600 MB the first time",
 }
 
 
@@ -48,22 +50,15 @@ class SettingsUpscaleImages(SettingsBase):
 
 
         self.inner_content = [
-            ft.Dropdown(
-                border_radius=0,
+            DropdownTextOptions(
                 label="Upscale Model",
                 options=[
                     ft.dropdown.Option(key=model, text=text)
                     for model, text in UPSCALE_MODELS.items()
                 ],
                 value=self.page.client_storage.get("upscale_model"),
-                text_style=ft.TextStyle(
-                    color=Nord.TEXT,  # Text color of the selected item
-                    size=14,  # Font size
-                ),
-                fill_color=Nord.SURFACE,  # Background color of the dropdown
-                border_color=Nord.BLUE,
-                max_menu_height=300,
                 on_change=lambda e: self.change_setting("upscale_model", e.data),
+                descriptions=UPSCALE_MODEL_DESCRIPTIONS,
             ),
             ft.Dropdown(
                 border_radius=0,

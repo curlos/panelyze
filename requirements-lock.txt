@@ -21,6 +21,7 @@ cookiecutter==2.7.1
 coremltools==8.1
 cycler==0.12.1
 decorator==5.3.1
+deprecated==3.0.1
 dnspython==2.6.1
 edge-tts==7.3.1
 einops==0.8.0
@@ -54,8 +55,10 @@ matplotlib==3.10.0
 mdurl==0.1.2
 moviepy==2.2.1
 mpmath==1.3.0
+mss==10.2.0
 multidict==7.2.1
 networkx==3.4.2
+nodriver==0.50.3
 numpy==2.2.6
 oauthlib==3.3.1
 packaging==26.3
@@ -72,8 +75,10 @@ pydantic-core==2.50.5
 pygments==2.21.0
 pyjwt==2.15.1
 pyparsing==3.3.3
+pypdfium2==5.15.2
 pypng==0.20220715.0
 pysocks==1.7.1
+pyspellchecker==0.9.1
 pytest==9.2.0
 python-dateutil==4.0.0
 python-dotenv==1.0.1
@@ -111,4 +116,5 @@ uvloop==0.23.0
 watchdog==4.0.2
 watchfiles==1.3.0
 websockets==17.4
+wrapt==2.5.2
 yarl==1.25.1
