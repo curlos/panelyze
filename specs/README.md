@@ -1,6 +1,6 @@
 # Specs
 
-One plan per [ROADMAP.md](../ROADMAP.md) item, written in Nov 2026 for future work. Nothing here is built yet. Every spec has the same 9 sections: summary, is it doable, what's already true (roadmap claims checked ✅ / ⚠️), recommended approach, files to change, steps, how to test, size/risks/open questions, sources.
+One plan per [ROADMAP.md](../ROADMAP.md) item, written in Nov 2026 for future work (see [PROGRESS.md](PROGRESS.md) for which are done). Every spec has the same 9 sections: summary, is it doable, what's already true (roadmap claims checked ✅ / ⚠️), recommended approach, files to change, steps, how to test, size/risks/open questions, sources.
 
 Speed numbers in some specs were measured while other jobs ran on the same Mac, so the specs say which ones to re-measure.
 
@@ -37,6 +37,11 @@ Speed numbers in some specs were measured while other jobs ran on the same Mac, 
 | 29 | [Less memory for webtoons](29-webtoon-memory.md) | Yes | Medium | Medium | A "lazy strip" that builds only the part each window or crop needs, instead of one 282,000 px image (3.2 GB peak) |
 | 30 | [Skip first/last images (optional)](30-skip-intro-credit-pages.md) | Yes | Small | Low | Two number settings, 0 by default; no automatic credit detection (not reliable) |
 | 31 | [Test the untested formats](31-format-testing-followups.md) | Yes | Small | Medium | Spreads, Western comics, more 4-koma, webtoon upscaling and video text: measure only |
+| 35 | [Show every speech bubble once, and closer shots](35-panels-without-repeats-and-closer-shots.md) | Probably (A), Yes but experimental (B) | Small–Medium (A), Medium–Large (B) | Medium (A), Low–Medium (B) | Draft, not researched: (A) measure overlapping panels, then give each shared bubble to one panel and trim or merge the other within limits; (B) a camera move to each speaker inside big panels in the video |
+| 36 | [Better text reading](36-better-text-reading.md) | Yes | Medium | Medium–High | Draft, not researched: keep Magi for finding text boxes, read them again with a second OCR (Apple Vision, PaddleOCR, a vision LLM...) and check the words against a dictionary and the sentence |
+| 37 | [Better voices](37-better-voices.md) | Yes, in steps | Medium–Large | High (videos) | Draft, not researched: a voice per character, a narrator for captions, shouting/whispering, emotion from the text and from the character's face; compare newer engines (OpenAI, ElevenLabs, Kokoro, XTTS...) |
+| 38 | [Character sheets (experimental)](38-character-sheets.md) | Probably | Medium–Large | Low–Medium alone, High with 26 and 37 | Draft, not researched: the user's pictures of each character; Magi v2 names them, for coloring (26), voices (37) and name tags |
+| 39 | [Highlighter-style highlighting](39-highlighter-text-highlighting.md) | Yes | Small | Medium | Draft, not researched: a Style option (Box / Highlighter / Spotlight) for "Highlight Text Boxes In Images" |
 
 ## Suggested order
 Top to bottom. The spec numbers are IDs, not the order, so they never change.
@@ -48,3 +53,6 @@ Top to bottom. The spec numbers are IDs, not the order, so they never change.
 5. **Ship the app:** 02 → 21 → 19 (in this order)
 6. **Bigger features:** 13 → 07 → 03 → 01 (03 needs 08 and 16 first)
 7. **Later / experimental:** 11, 24, 06, 09, 04, 10, 20, 26 (any order)
+8. **Videos people would watch (drafts, research first):** 35 → 39 → 36 → 37 → 38 (38 goes well with 26 and 37)
+
+Which specs are done: [PROGRESS.md](PROGRESS.md).
