@@ -7,6 +7,8 @@ When the Pipeline makes panels and then a video, Panel-By-Panel reads the text o
 
 The fix: when Panel-By-Panel reads the pages, also save each line's box **on its panel**, as fractions of the panel's width and height (0 to 1). Fractions stay right after any upscale or resize, so the Upscale step needs **no change**. The video turns them back into pixels with each image's real size and gives them to the existing highlight code as if Magi had found them.
 
+**Also fixes (found in spec 17, 2026-11-22):** when the video reads each panel on its own, Magi doesn't know which panel owns a bubble, so a bubble in two panels (overlapping panels, or cut off at one panel's edge) can be read and highlighted twice. Spec 17 added a patch (skip a repeated line, and a cut-off line that's whole next door, `mark_repeated_lines_as_not_dialogue`). With this spec, the page reading's own answer (each bubble to the panel it overlaps most) would be used instead.
+
 ## 2. Is it doable?
 **Yes, medium-small:** about 40 lines in 3 files, plus test updates. No new libraries, no change to the Upscale step.
 
