@@ -38,6 +38,13 @@ So the pinned `transformers==4.34.0` works with the newer PyTorch TheRock needs.
 
 Also: official `torch==2.5.1+rocm6.2` exists for Linux, Python 3.12 (checked on download.pytorch.org), so the Linux route can keep the exact pin.
 
+**Checked on the PC itself (2026-11-22):** Windows 11 Pro, AMD Radeon RX 6700 XT (driver 32.0.21045), Python 3.10.11 only (install 3.12 to match the Mac), git 2.44, no venv, no waifu2x. `magi_model/panels_fp16.safetensors` isn't there (not in git); `build_panels_model_file` in `magi.py` builds it from the full Magi download the first time.
+
+**Missed in the first review:**
+- `.cbr` import doesn't work on Windows: `save_rar_pages` (`utils.py`) looks only for `bsdtar` or `/usr/bin/bsdtar`. Windows 11's built-in `C:\Windows\System32\tar.exe` *is* bsdtar (3.8.9, opens RAR), so a 1-line fallback to `shutil.which("tar")` fixes it.
+- Logs go to `~/Library/Logs/Panelyze` (`gui_classes/AppOutput.py`, `self_test.py`). On Windows that's `C:\Users\<you>\Library\Logs\Panelyze`. Odd place, but it works; left as is.
+- The worktree setup in CLAUDE.md uses `ln -s`, which in Git Bash on Windows copies instead of linking (unless Developer Mode is on). On Windows, link the venv with a directory junction (`mklink /J`) instead.
+
 ## 4. Recommended approach + rejected alternatives
 
 | Option | Verdict | Why |
@@ -54,7 +61,8 @@ Also: official `torch==2.5.1+rocm6.2` exists for Linux, Python 3.12 (checked on 
 | File | Change | Size |
 |---|---|---|
 | `DEVELOPING.md` | New short section "Running from source on a Windows/Linux PC (AMD or NVIDIA)": install steps below | ~20 lines |
-| `magi.py` (optional) | `DEVICE_NAMES["cuda"]` from "the NVIDIA GPU" to "the GPU" (AMD also reports as cuda) | 1 line |
+| `magi.py` | `DEVICE_NAMES["cuda"]` from "the NVIDIA GPU" to "the GPU" (AMD also reports as cuda) | 1 line |
+| `utils.py` | `save_rar_pages`: also find Windows' built-in `tar` (it's bsdtar), so `.cbr` import works | 1–2 lines |
 | `ROADMAP.md` | Update #10 table with the findings above | ~6 lines |
 
 Reuse, no changes: `get_device()` and `run_with_cpu_fallback()` in `magi.py`; `get_pytorch_upscale_function()` / `can_use_coreml()` in `janai.py` (already uses PyTorch off-Mac); `get_waifu2x_path()` and `open_directory` in `utils.py`; `python gui.py --self-test` (`self_test.py`) as the first check.
@@ -68,7 +76,8 @@ Reuse, no changes: `get_device()` and `run_with_cpu_fallback()` in `magi.py`; `g
 - [ ] `python gui.py --self-test` → SELF-TEST PASSED
 - [ ] Benchmark Dragon Ball ch. 93: Panel-By-Panel, Best upscale, Fast upscale, vs the M1 numbers in `benchmarks/README.md`
 - [ ] If Windows fails: try Linux with `torch==2.5.1+rocm6.2` and `HSA_OVERRIDE_GFX_VERSION=10.3.0`
-- [ ] Write the DEVELOPING.md section with what actually worked; optional 1-line `DEVICE_NAMES` tweak; update ROADMAP #10
+- [ ] Fix `.cbr` import on Windows (`save_rar_pages` falls back to `tar`) and the `DEVICE_NAMES["cuda"]` wording
+- [ ] Write the DEVELOPING.md section with what actually worked; update ROADMAP #10
 
 ## 7. How to test it
 - Existing test suite on the PC: `pytest` (should pass unchanged; `tests/test_magi.py` already covers mps/cuda/cpu picking).
@@ -88,7 +97,7 @@ Reuse, no changes: `get_device()` and `run_with_cpu_fallback()` in `magi.py`; `g
 | Risk: 12 GB VRAM | Full Magi is ~2 GB; fine. CPU fallback already handles out-of-memory |
 
 **Open questions for the user**
-1. Is the PC on Windows 10 or 11? (AMD lists Windows 11 for its Windows PyTorch.)
+1. ~~Is the PC on Windows 10 or 11?~~ Windows 11 Pro (checked 2026-11-22).
 2. Is a Linux dual boot acceptable as a backup, or Windows only?
 3. Want the 1-line "the GPU" wording fix in `magi.py`, or leave code untouched?
 4. Is this still wanted now that spec 20 (free NVIDIA options) exists?
