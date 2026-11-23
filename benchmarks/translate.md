@@ -90,7 +90,7 @@ Found on Dragon Tofu ch. 24 and Soul Anomaly ch. 1 after Shachou ch. 3 looked cl
 
 | Step | How |
 |---|---|
-| Chapters | Listed in [test-chapters.md](test-chapters.md). Shachou ch. 3's Japanese pages were saved by hand (not downloadable by script); the others come from MangaDex |
+| Chapters | Listed in [test-chapters.md](test-chapters.md). Shachou ch. 3's Japanese pages come from Niconico's reader, saved with [save-canvas-pages.js](scripts/translate/save-canvas-pages.js) in the browser's console; the others come from MangaDex |
 | Running a model | [scripts/translate/run_translate.py](scripts/translate/run_translate.py) (Japanese to English, first N pages) and [run_pair.py](scripts/translate/run_pair.py) (any pair, any pages), both timing the translator. Run one model at a time, `ollama stop <model>` after each, and check `memory_pressure` first: old processes once pushed the Mac 7 GB into swap and made a model 6 times slower |
 | The Claude reference | Always from a **blind subagent** that only gets the numbered pages ([make_blind.py](scripts/translate/make_blind.py)) and the line list, never the official English. Its answer is lettered with [run_by_hand.py](scripts/translate/run_by_hand.py) |
 | Re-lettering after a code change | [reletter.py](scripts/translate/reletter.py) letters a chapter again from a saved `translation.json`, without asking any model |
