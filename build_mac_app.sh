@@ -85,6 +85,7 @@ mkdir -p "$PACK_DIR"
         --distpath "$DIST_DIR" \
         --add-data "$REPO_DIR/magi_model:magi_model" \
         --add-data "$WAIFU2X_DIR:waifu2x" \
+        --add-data "$REPO_DIR/assets/fonts:assets/fonts" \
         --pyinstaller-build-args=--onedir \
         "--pyinstaller-build-args=--workpath=$PACK_DIR/work" \
         "--pyinstaller-build-args=--specpath=$PACK_DIR" \
@@ -95,6 +96,7 @@ mkdir -p "$PACK_DIR"
         --pyinstaller-build-args=--collect-all=pypdfium2 \
         --pyinstaller-build-args=--collect-all=pypdfium2_raw \
         --pyinstaller-build-args=--collect-data=spellchecker \
+        --pyinstaller-build-args=--collect-data=pyphen \
         --pyinstaller-build-args=--collect-all=transformers \
         --pyinstaller-build-args=--collect-all=timm \
         --pyinstaller-build-args=--collect-all=pulp \
@@ -104,6 +106,8 @@ mkdir -p "$PACK_DIR"
         --pyinstaller-build-args=--collect-all=edge_tts \
         --pyinstaller-build-args=--collect-all=spandrel \
         --pyinstaller-build-args=--collect-all=coremltools \
+        --pyinstaller-build-args=--collect-all=anthropic \
+        --pyinstaller-build-args=--collect-all=openai \
         --pyinstaller-build-args=--hidden-import=magi_model.modelling_magiv2 \
         --pyinstaller-build-args=--exclude-module=flet_web \
         --yes

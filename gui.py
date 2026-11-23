@@ -25,6 +25,7 @@ from gui_classes.MangaDexDownloaderView import MangaDexDownloaderView
 from gui_classes.TerminalOutput import TerminalOutput
 from gui_classes.MagiPanelByPanelView import MagiPanelByPanelView
 from gui_classes.UpscaleImagesView import UpscaleImagesView
+from gui_classes.TranslateView import TranslateView
 from gui_classes.ImagesToVideoView import ImagesToVideoView
 from gui_classes.AppSettingsView import AppSettingsView
 from gui_classes.PipelineView import PipelineView
@@ -95,6 +96,7 @@ class GUI:
 
     def create_views(self):
         self.MangaDexDownloaderView = MangaDexDownloaderView(self)
+        self.TranslateView = TranslateView(self)
         self.MagiPanelByPanelView = MagiPanelByPanelView(self)
         self.UpscaleImagesView = UpscaleImagesView(self)
         self.ImagesToVideoView = ImagesToVideoView(self)
@@ -117,6 +119,7 @@ class GUI:
         # The tabs with settings on their right. (Pipeline and Settings are one column, so they already fit.)
         for view in [
             self.MangaDexDownloaderView,
+            self.TranslateView,
             self.MagiPanelByPanelView,
             self.UpscaleImagesView,
             self.ImagesToVideoView,
@@ -293,6 +296,7 @@ class GUI:
 
         return {
             "Download": self.MangaDexDownloaderView,
+            "Translate": self.TranslateView,
             "Panel-By-Panel": self.MagiPanelByPanelView,
             "Upscale Images": self.UpscaleImagesView,
             "Images To Video": self.ImagesToVideoView,

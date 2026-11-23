@@ -8,6 +8,7 @@ from tests.fake_gui import fake_event, get_all_controls
 
 TABS = [
     "Download",
+    "Translate",
     "Panel-By-Panel",
     "Upscale Images",
     "Images To Video",
@@ -103,7 +104,7 @@ def test_a_narrow_window_shows_only_the_tab_icons(make_gui):
 def test_ctrl_or_cmd_and_a_number_opens_that_tab(make_gui):
     gui = make_gui()
 
-    gui.handle_keyboard_shortcut(SimpleNamespace(key="5", ctrl=True, meta=False))
+    gui.handle_keyboard_shortcut(SimpleNamespace(key="6", ctrl=True, meta=False))
     assert gui.current_view == "Pipeline"
 
     gui.handle_keyboard_shortcut(SimpleNamespace(key=",", ctrl=False, meta=True))

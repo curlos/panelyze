@@ -65,6 +65,13 @@ class FakePage:
     def update(self, *args):
         pass
 
+    # Like a real Flet page: a dialog is opened and closed on the page.
+    def open(self, control):
+        self.dialog = control
+
+    def close(self, control):
+        self.dialog = None
+
     def run_thread(self, handler, *args):
         handler(*args)
 

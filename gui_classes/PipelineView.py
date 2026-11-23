@@ -10,6 +10,8 @@ from default_settings import can_pick_output_folders, get_output_directory
 from gui_classes.MangaDexDownloaderView import get_downloader
 from gui_classes.PickInputAndOutputDirectories import COMIC_FILES_HELP_TEXT, save_input_to_temporary_folder
 from gui_classes.ProgressPanel import format_duration, report_output_folder, report_progress
+from gui_classes.TranslateView import get_translate_settings
+from translate import ENGINES, OLLAMA_MODELS, SOURCE_LANGUAGES, TARGET_LANGUAGES
 from utils import (
     COMIC_FILE_EXTENSIONS,
     IMAGE_EXTENSIONS,
@@ -28,23 +30,26 @@ from utils import (
 # The steps always run in this order, so a later step can never come before an earlier one. Any combination of one or more steps can be picked.
 PIPELINE_STEPS = [
     "Download",
+    "Translate",
     "Panel-By-Panel",
     "Upscale Images",
     "Images To Video",
 ]
 
-# Each step saves to its own numbered folder inside the picked output directory, e.g. "<output>/2-panel-by-panel".
+# Each step saves to its own numbered folder inside the picked output directory, e.g. "<output>/3-panel-by-panel".
 PIPELINE_STEP_FOLDER_NAMES = {
     "Download": "1-download",
-    "Panel-By-Panel": "2-panel-by-panel",
-    "Upscale Images": "3-upscale-images",
-    "Images To Video": "4-images-to-video",
+    "Translate": "2-translate",
+    "Panel-By-Panel": "3-panel-by-panel",
+    "Upscale Images": "4-upscale-images",
+    "Images To Video": "5-images-to-video",
 }
 
 
 # What the last step of the pipeline makes, for the "Final result" part of the review.
 FINAL_RESULT_DESCRIPTIONS = {
     "Download": "The downloaded chapters",
+    "Translate": "The translated pages",
     "Panel-By-Panel": "The panels",
     "Upscale Images": "The upscaled images",
     "Images To Video": "The videos",
@@ -86,7 +91,7 @@ def get_next_step_input_directory(step, step_input_directory, step_output_direct
         ]
         return series_folders[0] if len(series_folders) == 1 else step_output_directory
 
-    # Panel-By-Panel (whose panels are never grouped by page in a Pipeline) and Upscale Images.
+    # Translate, Panel-By-Panel (whose panels are never grouped by page in a Pipeline) and Upscale Images.
     return os.path.join(step_output_directory, get_last_directory(step_input_directory))
 
 
@@ -153,6 +158,11 @@ def get_settings_review(storage, selected_steps):
         elif get("upload_choice") == "group" and (get("preferred_group") or "").strip():
             details += ", the preferred group's uploads"
         review.append(("Download", details))
+
+    if "Translate" in selected_steps:
+        settings = get_translate_settings(storage)
+        details = f"{SOURCE_LANGUAGES[settings['source_language']]} to {TARGET_LANGUAGES[settings['target_language']]}, {ENGINES[settings['engine']]}: {OLLAMA_MODELS.get(settings['model'], {}).get('name', settings['model'])}"
+        review.append(("Translate", details))
 
     if "Panel-By-Panel" in selected_steps:
         details = f"Magi AI Model, {get_reading_direction_review(storage, selected_steps)}, panels saved together (not grouped by page)"
@@ -779,6 +789,7 @@ class PipelineView(ft.Container):
 
         # The other steps run exactly like they do in their own tabs.
         step_views = {
+            "Translate": self.parent_gui.TranslateView,
             "Panel-By-Panel": self.parent_gui.MagiPanelByPanelView,
             "Upscale Images": self.parent_gui.UpscaleImagesView,
             "Images To Video": self.parent_gui.ImagesToVideoView,

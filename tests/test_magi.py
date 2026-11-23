@@ -39,7 +39,7 @@ class FakeModel:
         self.device = torch.device(device)
         return self
 
-    def predict_detections_and_associations(self, pages):
+    def predict_detections_and_associations(self, pages, **thresholds):
         if self.fail_on_gpu and self.device.type != "cpu":
             raise RuntimeError("MPS backend out of memory")
 
@@ -96,7 +96,7 @@ def test_if_the_gpu_fails_magi_runs_again_on_the_cpu_and_stays_there(capsys):
 
 def test_a_failure_on_the_cpu_is_not_hidden():
     class BrokenModel(FakeModel):
-        def predict_detections_and_associations(self, pages):
+        def predict_detections_and_associations(self, pages, **thresholds):
             raise RuntimeError("broken")
 
     with pytest.raises(RuntimeError, match="broken"):

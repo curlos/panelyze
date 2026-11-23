@@ -29,3 +29,20 @@ def never_open_finder_windows(monkeypatch):
 
     for module in (utils, AppSettingsView, JobView, MangaDexDownloaderView, PipelineView):
         monkeypatch.setattr(module, "open_directory", lambda path: None)
+
+
+@pytest.fixture(autouse=True)
+def never_ask_for_the_translators_model_lists(monkeypatch):
+    """
+    Translate's settings list the models Ollama has installed, or the ones an API key can use. Tests never ask Ollama or the internet for that (tests of "list_models" itself fake the answers).
+    """
+    import translate
+    from gui_classes import SettingsTranslate, TranslateView
+
+    monkeypatch.setattr(SettingsTranslate, "list_models", lambda engine, api_key="": [])
+    monkeypatch.setattr(SettingsTranslate, "list_installed_ollama_models", lambda: {})
+    # The default Ollama model depends on what's downloaded and the free disk space: none, and plenty.
+    monkeypatch.setattr(translate, "list_installed_ollama_models", lambda: {})
+    # Translate's own check before a job: Ollama not running, so it never downloads a model in a test.
+    monkeypatch.setattr(TranslateView, "list_installed_ollama_models", lambda: None)
+    monkeypatch.setattr(translate, "get_free_disk_gb", lambda: 100)

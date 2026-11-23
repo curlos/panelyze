@@ -5,16 +5,17 @@ The context of a long working session (Nov 18–19, 2026) on Panelyze, so a new 
 ## The project
 - **Panelyze** (repo `panelyze`): a Python **Flet 0.25.2** desktop app for an M1 Mac.
 - **Tabs:**
-  - **MangaDex Downloader**
+  - **Download**
+  - **Translate** (raw pages into English or Spanish)
   - **Panel-By-Panel** (Magi v2 cuts pages into panels)
   - **Upscale Images**
   - **Images To Video** (voice-over with edge-tts/Azure)
   - **Pipeline** (runs the steps in a row)
   - Settings (gear icon)
-- **venv:** `venv/` (Python 3.12, torch 2.5.1). Install with `uv pip install --python venv/bin/python ...`, since `pip` isn't on PATH.
+- **venv:** `venv/` (Python 3.12, torch 2.14.1, transformers 4.57.6 since spec 01). Install with `uv pip install --python venv/bin/python ...`, since `pip` isn't on PATH.
 - **Run:** `npm run dev`, which reloads on save. The user also opens `~/Applications/Panelyze.app`, a hand-made launcher outside the repo that runs `venv/bin/python gui.py`.
 - **Tests:**
-  - `venv/bin/python -m pytest -q -m "not e2e"`: 184 fast tests, all passing.
+  - `venv/bin/python -m pytest -q -m "not e2e"`: 571 fast tests, all passing (Nov 23).
   - `-m e2e`: 9 real-tool tests, all passing, about 2 min.
   - Self-test: `venv/bin/python gui.py --self-test`, passing.
 
@@ -105,7 +106,7 @@ The context of a long working session (Nov 18–19, 2026) on Panelyze, so a new 
 - **Docs:** README and DEVELOPING.md were updated; the [benchmarks/](benchmarks/README.md) folder was added (one file per topic: Magi, video, upscaling, file sizes).
 
 ## Things installed or created outside the repo
-- **Ollama** (Homebrew, 0.40.16) with **`qwen3:8b`** (5.2 GB) pulled, for the planned free translator. It was started with `nohup ollama serve`. After a restart, run `ollama serve` (or `brew services start ollama`).
+- **Ollama** (Homebrew, 0.40.16) with the Translate models (TranslateGemma, PLaMo, Ministral, Qwen3-VL, see spec 01), downloaded from the Translate settings or with `ollama pull`. It was started with `nohup ollama serve`. After a restart, run `ollama serve` (or `brew services start ollama`).
 - **Upscale models and Core ML conversions** in `~/Library/Application Support/Panelyze/upscale-models`.
 - **Test output folders in `~/Documents/Panelyze/`,** all safe to delete:
   - `Speed Test - Shachou Ch 3`
@@ -137,16 +138,7 @@ The context of a long working session (Nov 18–19, 2026) on Panelyze, so a new 
 ## What's next
 The full list of future ideas (with sizes, status and what's already known) is in [ROADMAP.md](ROADMAP.md). The most important ones:
 
-1. **Translating raw Japanese pages (the plan was proposed, waiting for the user's OK).** It would be a new **Translate** tool, as a tab and a Pipeline step after Download and before Panel-By-Panel, working on **pages**:
-   1. Magi finds the text boxes.
-   2. **manga-ocr** (`kha-white/manga-ocr-base`, loaded with the existing `transformers` 4.34) reads the Japanese.
-   3. The page's lines are translated in one request, with a dropdown for Claude / ChatGPT / Gemini (keys from `.env` or Settings; vision models also get the page image) or **Ollama + qwen3:8b** (free, local).
-   4. The Japanese is erased: fill the bubble's text area with the bubble color (flood fill from the box). If too rough, use LaMa inpainting.
-   5. The English is lettered in **Comic Neue** (OFL), word-wrapped and auto-fitted, with a white outline on artwork.
-   6. The translated pages are saved, and a .cbz if turned on.
-   - **Sound effects stay untranslated** in the first version.
-   - **Testing:** fakes for Claude, ChatGPT and Gemini. **The user will add a Claude key later.** Ollama for real, on a raw Japanese chapter such as Shachou ch. 63.
-   - **Sugoi** (Windows-only) may be an option later, for their Windows PC.
+1. **Translating raw pages: built (spec 01), not merged yet.** The next chat starts from [specs/01-translate-japanese-pages-handoff.md](specs/01-translate-japanese-pages-handoff.md); results are in [benchmarks/translate.md](benchmarks/translate.md). The Translate tab and Pipeline step (after Download): Magi boxes, Hayai OCR, one request per page to Ollama / Gemini / ChatGPT / Claude, erasing per speech bubble (LaMa on artwork), lettering in Bubble Sans. See [DEVELOPING.md](DEVELOPING.md#translate) and [the spec](specs/01-translate-japanese-pages.md).
 2. **Optional:** Magi's box finder on the Neural Engine. It works, 3.8× faster on that step, but that step is only about 10–20 s per chapter. It needs one conversion per page shape.
 3. **Untested:**
    - Building the packaged Mac app with the new libraries.

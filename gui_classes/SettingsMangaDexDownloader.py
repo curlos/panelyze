@@ -117,7 +117,7 @@ class SettingsMangaDexDownloader(SettingsBase):
         self.which_upload = ft.Column(
             controls=[
                 get_settings_group_label("Which upload"),
-                get_help_text("When a chapter was uploaded by several groups."),
+                get_help_text("When a chapter was uploaded by several groups"),
                 ft.RadioGroup(
                     value=self.page.client_storage.get("upload_choice") or "newest",
                     on_change=self.handle_upload_choice_change,

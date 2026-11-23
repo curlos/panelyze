@@ -39,6 +39,7 @@ class AppBarButton(ft.Container):
 
 TAB_NAMES = [
     "Download",
+    "Translate",
     "Panel-By-Panel",
     "Upscale Images",
     "Images To Video",
@@ -48,6 +49,7 @@ TAB_NAMES = [
 
 TAB_ICONS = {
     "Download": ft.Icons.DOWNLOAD,
+    "Translate": ft.Icons.TRANSLATE,
     "Panel-By-Panel": ft.Icons.GRID_VIEW,
     "Upscale Images": ft.Icons.HIGH_QUALITY,
     "Images To Video": ft.Icons.MOVIE,
@@ -60,7 +62,7 @@ ALL_TABS = TAB_NAMES + ["Settings"]
 # While a tab is focused with the keyboard, these keys open another tab (like the tabs on a web page): the one before or after it (going around at the ends), or the first or last one.
 TAB_LIST_KEYS = ["Arrow Left", "Arrow Right", "Home", "End"]
 
-# Ctrl (⌘ on a Mac) + one of these keys opens the tab: 1 to 5 for the tabs in order, and comma for Settings (like most Mac apps).
+# Ctrl (⌘ on a Mac) + one of these keys opens the tab: 1 to 6 for the tabs in order, and comma for Settings (like most Mac apps).
 SHORTCUT_KEYS = {
     **{tab_name: str(number) for number, tab_name in enumerate(TAB_NAMES, start=1)},
     "Settings": ",",

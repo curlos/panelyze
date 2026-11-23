@@ -28,6 +28,7 @@ What was measured while speeding up Panelyze (November 2026), and what was learn
 | [Webtoons](webtoons.md) | Splitting vertical-scroll comics into panels with sliding windows, tested on 10 chapters from 10 series |
 | [Upscaling](upscaling.md) | waifu2x settings, every upscaler on black and white and on color, making MangaJaNai and IllustrationJaNai faster, the "Best" model |
 | [File sizes](file-sizes.md) | Formats and sizes for reading on a phone or iPad |
+| [Translate](translate.md) | Every local translator against the official English and Spanish on three chapters and four language pairs, and the lettering problems found and fixed |
 | [Test chapters](test-chapters.md) | Every chapter downloaded or imported for testing: manga, chapter, source (MangaDex, comix.to, Internet Archive, page URL or an imported file) with its link, date and what it was used for |
 
 ## Other questions that were looked into

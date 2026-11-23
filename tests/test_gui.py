@@ -616,7 +616,7 @@ def test_while_a_job_runs_every_other_tab_is_faded_and_says_what_it_waits_for(ma
     Image.new("RGB", (10, 10)).save(tmp_path / "in" / "1.png")
     directories.set_input_directory(str(tmp_path / "in"))
     directories.output_directory = str(tmp_path / "out")
-    other_tabs = ["Download", "Panel-By-Panel", "Images To Video", "Pipeline", "Settings"]
+    other_tabs = ["Download", "Translate", "Panel-By-Panel", "Images To Video", "Pipeline", "Settings"]
 
     def get_tab_state(tab_name):
         button = gui.app_bar.buttons[tab_name]
@@ -632,7 +632,7 @@ def test_while_a_job_runs_every_other_tab_is_faded_and_says_what_it_waits_for(ma
 
     directories.handle_submit(fake_event())
 
-    assert seen == [(0.5, 'Wait for "Upscale" to finish (only one job runs at a time)')] * 5 + [(1, "Upscale Images (Ctrl+3)")]
+    assert seen == [(0.5, 'Wait for "Upscale" to finish (only one job runs at a time)')] * 6 + [(1, "Upscale Images (Ctrl+4)")]
     # Its own main button is faded too, and back to normal afterwards.
     assert button_opacity == [0.5] and directories.submit_button.opacity == 1
     assert get_tab_state("Download") == (1, "Download (Ctrl+1)")
