@@ -1,16 +1,44 @@
-# Handoff prompt: spec 01 (Translate raw Japanese pages)
+# Handoff: spec 01 (Translate raw Japanese pages)
 
-Paste everything below the line into a new Claude chat.
+How to start on another computer: open a Claude chat there and send it this one line:
+
+> Read `specs/01-translate-japanese-pages-handoff.md` on the `01-translate-japanese-pages` branch of https://github.com/curlos/panelyze (if the repo isn't on this computer yet, read it with `gh api` or by cloning) and do what it says.
+
+Everything below is for that Claude.
 
 ---
 
-We're continuing spec 01 (Translate raw Japanese pages) in Panelyze, on another computer. The previous chats got too long, so this is where things stand (2026-11-23). Read this, then `CLAUDE.md`, `specs/01-translate-japanese-pages.md` (§6 steps 0–20 say what was built and found, "Still to do" lists steps 21–25, §8 has my decisions), `benchmarks/translate.md` (every measured result, with comparison images) and the "Translate" section of `DEVELOPING.md`. Don't change anything yet; tell me briefly that you're caught up and wait for my questions.
+We're continuing spec 01 (Translate raw Japanese pages) in Panelyze, on another computer. The previous chats got too long, so this is where things stand (2026-11-23).
 
-## Where
-- Branch `01-translate-japanese-pages`, pushed to GitHub (not merged into `main`). On my Mac it's the worktree `Github-Repos/panelyze/01-translate-japanese-pages`.
-- On a new computer: clone the repo, `git checkout 01-translate-japanese-pages`, and set up as in `DEVELOPING.md` ("Set up"): the venv from `requirements-lock.txt` (torch 2.14.1, transformers 4.57.6, plus `pyphen`, `anthropic`, `openai`), Magi's weights, and [Ollama](https://ollama.com). CLAUDE.md's worktree steps assume the Mac's folder layout (symlinks to `panelyze-main/`); on another computer, a plain clone is fine.
-- The test chapters live outside the repo in `~/Documents/Panelyze/01-translate-japanese-pages/test-raws/`. Dragon Tofu ch. 24 and Soul Anomaly ch. 1 can be downloaded again with `benchmarks/scripts/translate/md_download.py <chapter id> <folder>` (ids in `benchmarks/test-chapters.md`). **Shachou ch. 3's Japanese pages** come from Niconico's reader (https://sp.manga.nicovideo.jp/watch/mg939870), which draws pages on canvases: open it in Chrome, paste `benchmarks/scripts/translate/save-canvas-pages.js` into the console, and it scrolls through and downloads `shachou-ch3-ja.zip` (page-001.webp …); unzip it into `test-raws/shachou-ch3-ja/`. (You can also run it yourself with Claude in Chrome if it's connected.) The official English ch. 3 is on MangaDex.
-- Fast tests: `venv/bin/python -m pytest -q` → 583 passed. End-to-end (`-m e2e`): 16 passed, 1 skipped (a site that only sometimes blocks), on Nov 23 before the last settings changes.
+**First, set this computer up** (section "Set up this computer" below), telling me briefly what you do at each step. Then read `CLAUDE.md`, `specs/01-translate-japanese-pages.md` (§6 steps 0–20 say what was built and found, "Still to do" lists steps 21–25, §8 has my decisions), `benchmarks/translate.md` (every measured result, with comparison images) and the "Translate" section of `DEVELOPING.md`. Then tell me briefly that you're caught up, and wait for my questions. Don't change any code yet.
+
+## The situation
+- The work is on the branch `01-translate-japanese-pages` on GitHub, in **3 commits on top of `main`** (66 files: 28 edited, 38 new), with a **draft pull request** (#2) that I use to review it on GitHub. It is **not merged** into `main`.
+- I only committed and pushed to move to this computer. I review in VS Code's Source Control, so the 3 commits must become **uncommitted, unstaged changes again** in this spec's worktree (`git reset origin/main`, which keeps every file as it is).
+- After that reset, `git status` says the branch is behind `origin/01-translate-japanese-pages` by 3 commits. That's expected. **Never `git pull` here** (it brings the commits back) and never force-push. When I say the spec is finished, follow CLAUDE.md's "Finish" steps as usual (commit, merge into `main` in `panelyze-main`, push `main`), then close draft PR #2 (`gh pr close 2`) and delete the remote branch (`git push origin --delete 01-translate-japanese-pages`).
+
+## Set up this computer
+Work out first what's already here (the OS, whether `Github-Repos/panelyze/panelyze-main/` exists, Python, Ollama), and skip what's done. Ask me before anything big (installing Python packages into a new venv, downloading Magi's weights or Ollama models).
+
+1. **`panelyze-main`** (the `main` branch, CLAUDE.md's layout): if it isn't there, `git clone https://github.com/curlos/panelyze.git panelyze-main` inside `Github-Repos/panelyze/`, and set it up as in `DEVELOPING.md` ("Set up"): the venv from `requirements-lock.txt` (Python 3.12, torch 2.14.1, transformers 4.57.6, `pyphen`, `anthropic`, `openai`), Magi's weights in `magi_model/`, a `.env` (I'll give you the keys; never print them), [Ollama](https://ollama.com), and an empty `test-chapter-cache/` folder.
+2. **The spec's worktree**, from `panelyze-main`:
+   ```
+   git fetch origin
+   git worktree add ../01-translate-japanese-pages 01-translate-japanese-pages
+   cd ../01-translate-japanese-pages
+   git reset origin/main
+   ```
+   `git status` should then list the 66 files as unstaged changes (the new ones untracked).
+3. **Links to the big shared files**, as in CLAUDE.md. Mac: `ln -s ../panelyze-main/venv venv`, `ln -s ../../panelyze-main/magi_model/panels_fp16.safetensors magi_model/panels_fp16.safetensors`, `ln -s ../panelyze-main/test-chapter-cache test-chapter-cache`, `cp ../panelyze-main/.env .`. Windows (PowerShell, Developer Mode on): `cmd /c mklink /D venv ..\panelyze-main\venv`, `cmd /c mklink magi_model\panels_fp16.safetensors ..\..\panelyze-main\magi_model\panels_fp16.safetensors`, `cmd /c mklink /D test-chapter-cache ..\panelyze-main\test-chapter-cache`, `Copy-Item ..\panelyze-main\.env .`.
+4. **Check:** the fast tests in the worktree (`venv/bin/python -m pytest -q` on a Mac, `.\venv\Scripts\python -m pytest -q` on Windows) should give **583 passed**. Tell me if anything differs; the code has only been run on the Mac so far, so Windows problems are worth writing down.
+5. **Test chapters** go outside the repo, in `~/Documents/Panelyze/01-translate-japanese-pages/test-raws/` (the app's output folder for this worktree):
+   - Dragon Tofu ch. 24 (Japanese and English) and Soul Anomaly ch. 1 (English, Spanish, Japanese): `benchmarks/scripts/translate/md_download.py <chapter id> <folder>`, with the ids and folder names in `benchmarks/test-chapters.md`.
+   - Shachou ch. 3, official English: MangaDex (id in `benchmarks/test-chapters.md`).
+   - **Shachou ch. 3, Japanese:** Niconico's reader (https://sp.manga.nicovideo.jp/watch/mg939870) draws its pages on canvases, so it's saved in the browser: open the chapter in Chrome, paste `benchmarks/scripts/translate/save-canvas-pages.js` into the console, and it scrolls through and downloads `shachou-ch3-ja.zip` (page-001.webp …); unzip it into `test-raws/shachou-ch3-ja/`. If Claude in Chrome is connected you can run it yourself; otherwise ask me to.
+6. **Ollama models** (only when a test needs them, after asking me): check this computer's RAM first; the Windows PC has 32 GB RAM and an RX 6700 XT with 12 GB, so it's the one for step 22's 32 GB models.
+
+## Where things stand
+- Fast tests: 583 passed on the Mac. End-to-end (`-m e2e`): 16 passed, 1 skipped (a site that only sometimes blocks), on Nov 23 before the last settings changes.
 
 ## What the pipeline does
 Magi finds text boxes (threshold 0.1 for Japanese, 0.3 for English and Spanish) and panels → boxes joined per speech bubble, repeats of the same text joined → Hayai OCR v2.7 reads Japanese (Magi's English reader reads English and Spanish) → the translator → erase → letter in capitals (Bubble Sans by default), always inside its bubble or box (deterministic code, shrinks to 6 px rather than overflow).
@@ -56,7 +84,7 @@ Left alone, whatever the translator says (`is_left_alone`): big text on the art 
 Steps 21–25 in the spec's "Still to do": the full Shachou ch. 3 run (and the sound-effect sizes), the 32 GB models on the Windows PC (also check `get_ram_gb`, the graphics-card warning and downloads there), the by-hand checks in the real app, the review subagent and `-m e2e`, then I decide whether the spec is finished.
 
 ## How to work with me
-- Follow CLAUDE.md: plan first, small and simple changes, a short summary at the end; after changes, the review subagent (rule 10). **Don't commit or push** unless I say so (this branch was pushed only so I could switch computers).
+- Follow CLAUDE.md: plan first, small and simple changes, a short summary at the end; after changes, the review subagent (rule 10). **Don't commit or push** unless I say so (the branch was pushed only so I could switch computers; see "The situation").
 - Short, plain answers, tables, and real measured numbers; say plainly what wasn't tested.
 - **Reference translations come only from a blind subagent** that gets the numbered page images (`benchmarks/scripts/translate/make_blind.py`) and the line list, never the official English (the main chat has seen it).
 - Run Ollama tests one model at a time, `ollama stop <model>` after each, and check memory first (old processes once made a model 6 times slower).
