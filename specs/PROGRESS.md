@@ -15,7 +15,7 @@ Which specs are done and which are left. The plans are in [README.md](README.md)
 | [ ] | 7 | [Highlight text boxes on the fast path](07-page-reading-highlight-boxes.md) | ⬜ | |
 | [ ] | 8 | [Smaller files](08-smaller-files.md) | ⬜ | |
 | [ ] | 9 | [Blurry scans](09-blurry-scan-upscaling.md) | ⬜ | |
-| [ ] | 10 | [AMD gaming PC](10-amd-gaming-pc.md) | ⬜ | |
+| [ ] | 10 | [AMD gaming PC](10-amd-gaming-pc.md) | 🔨 | |
 | [ ] | 11 | [Smaller ideas](11-smaller-ideas.md) | ⬜ | |
 | [ ] | 12 | [Project name](12-project-name.md) | ⬜ | |
 | [ ] | 13 | [Fit small panels to the screen](13-fit-small-panels-to-screen.md) | ⬜ | |
@@ -37,10 +37,12 @@ Which specs are done and which are left. The plans are in [README.md](README.md)
 | [ ] | 29 | [Less memory for webtoons](29-webtoon-memory.md) | ⬜ | |
 | [ ] | 30 | [Skip first/last images (optional)](30-skip-intro-credit-pages.md) | ⬜ | |
 | [ ] | 31 | [Test the untested formats](31-format-testing-followups.md) | ⬜ | |
+| [ ] | 32 | [Downloadable Windows app](32-windows-app.md) | 🔨 | |
+| [ ] | 33 | [See and clean up the app's folders](33-manage-app-folders.md) | ⬜ | |
 | [ ] | 35 | [Show every speech bubble once, and closer shots](35-panels-without-repeats-and-closer-shots.md) | ⬜ | |
 | [ ] | 36 | [Better text reading: a second OCR and a word check](36-better-text-reading.md) | ⬜ | |
 | [ ] | 37 | [Better, more expressive voices](37-better-voices.md) | ⬜ | |
 | [ ] | 38 | [Character sheets (experimental)](38-character-sheets.md) | ⬜ | |
 | [ ] | 39 | [Highlighter-style text highlighting](39-highlighter-text-highlighting.md) | ⬜ | |
 
-Numbers 32–34 aren't used yet.
+Number 34 isn't used yet.
