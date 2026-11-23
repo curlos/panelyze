@@ -14,6 +14,17 @@ Run Panelyze **from source** on the user's PC (Radeon RX 6700 XT, 12 GB, chip "g
 | "Best" upscaler (MangaJaNai via spandrel) | Likely, same PyTorch. Core ML is Mac-only, so it uses PyTorch on the card |
 | waifu2x ("Fast"/"Better") | Yes. waifu2x-ncnn-vulkan uses **Vulkan**, which every AMD driver supports. Just needs the Windows/Linux download on the PATH |
 | MangaDex download, video, TTS | Yes. Plain Python; `open_directory` already handles Windows/Linux |
+| Ollama, for Translate ([spec 01](01-translate-japanese-pages.md)) | Probably. To check: does Ollama use the 6700 XT (gfx1031) on Windows directly, or only through its Vulkan backend? |
+
+**The PC can run bigger translation models than the Mac** (added 2026-11-22). The PC has **32 GB of RAM**, **12 GB of video memory** on the card and **2 TB of storage**; the Mac has 16 GB shared, about 10.7 GB usable by the GPU, and little free disk.
+
+| Size | What runs | Example models (Ollama) |
+|---|---|---|
+| Up to about 11 GB | Fully on the card, fast | `ministral-3:14b` (9.1 GB, 90.7% on JP-TL-Bench, the Mac's tight limit), `gemma4:12b` (7.7 GB) |
+| About 12–28 GB | Split between the card and system RAM: slower, but works. Mixture-of-experts models use only part of the model per word, so they stay fairly fast | **`qwen3-vl:30b-a3b-instruct`** (20 GB, sees the page; the text-only Qwen3-30B-A3B scores 9.77/10 on JP-TL-Bench, close to Gemini 3 Flash's 9.98), `gemma4:26b` (16–19 GB) |
+| Storage | All candidates can stay downloaded at once (no download-test-delete as on the Mac) | — |
+
+The model is a setting in spec 01's Translate tab, so nothing extra is needed in the app. Measure speed and quality on the same 5 test pages as spec 01's step 7.
 
 ## 3. What's already true (roadmap claims checked)
 
@@ -103,6 +114,9 @@ Reuse, no changes: `get_device()` and `run_with_cpu_fallback()` in `magi.py`; `g
 4. Is this still wanted now that spec 20 (free NVIDIA options) exists?
 
 ## 9. Sources
+
+- JP-TL-Bench (Japanese↔English translation scores): https://arxiv.org/html/2601.00223v1
+- Ollama models: https://ollama.com/library/qwen3-vl · https://ollama.com/library/gemma4 · https://ollama.com/library/ministral-3
 - TheRock releases / install + device extras: https://github.com/ROCm/TheRock/blob/main/RELEASES.md
 - TheRock supported GPUs (gfx1031 Linux + Windows ✅): https://github.com/ROCm/TheRock/blob/main/SUPPORTED_GPUS.md
 - AMD Windows PyTorch support matrix (RX 7000/9000 only): https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/compatibility/compatibilityrad/windows/windows_compatibility.html

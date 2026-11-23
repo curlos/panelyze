@@ -1,6 +1,6 @@
 # 38. Character sheets (experimental)
 
-Related: [#26 colorize manga](26-colorize-manga.md), [#37 better voices](37-better-voices.md), [#39 highlighter style](39-highlighter-text-highlighting.md)
+Related: [#01 translate Japanese pages](01-translate-japanese-pages.md), [#26 colorize manga](26-colorize-manga.md), [#37 better voices](37-better-voices.md), [#39 highlighter style](39-highlighter-text-highlighting.md)
 
 New item, not on the roadmap yet. **Draft from the user's ideas (2026-11-22), not researched yet**: written from what's already known, to be checked and researched before building. **Experimental.**
 
@@ -12,6 +12,7 @@ That unlocks:
 - **Coloring** (spec 26): "This is Luffy: red vest, blue shorts, straw hat, peach skin", so he's colored the same way every time.
 - **Voices** (spec 37): each named character keeps their own voice across every chapter.
 - **Name tags** in videos: "Luffy" shown next to him, or in the transcript ("Luffy: …").
+- **Translation** (spec 01): each character's name as written in the original (e.g. 石墨), its English spelling (Ishizumi) and gender, sent with every translated page. Local models get these wrong on their own (Shachou ch. 3: 石墨 came out "Ishibu" and "Stone", the boss became "he"). Furigana can't be relied on instead: manga print a name's reading only sometimes, usually just at its first appearance, so translating one chapter from the middle of a series rarely has it.
 
 ## 2. Is it doable?
 
@@ -27,7 +28,7 @@ Probably. Magi v2 was made for this: given pictures of the characters, it names 
 
 ## 4. Recommended approach
 
-1. A **Characters** list per series: name, 1–5 pictures (crops from a page are fine), and optional notes (colors, voice).
+1. A **Characters** list per series: name, 1–5 pictures (crops from a page are fine), and optional notes (colors, voice; for translation, the name as written in the original and the character's gender).
 2. Where it lives: a `characters/` folder next to the series, so it can be shared and reused.
 3. Panel-By-Panel (full model) names the characters in each panel and saves them with the panels (like `panel-text.json`).
 4. The video, the voices, and coloring read those names.
