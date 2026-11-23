@@ -84,6 +84,7 @@ def make_pipeline_view(tmp_path, monkeypatch, ran_steps, upscale_saves_images=Tr
             else None,
         ),
         ImagesToVideoView=FakeStepView("Images To Video", ran_steps),
+        TranslateView=FakeStepView("Translate", ran_steps, lambda output, relative: os.path.join(output, relative)),
     )
 
     # Skip the Flet GUI setup. Only the pipeline logic is tested here.
@@ -116,11 +117,11 @@ def test_each_step_reads_the_folder_the_step_before_it_saved_to(tmp_path, monkey
         ("Panel-By-Panel", str(tmp_path / "One Piece")),
         (
             "Upscale Images",
-            str(output / "2-panel-by-panel" / "One Piece"),
+            str(output / "3-panel-by-panel" / "One Piece"),
         ),
-        ("Images To Video", str(output / "3-upscale-images" / "One Piece")),
+        ("Images To Video", str(output / "4-upscale-images" / "One Piece")),
     ]
-    assert (output / "3-upscale-images" / "One Piece" / "Ch 1" / "page_1.png").exists()
+    assert (output / "4-upscale-images" / "One Piece" / "Ch 1" / "page_1.png").exists()
     assert error_messages == []
     # Every step is ticked under the Run button, with its time.
     assert get_step_statuses(view) == [(step, "check_circle") for step in ("Panel-By-Panel", "Upscale Images", "Images To Video")]
@@ -172,7 +173,7 @@ def test_one_chapter_opens_the_pipeline_folder_and_the_chapter_folder(tmp_path, 
     output = tmp_path / "output"
     assert opened_folders == [
         str(output),
-        str(output / "2-panel-by-panel" / "One Piece" / "Ch 1"),
+        str(output / "3-panel-by-panel" / "One Piece" / "Ch 1"),
     ]
 
 
@@ -182,7 +183,7 @@ def test_several_chapters_open_the_pipeline_folder_and_the_last_step_folder(tmp_
     )
 
     output = tmp_path / "output"
-    assert opened_folders == [str(output), str(output / "3-upscale-images")]
+    assert opened_folders == [str(output), str(output / "4-upscale-images")]
 
 
 def test_a_video_opens_the_pipeline_folder_and_the_video_folder(tmp_path, monkeypatch):
@@ -191,12 +192,12 @@ def test_a_video_opens_the_pipeline_folder_and_the_video_folder(tmp_path, monkey
     )
 
     output = tmp_path / "output"
-    assert opened_folders == [str(output), str(output / "4-images-to-video")]
+    assert opened_folders == [str(output), str(output / "5-images-to-video")]
 
 
 def test_step_output_folders_are_numbered_in_order():
     assert get_step_output_directory("/out", "Panel-By-Panel") == os.path.join(
-        "/out", "2-panel-by-panel"
+        "/out", "3-panel-by-panel"
     )
 
 
@@ -232,7 +233,7 @@ def test_old_images_from_a_previous_run_are_not_used(tmp_path, monkeypatch):
         tmp_path, monkeypatch, ran_steps, upscale_saves_images=False
     )
     # Leftover from an earlier run.
-    save_image(str(tmp_path / "output" / "3-upscale-images" / "One Piece" / "Ch 1" / "old.png"))
+    save_image(str(tmp_path / "output" / "4-upscale-images" / "One Piece" / "Ch 1" / "old.png"))
 
     view.run_pipeline(["Upscale Images", "Images To Video"], view.input_directory)
 
@@ -267,7 +268,7 @@ def test_the_review_has_labelled_sections_for_the_steps_the_settings_and_the_fin
     assert "Panel-By-Panel" in texts and "Upscale Images" in texts
     assert "FINAL RESULT" in texts
     assert "The upscaled images will be saved in:" in texts
-    assert os.path.join(pipeline.output_directory, "3-upscale-images") in texts
+    assert os.path.join(pipeline.output_directory, "4-upscale-images") in texts
 
 
 def test_the_final_result_follows_the_last_step_picked(make_gui):

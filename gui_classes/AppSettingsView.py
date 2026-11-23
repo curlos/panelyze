@@ -11,8 +11,8 @@ from utils import open_directory
 # "No" is saved as "" (no comic file), but a dropdown choice with an empty key shows nothing in the box, so it's "no" there.
 CBZ_DESCRIPTIONS = {
     "no": "",
-    "small": "For phones and tablets, about 10x smaller.",
-    "full": "The images as they are.",
+    "small": "For phones and tablets, about 10x smaller",
+    "full": "The images as they are",
 }
 
 

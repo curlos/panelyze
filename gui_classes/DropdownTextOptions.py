@@ -10,7 +10,7 @@ def add_descriptions(dropdown, descriptions):
 
     def show_description(e=None):
         dropdown.helper_text = descriptions.get(dropdown.value, "")
-        dropdown.helper_max_lines = 3
+        dropdown.helper_max_lines = 4
         dropdown.helper_style = ft.TextStyle(size=12, color=Nord.TEXT_MUTED)
         if dropdown.page:
             dropdown.update()
@@ -43,5 +43,7 @@ class DropdownTextOptions(ft.Dropdown):
         self.border_color = Nord.BLUE
         self.border_radius = 0
         self.max_menu_height = 300
+        # Long choices are cut off with "…" instead of pushing the arrow out of the box.
+        self.options_fill_horizontally = True
         if descriptions:
             add_descriptions(self, descriptions)

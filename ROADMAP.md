@@ -12,7 +12,7 @@ Every item has a detailed plan in [specs/](specs/README.md) (Nov 2026). The spec
 
 | # | Idea | Status | Size | Value | Spec |
 |---|---|---|---|---|---|
-| 1 | [Translate raw Japanese pages to English](#1-translate-raw-japanese-pages) | 🟡 plan waiting for OK | Large | High | [01](specs/01-translate-japanese-pages.md) |
+| 1 | [Translate raw Japanese pages to English](#1-translate-raw-japanese-pages) | 🔨 built, being reviewed | Large | High | [01](specs/01-translate-japanese-pages.md) |
 | 2 | [Check the things that aren't tested yet](#2-check-the-things-that-arent-tested-yet) | 🟢 | Small | High | [02](specs/02-untested-checks.md) |
 | 3 | [Whole-series runs (e.g. all of Slam Dunk)](#3-whole-series-runs) | 🔵 needs #8 first | Small–Medium | High | [03](specs/03-whole-series-runs.md) |
 | 4 | [Magi on the Neural Engine](#4-magi-on-the-neural-engine) | 🔵 worth it for whole-series runs | Small–Medium | Low–Medium | [04](specs/04-magi-neural-engine.md) |
@@ -43,24 +43,15 @@ Every item has a detailed plan in [specs/](specs/README.md) (Nov 2026). The spec
 ---
 
 ## 1. Translate raw Japanese pages
-**Why:** read chapters that only exist in Japanese (e.g. Shachou ch. 63, while English stops at 62), with the English text in the speech bubbles.
+**Why:** read chapters that only exist in Japanese, with the English text in the speech bubbles.
 
-**Plan:** a new **Translate** tool, as a tab and a Pipeline step after Download and before Panel-By-Panel. It works on **pages**: that's faster, the translator gets the whole page for context, and no speech bubble is cut in half. Panel-By-Panel then cuts the translated pages.
-
-| Step | How |
-|---|---|
-| Find the text | Magi already gives the position of every text box. |
-| Read the Japanese | **manga-ocr** (`kha-white/manga-ocr-base`, about 450 MB), loaded with the app's existing `transformers` 4.34. It handles vertical text and furigana. |
-| Translate | All of a page's lines in one request, in reading order. A dropdown picks **Claude / ChatGPT / Gemini** (the user's own key, from `.env` or Settings; these also get the page image) or **Ollama + qwen3:8b** (free and local; already installed on the user's Mac). |
-| Erase the Japanese | Fill the bubble's text area with the bubble's color, found by spreading out from the text box. If that's too rough, use an AI inpainting model (LaMa). |
-| Letter the English | **Comic Neue** font (free, OFL license), word-wrapped and auto-sized to fit the bubble, with a white outline on artwork. |
-| Save | The translated pages, plus a .cbz if that's turned on. |
+**Built (spec 01):** a **Translate** tab and Pipeline step after Download and before Panel-By-Panel, working on whole pages. Magi finds the text boxes, Hayai OCR reads the Japanese, one request per page (with the numbered page image) goes to **Ollama** (free, local, default `translategemma:12b`, with PLaMo for fast Japanese to English and models grouped for 8, 16 and 32 GB computers, downloaded and removed from the app), **Gemini**, **ChatGPT** or **Claude**, the text is erased per speech bubble (manga LaMa on artwork), and the translation is lettered in **Bubble Sans** (or one of five other free fonts). From Japanese, English or Spanish into English or Spanish. How it works: [DEVELOPING.md](DEVELOPING.md#translate). Also moved Magi's packages to torch 2.14.1 and transformers 4.57.6.
 
 | Open items | |
 |---|---|
-| Waiting on | The user's OK on the plan. The user will add a Claude key later; until then, test Claude, ChatGPT and Gemini with fake keys and Ollama for real. |
+| Known limit | Magi misses a few speech bubbles, which stay in Japanese (1 bubble in the first 5 pages of the test chapter). |
 | Later | Translating sound effects (big stylized lettering on the art; hard even for the best tools). |
-| Later | **Sugoi**, a free translator trained on manga, is Windows-only. It's an option for the user's Windows PC. |
+| Later | **Sugoi-14B** (a free translator trained on game text) now runs on Ollama on a Mac too, but it's text-only and about 9 GB; it could be tried on the gaming PC (spec 10). |
 | Also possible | An English voice-over for the video from the translated text. |
 
 ## 2. Check the things that aren't tested yet

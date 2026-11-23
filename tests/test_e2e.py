@@ -117,6 +117,66 @@ def test_panel_by_panel_splits_real_pages(gui, tmp_path, test_chapter):
     assert image_files(tmp_path / "out")
 
 
+# A Japanese chapter for Translate (Dragon Tofu, chapter 24, which also has an English version to compare with).
+JAPANESE_CHAPTER_URL = "https://mangadex.org/chapter/a87c5bcd-2bea-46eb-84d8-a7cc167fa881"
+
+
+def get_installed_ollama_model():
+    """
+    A translation model that's already downloaded in Ollama (the default one if possible), or None if Ollama isn't running.
+    """
+    import requests
+
+    try:
+        installed = [entry["name"] for entry in requests.get("http://localhost:11434/api/tags", timeout=5).json()["models"]]
+    except Exception:
+        return None
+    from translate import OLLAMA_MODELS, get_default_model
+
+    return next((model for model in [get_default_model("ollama"), *OLLAMA_MODELS] if model in installed), None)
+
+
+@needs_internet
+def test_translate_letters_real_japanese_pages_and_panel_by_panel_runs_on_them(gui, tmp_path):
+    import json
+    from default_settings import DEFAULT_SETTINGS
+    from download_from_mangadex import download_from_mangadex
+    from tests.fake_gui import FakeClientStorage
+
+    model = get_installed_ollama_model()
+    if not model:
+        pytest.skip("Ollama isn't running, or has no translation model downloaded")
+
+    # Pages 2 to 4: story pages with speech bubbles.
+    storage = FakeClientStorage()
+    storage.values.update(DEFAULT_SETTINGS)
+    storage.values.update(use_start_and_end_pages=True, start_page="2", end_page="4")
+    download_from_mangadex(JAPANESE_CHAPTER_URL, str(tmp_path / "raw"), None, storage)
+    gui.page.client_storage.set("translate_models", {"ollama": model})
+
+    run_submit(gui.TranslateView, tmp_path / "raw", tmp_path / "translated")
+
+    translations = [os.path.join(folder, "translation.json") for folder, _, file_names in os.walk(tmp_path / "translated") if "translation.json" in file_names]
+    assert len(translations) == 1
+    pages = json.load(open(translations[0], encoding="utf-8"))["pages"]
+    assert len(pages) == 3
+    assert any(line["text"] for page in pages for line in page["lines"])
+    assert len(image_files(tmp_path / "translated")) == 3
+
+    # No Japanese is left where a line was translated: reading those boxes again finds only the lettered translation.
+    import re
+    from translate import read_japanese
+
+    chapter_folder = os.path.dirname(translations[0])
+    translated_pages = [Image.open(os.path.join(chapter_folder, page["file"])).convert("RGB") for page in pages]
+    translated_boxes = [[tuple(line["box"]) for line in page["lines"] if line["text"]] for page in pages]
+    read_again = " ".join(text for page_texts in read_japanese(translated_pages, translated_boxes) for text in page_texts)
+    assert not re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", read_again), read_again
+
+    run_submit(gui.MagiPanelByPanelView, tmp_path / "translated", tmp_path / "panels")
+    assert image_files(tmp_path / "panels")
+
+
 @needs_waifu2x
 def test_upscale_doubles_a_real_page(gui, tmp_path, test_chapter):
     chapter = tmp_path / "Test Manga" / "Ch 1"
@@ -271,11 +331,11 @@ def test_pipeline_runs_every_step_on_a_real_page(gui, tmp_path):
     ]
     assert any("Pipeline finished" in line for line in terminal_lines), terminal_lines[-5:]
     # The cover has no panels, but pages 2 and 3 are story pages.
-    assert image_files(tmp_path / "out" / "2-panel-by-panel")
-    assert image_files(tmp_path / "out" / "3-upscale-images")
+    assert image_files(tmp_path / "out" / "3-panel-by-panel")
+    assert image_files(tmp_path / "out" / "4-upscale-images")
     videos = [
         file_name
-        for _, _, file_names in os.walk(tmp_path / "out" / "4-images-to-video")
+        for _, _, file_names in os.walk(tmp_path / "out" / "5-images-to-video")
         for file_name in file_names
         if file_name.endswith(".mp4")
     ]

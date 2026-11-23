@@ -921,21 +921,10 @@ class Magi:
         from tqdm import tqdm
         from gui_classes.ProgressPanel import report_progress
 
-        model = self.full_model
-        per_page_results = []
+        per_page_results = self.find_text_boxes(chapter_pages)
 
         # Set to "no_grad()" so that there's inference without tracking gradients. Basically, this saves memory and computational resources by turning off gradient tracking.
         with torch.no_grad():
-            # "stage" moves Images To Video's stages line on (see "VideoCreatorFromImages.create_video_from_images").
-            report_progress(
-                stage="Finding the text", pages_done=0, pages_total=len(chapter_pages), unit="images", detail="Finding the text"
-            )
-            for batch_start in tqdm(range(0, len(chapter_pages), FIND_TEXT_BATCH_SIZE)):
-                per_page_results += model.predict_detections_and_associations(
-                    chapter_pages[batch_start : batch_start + FIND_TEXT_BATCH_SIZE]
-                )
-                report_progress(pages_done=len(per_page_results))
-
             dialogue_boxes = [
                 [
                     box
@@ -954,6 +943,30 @@ class Magi:
                 next(dialogue) if is_dialogue else ""
                 for is_dialogue in result["is_essential_text"]
             ]
+
+        return per_page_results
+
+    def find_text_boxes(self, chapter_pages, text_detection_threshold=0.3):
+        """
+        Magi's results for each page ("panels", "texts", "is_essential_text", ...), without reading any text. Translate reads the text itself (e.g. Japanese, which Magi can't read), and passes a lower "text_detection_threshold" (Magi's own default is 0.3) so fewer speech bubbles are missed.
+        """
+        from tqdm import tqdm
+        from gui_classes.ProgressPanel import report_progress
+
+        model = self.full_model
+        per_page_results = []
+
+        with torch.no_grad():
+            # "stage" moves Images To Video's stages line on (see "VideoCreatorFromImages.create_video_from_images").
+            report_progress(
+                stage="Finding the text", pages_done=0, pages_total=len(chapter_pages), unit="images", detail="Finding the text"
+            )
+            for batch_start in tqdm(range(0, len(chapter_pages), FIND_TEXT_BATCH_SIZE)):
+                per_page_results += model.predict_detections_and_associations(
+                    chapter_pages[batch_start : batch_start + FIND_TEXT_BATCH_SIZE],
+                    text_detection_threshold=text_detection_threshold,
+                )
+                report_progress(pages_done=len(per_page_results))
 
         return per_page_results
 

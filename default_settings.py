@@ -28,6 +28,7 @@ def can_pick_output_folders():
 # The folder of each tool inside the Panelyze folder, by the setting that holds the output folder picked for that tool.
 OUTPUT_SUBFOLDERS = {
     "output_directory_mangadex": "Downloads",
+    "output_directory_translate": "Translated",
     "output_directory_panel_by_panel": "Panel-By-Panel",
     "output_directory_upscale_images": "Upscaled Images",
     "output_directory_images_to_video": "Videos",
@@ -64,6 +65,7 @@ DEFAULT_SETTINGS = {
         # Output folders. The folder of each tool is empty (use the Panelyze folder) until one is picked for that tool.
         "panelyze_folder": PANELYZE_FOLDER,
         "output_directory_mangadex": "",
+        "output_directory_translate": "",
         "output_directory_panel_by_panel": "",
         "output_directory_upscale_images": "",
         "output_directory_images_to_video": "",
@@ -92,6 +94,15 @@ DEFAULT_SETTINGS = {
         # A web page: every image is saved, or only the ones whose shorter side is at least this many pixels.
         "use_web_page_min_size": False,
         "web_page_min_size": "600",
+        # Translate (see "translate.py"). The model and API key are saved per translator ("ollama", "gemini", "chatgpt", "claude"); a missing one uses the translator's default model, or the key in a ".env" file.
+        "translate_from": "japanese",
+        "translate_to": "english",
+        "translate_keep_honorifics": True,
+        "translate_engine": "ollama",
+        "translate_models": {},
+        "translate_api_keys": {},
+        "translate_font": "Bubble Sans",
+        "translate_send_page_image": True,
         # Panel-By-Panel and Images To Video
         "reading_direction": "auto",
         # Panel-By-Panel

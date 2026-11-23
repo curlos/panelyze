@@ -144,6 +144,19 @@ def check_comix_downloader(work_directory):
     return "comix.to downloader and nodriver load"
 
 
+def check_translate(work_directory):
+    # Only loads the code and the bundled fonts (no model is downloaded and no translator is contacted).
+    import anthropic
+    import openai
+    from translate import FONTS, FONTS_FOLDER, fit_and_draw_text
+
+    assert anthropic.Anthropic and openai.OpenAI
+    page = Image.new("RGB", (200, 100), "white")
+    for font_file in FONTS.values():
+        fit_and_draw_text(page, [(10, 10, 190, 90)], "Hello!", os.path.join(FONTS_FOLDER, font_file), (255, 255, 255))
+    return f"{len(FONTS)} fonts, anthropic and openai load"
+
+
 CHECKS = [
     check_magi_panels,
     check_waifu2x,
@@ -152,6 +165,7 @@ CHECKS = [
     check_text_to_speech_libraries,
     check_comic_files,
     check_comix_downloader,
+    check_translate,
 ]
 
 

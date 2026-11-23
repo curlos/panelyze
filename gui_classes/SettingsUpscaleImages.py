@@ -10,7 +10,7 @@ UPSCALE_MODELS = {"fast": "Fast", "better": "Better", "best": "Best"}
 UPSCALE_MODEL_DESCRIPTIONS = {
     "fast": "waifu2x, about 30 seconds a chapter",
     "better": "waifu2x cunet: cleaner gray shading, about 2x slower",
-    "best": "MangaJaNai, or IllustrationJaNai for color. Best for manga, slower; downloads about 600 MB the first time",
+    "best": "MangaJaNai, or IllustrationJaNai for color. Best for manga, slower; downloads about 600 MB the first time.",
 }
 
 

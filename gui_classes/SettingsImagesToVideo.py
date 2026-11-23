@@ -49,8 +49,8 @@ class SettingsImagesToVideo(
             value=self.get_setting_value("video_aspect_ratio"),
             on_change=lambda e: self.change_setting("video_aspect_ratio", e.data),
             descriptions={
-                "16:9": "For YouTube.",
-                "9:16": "For TikTok, Shorts and Reels.",
+                "16:9": "For YouTube",
+                "9:16": "For TikTok, Shorts and Reels",
                 "1:1": "",
             },
         )
