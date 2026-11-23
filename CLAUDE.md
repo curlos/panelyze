@@ -15,7 +15,7 @@ Each spec in `specs/` is built in its own git worktree, so several specs can be 
 
 - `panelyze-main/` is the `main` branch. Merging, pushing and cleanup happen here.
 - `<id>-<spec-file-name>/` (for example `27-reading-direction-from-mangadex/`) is one spec on a branch with the same name.
-- Related specs can be grouped in one worktree with a short descriptive name (for example `housekeeping-and-release-specs/`), with one plan, one review and one merge.
+- Related specs can be grouped in one worktree with a short descriptive name (for example `40-housekeeping-and-release-specs/`), with one plan, one review and one merge.
 
 Worktrees are local only. GitHub only sees `main`. Each one is about 5 MB because the big files are symlinks. Edit CLAUDE.md only on `main`. Write and edit specs (`specs/`, `ROADMAP.md`) on `main` too, so I can review and commit them there; worktrees are only for building a spec. If a spec needs fixing while it's being built (rule 8), make the fix in that spec's worktree.
 

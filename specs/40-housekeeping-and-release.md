@@ -1,6 +1,6 @@
 # 40. Housekeeping and the first release
 
-Combines [23 cleanup](23-cleanup.md), [12 name](12-project-name.md), [18 type-check fixes](18-type-check-fixes.md), [25 code review](25-full-code-review.md), [02 untested checks](02-untested-checks.md), [21 fresh machine test](21-fresh-machine-test.md) and [19 GitHub release](19-github-release-app.md) into one worktree (`housekeeping-and-release-specs`), with one plan, one review and one merge. Those specs keep the details. **Where this spec differs, this one is newer** (re-checked 2026-11-23).
+Combines [23 cleanup](23-cleanup.md), [12 name](12-project-name.md), [18 type-check fixes](18-type-check-fixes.md), [25 code review](25-full-code-review.md), [02 untested checks](02-untested-checks.md), [21 fresh machine test](21-fresh-machine-test.md) and [19 GitHub release](19-github-release-app.md) into one worktree (`40-housekeeping-and-release-specs`), with one plan, one review and one merge. Those specs keep the details. **Where this spec differs, this one is newer** (re-checked 2026-11-23).
 
 Left for later: [14 folder structure](14-folder-structure.md) and [15 format, lint, CI](15-format-lint-ci.md) (both change almost every file), and 19's automatic release builds.
 
@@ -113,7 +113,7 @@ Disk-only (no git change): the deletions in 23, the build in `dist/`.
 | Pyright | 0 errors |
 | `gui.py --self-test` (source and built app) | 8 PASS |
 | Web-mode screenshots of every tab and Settings | No layout changes from the type fixes |
-| Real Dragon Ball ch. 93 run (from source, saving to `~/Documents/Panelyze/housekeeping-and-release-specs/`) | Every tab and the Pipeline finish, no tracebacks in the log |
+| Real Dragon Ball ch. 93 run (from source, saving to `~/Documents/Panelyze/40-housekeeping-and-release-specs/`) | Every tab and the Pipeline finish, no tracebacks in the log |
 | `clean-mac-check` workflow on GitHub (after the merge) | Green: install, fast tests, self-test with the real Magi download, build and the built app's self-test |
 | The draft zip from Safari | Opens after "Open Anyway", one short job runs |
 | `du -sh panelyze-main` | About 21 GB → about 1.5 GB |
