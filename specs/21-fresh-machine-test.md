@@ -1,5 +1,7 @@
 # 21 — Test on a clean machine
 
+> **Being built as part of [spec 40](40-housekeeping-and-release.md)** (2026-11-23). Where they differ, spec 40 is newer.
+
 New roadmap idea. Researched 2026-11-19. Planning only.
 
 ## 1. Summary

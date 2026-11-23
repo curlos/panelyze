@@ -1,5 +1,7 @@
 # 23. Cleanup: folders and files that look unneeded
 
+> **Being built as part of [spec 40](40-housekeeping-and-release.md)** (2026-11-23). Where they differ, spec 40 is newer.
+
 Related: [#14 folder structure](14-folder-structure.md) · [#15 format, lint and CI](15-format-lint-ci.md) · [#18 type-check fixes](18-type-check-fixes.md) · [#25 full code review](25-full-code-review.md)
 
 **Nothing has been deleted. This is a list for the user to decide on.**

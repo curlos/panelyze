@@ -15,6 +15,7 @@ Each spec in `specs/` is built in its own git worktree, so several specs can be 
 
 - `panelyze-main/` is the `main` branch. Merging, pushing and cleanup happen here.
 - `<id>-<spec-file-name>/` (for example `27-reading-direction-from-mangadex/`) is one spec on a branch with the same name.
+- Related specs can be grouped in one worktree with a short descriptive name (for example `housekeeping-and-release-specs/`), with one plan, one review and one merge.
 
 Worktrees are local only. GitHub only sees `main`. Each one is about 5 MB because the big files are symlinks. Edit CLAUDE.md only on `main`. Write and edit specs (`specs/`, `ROADMAP.md`) on `main` too, so I can review and commit them there; worktrees are only for building a spec. If a spec needs fixing while it's being built (rule 8), make the fix in that spec's worktree.
 
@@ -28,7 +29,7 @@ Worktrees are local only. GitHub only sees `main`. Each one is about 5 MB becaus
    ln -s ../panelyze-main/venv venv
    ln -s ../../panelyze-main/magi_model/panels_fp16.safetensors magi_model/panels_fp16.safetensors
    ln -s ../panelyze-main/test-chapter-cache test-chapter-cache
-   cp ../panelyze-main/.env ../panelyze-main/.envrc .
+   cp ../panelyze-main/.envrc .
    ```
 
    Use `./venv/bin/python` (it works through the symlink). Run the fast tests (`python -m pytest`) to check the setup. If the worktree already exists and is old, run `git merge main` in it first.

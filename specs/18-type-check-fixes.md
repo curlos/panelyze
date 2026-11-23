@@ -1,5 +1,7 @@
 # 18. Type-check fixes: the red Pylance lines
 
+> **Being built as part of [spec 40](40-housekeeping-and-release.md)** (2026-11-23). Where they differ, spec 40 is newer.
+
 Related: [#14 folder structure](14-folder-structure.md) · [#15 format, lint and CI](15-format-lint-ci.md) · [#23 cleanup](23-cleanup.md) · [#25 full code review](25-full-code-review.md)
 
 ## 1. Summary

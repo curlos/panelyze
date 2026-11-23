@@ -33,7 +33,7 @@ Which specs are done and which are left. The plans are in [README.md](README.md)
 | [ ] | 25 | [Full code review](25-full-code-review.md) | ⬜ | |
 | [ ] | 26 | [Colorize B&W manga (experimental)](26-colorize-manga.md) | ⬜ | |
 | [x] | 27 | [Pick the reading direction automatically](27-reading-direction-from-mangadex.md) | ✅ | 2026-11-20 |
-| [ ] | 28 | [Join floating speech bubbles to their speaker's panel](28-floating-bubbles-join-panel.md) | 🔨 | |
+| [ ] | 28 | [Join floating speech bubbles to their speaker's panel](28-floating-bubbles-join-panel.md) | ⬜ | |
 | [ ] | 29 | [Less memory for webtoons](29-webtoon-memory.md) | ⬜ | |
 | [ ] | 30 | [Skip first/last images (optional)](30-skip-intro-credit-pages.md) | ⬜ | |
 | [ ] | 31 | [Test the untested formats](31-format-testing-followups.md) | ⬜ | |
@@ -44,5 +44,7 @@ Which specs are done and which are left. The plans are in [README.md](README.md)
 | [ ] | 37 | [Better, more expressive voices](37-better-voices.md) | ⬜ | |
 | [ ] | 38 | [Character sheets (experimental)](38-character-sheets.md) | ⬜ | |
 | [ ] | 39 | [Highlighter-style text highlighting](39-highlighter-text-highlighting.md) | ⬜ | |
+
+| [ ] | 40 | [Housekeeping and the first release](40-housekeeping-and-release.md) (23, 12, 18, 25, 02, 21, 19) | 🔨 | |
 
 Number 34 isn't used yet.

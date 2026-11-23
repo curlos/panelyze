@@ -1,5 +1,7 @@
 # 02 — Check the things that aren't tested yet
 
+> **Being built as part of [spec 40](40-housekeeping-and-release.md)** (2026-11-23). Where they differ, spec 40 is newer.
+
 Roadmap #2. Researched 2026-11-19. Planning only: nothing here has been run yet.
 
 ## 1. Summary

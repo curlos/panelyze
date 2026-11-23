@@ -1,5 +1,7 @@
 # 12. Should the project still be called "Panelyze"?
 
+> **Being built as part of [spec 40](40-housekeeping-and-release.md)** (2026-11-23). Where they differ, spec 40 is newer.
+
 Checked on 2026-11-19. ✅ = checked today against the real code or the web, ⚠️ = an older note that's now out of date.
 
 ## 1. Summary

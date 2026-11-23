@@ -43,6 +43,7 @@ Speed numbers in some specs were measured while other jobs ran on the same Mac, 
 | 37 | [Better voices](37-better-voices.md) | Yes, in steps | Medium–Large | High (videos) | Draft, not researched: a voice per character, a narrator for captions, shouting/whispering, emotion from the text and from the character's face; compare newer engines (OpenAI, ElevenLabs, Kokoro, XTTS...) |
 | 38 | [Character sheets (experimental)](38-character-sheets.md) | Probably | Medium–Large | Low–Medium alone, High with 26 and 37 | Draft, not researched: the user's pictures of each character; Magi v2 names them, for coloring (26), voices (37) and name tags |
 | 39 | [Highlighter-style highlighting](39-highlighter-text-highlighting.md) | Yes | Small | Medium | Draft, not researched: a Style option (Box / Highlighter / Spotlight) for "Highlight Text Boxes In Images" |
+| 40 | [Housekeeping and the first release](40-housekeeping-and-release.md) | Yes | Medium | High | Specs 23, 12, 18, 25, 02, 21 and 19 in one worktree, one plan and one review; 14 and 15 later |
 
 ## Suggested order
 Top to bottom. The spec numbers are IDs, not the order, so they never change.
