@@ -226,7 +226,7 @@ class MangaDexDownloaderView(ft.Container):
                     ft.Icons.FOLDER_OPEN,
                     icon_color=Nord.TEXT,
                     style=Nord.icon_button_style(),
-                    tooltip="Pick a different output folder",
+                    tooltip=Nord.tooltip("Pick a different output folder"),
                     on_click=lambda e: self.pick_files_dialog.get_directory_path(),
                     # Running from source, everything goes to the repo's own folder (see "can_pick_output_folders").
                     visible=can_pick_output_folders(),
@@ -235,7 +235,7 @@ class MangaDexDownloaderView(ft.Container):
                     ft.Icons.RESTART_ALT,
                     icon_color=Nord.TEXT,
                     style=Nord.icon_button_style(),
-                    tooltip="Use the default output folder",
+                    tooltip=Nord.tooltip("Use the default output folder"),
                     on_click=lambda e: self.set_output_directory(""),
                     visible=can_pick_output_folders(),
                 ),

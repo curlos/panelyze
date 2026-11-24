@@ -1,11 +1,21 @@
-import flet as ft
+import sys
 
+import flet as ft
+import pytest
+
+import gui_classes.ProgressPanel as progress_panel_module
 from download_from_mangadex import (
     get_mangadex_progress_reporter,
     parse_mangadex_progress_line,
 )
 from gui_classes import Nord
 from gui_classes.ProgressPanel import ProgressPanel, report_progress
+
+
+@pytest.fixture(autouse=True)
+def sizes_counted_like_finder(monkeypatch):
+    # The sizes in these tests are written the Mac's way, on every computer (File Explorer's way is tested on its own).
+    monkeypatch.setattr(progress_panel_module, "USE_FILE_EXPLORER_SIZES", False)
 
 
 # Real lines from mangadex-downloader.
@@ -62,6 +72,32 @@ def test_progress_panel_shows_chapters_pages_and_the_bar():
 
     panel.finish("Upscaling finished!")
     assert panel.progress_bar.value == 1
+
+
+def test_the_status_view_says_where_the_ai_model_runs_only_for_that_job():
+    panel = ProgressPanel()
+    panel.start("Finding the panels...")
+    assert not panel.device_text.visible
+
+    report_progress(device="AMD Radeon RX 6700 XT")
+    assert panel.device_text.visible
+    assert "".join(span.text for span in panel.device_text.spans) == "Running on the AMD Radeon RX 6700 XT"
+    # The GPU's name stands out.
+    assert panel.device_text.spans[1].text == "AMD Radeon RX 6700 XT"
+    assert panel.device_text.spans[1].style.color == Nord.DEVICE
+
+    panel.finish("Done.")
+    assert "".join(span.text for span in panel.device_text.spans) == "Ran on the AMD Radeon RX 6700 XT"
+
+    # The next job (e.g. a download) doesn't use an AI model.
+    panel.start("Downloading...")
+    assert not panel.device_text.visible
+
+
+def test_the_status_view_scrolls_when_the_terminal_is_too_small_for_it():
+    panel = ProgressPanel()
+
+    assert panel.content.scroll == ft.ScrollMode.ALWAYS
 
 
 def test_a_single_folder_is_not_called_chapter_1_of_1():
@@ -201,7 +237,6 @@ def test_the_upscale_job_reports_folders_and_images(make_gui, tmp_path, monkeypa
     panel = gui.terminal_output.progress_panel
     seen = []
     view = gui.UpscaleImagesView
-    monkeypatch.setattr("gui_classes.UpscaleImagesView.get_waifu2x_path", lambda: "/fake/waifu2x")
     view.process_image_folder = lambda *args: seen.append(panel.status_text.value)
 
     view.start_job(str(tmp_path / "Images"), str(tmp_path / "out"))
@@ -364,6 +399,19 @@ def test_a_size_is_written_the_way_finder_shows_it():
 
     assert [format_size(size) for size in (0, 512, 5300, 412_000_000, 1_234_000_000, 3_000_000_000_000)] == [
         "0 B", "512 B", "5.3 KB", "412 MB", "1.2 GB", "3.0 TB",
+    ]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="File Explorer's sizes are written by Windows itself")
+def test_a_size_is_written_the_way_file_explorer_shows_it_on_windows(monkeypatch):
+    from gui_classes.ProgressPanel import format_size
+
+    monkeypatch.setattr(progress_panel_module, "USE_FILE_EXPLORER_SIZES", True)
+    # Slam Dunk ch. 1 from comix.to: 70,413,414 bytes is 67.1 MB in File Explorer (70.4 MB in Finder). Explorer counts 1 KB as 1024 bytes, keeps 3 digits without rounding up, and goes to the next unit at 1000.
+    # These are English Windows' texts: Windows writes them in the user's language and number format (e.g. "67,1 MB" in German), as Explorer does.
+    assert format_size(70_413_414) == "67.1 MB"
+    assert [format_size(size) for size in (512, 1023, 5300, 1_024_000, 1_234_000_000)] == [
+        "512 bytes", "1023 bytes", "5.17 KB", "0.97 MB", "1.14 GB",
     ]
 
 

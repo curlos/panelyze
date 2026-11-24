@@ -11,6 +11,8 @@ import traceback
 
 from PIL import Image, ImageDraw
 
+from default_settings import LOG_FOLDER
+
 
 def make_test_page(path):
     """
@@ -41,10 +43,15 @@ def check_magi_panels(work_directory):
 
 
 def check_waifu2x(work_directory):
-    from utils import ProcessManager, get_waifu2x_path
-    from waifu2x import upscale_with_waifu2x
+    from utils import ProcessManager, get_waifu2x_path, is_running_as_packaged_app
+    from waifu2x import download_waifu2x, upscale_with_waifu2x
 
-    assert get_waifu2x_path(), "waifu2x-ncnn-vulkan not found"
+    if is_running_as_packaged_app():
+        # The packaged app must use its own copy, not one found on the PATH or downloaded: that's what this check is for when the app is built.
+        assert (get_waifu2x_path() or "").startswith(sys._MEIPASS), "waifu2x isn't bundled in the app"
+    else:
+        # Downloaded the first time when running from source, like the Upscale tab does.
+        download_waifu2x()
 
     input_image = os.path.join(work_directory, "small.png")
     output_image = os.path.join(work_directory, "small_2x.png")
@@ -156,7 +163,7 @@ CHECKS = [
 
 
 # A packaged app may have nowhere to print to, so the results are also saved here.
-REPORT_FILE_PATH = os.path.expanduser("~/Library/Logs/Panelyze/self-test.log")
+REPORT_FILE_PATH = os.path.join(LOG_FOLDER, "self-test.log")
 
 
 def run_self_test():

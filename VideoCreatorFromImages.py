@@ -17,6 +17,7 @@ import os
 from TextToSpeech import TextToSpeech
 from SpeechTextParser import SpeechTextParser
 from DrawBoxCoords import DrawBoxCoords
+from default_settings import DEFAULT_SETTINGS
 from gui_classes.ProgressPanel import report_progress
 from utils import (
     PANEL_TEXT_FILE_NAME,
@@ -200,6 +201,8 @@ class VideoCreatorFromImages:
         self.speech_text_parser = SpeechTextParser()
         self.tts = TextToSpeech(self.flet_page_client_storage)
         self.draw_box_coords = DrawBoxCoords(self.flet_page_client_storage)
+        # The voice-over audio files opened for the video being made (see "close_audio_clips").
+        self.audio_clips = []
 
         self.consecutive_voice_over_failures = 0
         self.voice_over_lock = threading.Lock()
@@ -241,31 +244,33 @@ class VideoCreatorFromImages:
                 storage.get("reading_direction") or "auto"
             )
             self.image_displayed_duration = get_number_setting(
-                storage, "image_displayed_duration", 3
+                storage, "image_displayed_duration", DEFAULT_SETTINGS["image_displayed_duration"]
             )
+            # An image shown for 0 seconds (or less) can't be in the video: with every image at 0, making the video failed.
+            if self.image_displayed_duration <= 0:
+                self.image_displayed_duration = DEFAULT_SETTINGS["image_displayed_duration"]
             self.use_reading_speed_wpm = self.flet_page_client_storage.get(
                 "use_reading_speed_wpm"
             )
             self.reading_speed_wpm = get_number_setting(
                 storage, "reading_speed_wpm", 150
             )
+            # 0 words a minute would divide by zero (the video failed), and a negative speed gives negative times.
+            if self.reading_speed_wpm <= 0:
+                self.reading_speed_wpm = 150
 
             self.use_minimum_image_duration = self.flet_page_client_storage.get(
                 "use_minimum_image_duration"
             )
-            self.minimum_image_duration = get_number_setting(
-                storage, "minimum_image_duration", 0
-            )
+            # Below 0 means no minimum.
+            self.minimum_image_duration = max(0, get_number_setting(storage, "minimum_image_duration", 0))
 
             self.use_text_to_speech_azure = self.flet_page_client_storage.get(
                 "use_text_to_speech_azure"
             )
-            self.image_pre_tts_audio_delay = get_number_setting(
-                storage, "image_pre_tts_audio_delay", 0
-            )
-            self.image_post_tts_audio_delay = get_number_setting(
-                storage, "image_post_tts_audio_delay", 0
-            )
+            # A negative pause would cut the end of the voice off.
+            self.image_pre_tts_audio_delay = max(0, get_number_setting(storage, "image_pre_tts_audio_delay", 0))
+            self.image_post_tts_audio_delay = max(0, get_number_setting(storage, "image_post_tts_audio_delay", 0))
 
             self.highlight_text_boxes_in_images = self.flet_page_client_storage.get(
                 "highlight_text_boxes_in_images"
@@ -368,18 +373,6 @@ class VideoCreatorFromImages:
         output_directory = os.path.dirname(output_file)
         os.makedirs(output_directory, exist_ok=True)
 
-        # Create a list of ImageClips, resizing them to fit the video height
-        clips = self.get_clips(
-            images,
-            images_with_highlighted_text_boxes_folder,
-            images_duration_based_on_wpm,
-            images_duration_based_on_tts,
-            full_output_directory,
-        )
-
-        # Concatenate all ImageClips into a single video. Every clip is already the full video frame size, so they can simply be played one after another ("chain"), which is much faster than "compose".
-        video = concatenate_videoclips(clips, method="chain")
-
         fps = 1
 
         if self.highlight_text_boxes_in_images or self.use_text_to_speech_azure:
@@ -390,17 +383,34 @@ class VideoCreatorFromImages:
         codecs = VIDEO_CODECS_BY_EXTENSION.get(
             video_extension, VIDEO_CODECS_BY_EXTENSION["mp4"]
         )
-        report_progress(
-            stage=WRITING_STAGE, pages_done=None, pages_total=None, detail="Writing the video file..."
-        )
-        video.write_videofile(
-            output_file,
-            fps=fps,
-            temp_audiofile_path=os.path.dirname(output_file),
-            # Hundreds of frames a second would mean as many updates of the window.
-            logger=VideoWritingProgress(min_time_interval=0.25),
-            **codecs,
-        )
+
+        # The audio files "get_clips" opens are closed at the end, even if something fails on the way.
+        try:
+            # Create a list of ImageClips, resizing them to fit the video height
+            clips = self.get_clips(
+                images,
+                images_with_highlighted_text_boxes_folder,
+                images_duration_based_on_wpm,
+                images_duration_based_on_tts,
+                full_output_directory,
+            )
+
+            # Concatenate all ImageClips into a single video. Every clip is already the full video frame size, so they can simply be played one after another ("chain"), which is much faster than "compose".
+            video = concatenate_videoclips(clips, method="chain")
+
+            report_progress(
+                stage=WRITING_STAGE, pages_done=None, pages_total=None, detail="Writing the video file..."
+            )
+            video.write_videofile(
+                output_file,
+                fps=fps,
+                temp_audiofile_path=os.path.dirname(output_file),
+                # Hundreds of frames a second would mean as many updates of the window.
+                logger=VideoWritingProgress(min_time_interval=0.25),
+                **codecs,
+            )
+        finally:
+            self.close_audio_clips()
 
         if (
             self.highlight_text_boxes_in_images
@@ -764,9 +774,12 @@ class VideoCreatorFromImages:
 
             print(f"WARNING: Couldn't make the voice-over for {text_list}: {error}. It's skipped.")
 
-            # A failed attempt can leave a partial file behind.
+            # A failed attempt can leave a partial file behind. If it can't be deleted (on Windows, while something still has it open), the video stops with the real error, not Windows' "file in use" one: the partial file would otherwise be used as this line's voice-over.
             if os.path.exists(output_file):
-                os.remove(output_file)
+                try:
+                    os.remove(output_file)
+                except OSError:
+                    raise error
 
     def save_essential_text_to_transcript(
         self, essential_text_in_images_matrix, full_output_directory
@@ -775,7 +788,8 @@ class VideoCreatorFromImages:
         os.makedirs(full_output_directory, exist_ok=True)
 
         # Save each sentence on a new line with a separator between arrays. A bubble that's in two overlapping panels is only written once, like the voice only says it once.
-        with open(f"{full_output_directory}/transcript.txt", "w") as file:
+        # UTF-8, or Windows can't save text like "♥" or Japanese.
+        with open(f"{full_output_directory}/transcript.txt", "w", encoding="utf-8") as file:
             for image_text_arr in remove_lines_said_in_the_image_before(essential_text_in_images_matrix):
                 if image_text_arr:  # Non-empty array
                     for sentence in image_text_arr:
@@ -803,7 +817,7 @@ class VideoCreatorFromImages:
             return None
 
         # Read the transcript file
-        with open(transcript_path, "r") as file:
+        with open(transcript_path, "r", encoding="utf-8") as file:
             lines = file.readlines()
 
         loaded_arrays = []  # List to store all arrays
@@ -824,6 +838,14 @@ class VideoCreatorFromImages:
 
         return loaded_arrays
 
+    def close_audio_clips(self):
+        """
+        Each audio file stays open (in an ffmpeg process) until its clip is closed, and Windows can't delete a file that's open. So without this, removing the "audio-files" folder fails after a video with a voice-over.
+        """
+        for audio_clip in self.audio_clips:
+            audio_clip.close()
+        self.audio_clips = []
+
     def get_clips(
         self,
         images,
@@ -833,6 +855,7 @@ class VideoCreatorFromImages:
         full_output_directory,
     ):
         clips = []
+        self.close_audio_clips()
 
         image_paths_to_use = images
 
@@ -860,6 +883,7 @@ class VideoCreatorFromImages:
             if os.path.exists(audio_path):
                 # Get the actual duration of the audio file
                 audio_clip = AudioFileClip(audio_path)
+                self.audio_clips.append(audio_clip)
                 audio_duration = audio_clip.duration
 
                 # When each line of text gets its own highlighted image, the image should only last as long as its line of audio. Otherwise, keep the full image duration (which includes the minimum image duration).

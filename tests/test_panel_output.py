@@ -2,6 +2,7 @@ import os
 from types import SimpleNamespace
 
 import numpy
+import pytest
 
 from tests.fake_pages import drawn_page
 from magi import Magi
@@ -125,6 +126,34 @@ def test_the_pipeline_always_saves_panels_together(make_gui, tmp_path, monkeypat
     assert view.ignore_group_by_page is False
 
 
+def test_panels_grouped_by_page_are_also_saved_as_a_comic_file(make_gui, tmp_path, monkeypatch):
+    import zipfile
+
+    gui = make_gui()
+    gui.page.client_storage.set("save_as_cbz", "full")
+    gui.page.client_storage.set("group_panels_by_page", True)
+    magi = get_magi_with_fake_panels(monkeypatch)
+    monkeypatch.setattr(
+        "magi.get_magi",
+        lambda: SimpleNamespace(
+            get_panels_for_chapter=lambda image_folder, output_directory, **kwargs: magi.get_panels_using_local_cpu(
+                [drawn_page()] * 2, "Manga/Ch 1", output_directory, group_by_page=kwargs["group_by_page"]
+            )
+        ),
+    )
+    chapter = tmp_path / "Manga" / "Ch 1"
+    chapter.mkdir(parents=True)
+    (chapter / "page_1.png").write_bytes(b"")
+
+    gui.MagiPanelByPanelView.process_image_folder(str(chapter), [], str(tmp_path / "Manga"), str(tmp_path / "out"))
+
+    comic_files = [os.path.join(folder, name) for folder, _, names in os.walk(tmp_path / "out") for name in names if name.endswith(".cbz")]
+    assert len(comic_files) == 1
+    with zipfile.ZipFile(comic_files[0]) as cbz:
+        # Every panel of both pages (2 + 1), in reading order.
+        assert [name for name in cbz.namelist() if name.endswith(".png")] == ["0001.png", "0002.png", "0003.png"]
+
+
 def test_panel_by_panel_also_saves_a_comic_file_when_turned_on(make_gui, tmp_path, monkeypatch):
     import zipfile
 
@@ -200,6 +229,43 @@ def test_show_full_characters_is_off_by_default_and_is_passed_to_magi(make_gui, 
     checkbox.on_change(fake_event(data="true"))
     view.start_job(str(tmp_path / "Manga"), str(tmp_path / "out"))
     assert fake_magi.show_full_characters is True
+
+
+def test_split_tall_panels_is_on_by_default_and_its_checkbox_is_passed_to_magi(make_gui, tmp_path, monkeypatch):
+    import magi as magi_module
+
+    gui = make_gui()
+    view = gui.MagiPanelByPanelView
+    from tests.test_mangadex_folders import find_checkbox
+
+    checkbox = find_checkbox(view, "Split very tall panels for phones (never through text)").checkbox
+    fake_magi = SimpleNamespace(split_tall_panels=None, show_full_characters=None, get_panels_for_chapter=lambda *args, **kwargs: None)
+    monkeypatch.setattr(magi_module, "get_magi", lambda: fake_magi)
+    chapter = tmp_path / "Manga" / "Ch 1"
+    chapter.mkdir(parents=True)
+    (chapter / "page_1.png").write_bytes(b"")
+
+    assert checkbox.value is True
+    view.start_job(str(tmp_path / "Manga"), str(tmp_path / "out"))
+    assert fake_magi.split_tall_panels is True
+
+    checkbox.on_change(fake_event(data="false"))
+    view.start_job(str(tmp_path / "Manga"), str(tmp_path / "out"))
+    assert fake_magi.split_tall_panels is False
+
+
+@pytest.mark.parametrize("split_tall_panels, panel_count", [(True, 6), (False, 3)])
+def test_split_tall_panels_decides_whether_panels_are_split(tmp_path, monkeypatch, split_tall_panels, panel_count):
+    import magi as magi_module
+
+    # Every panel "is tall" here and splits in two.
+    monkeypatch.setattr(magi_module, "split_tall_panel", lambda panel, page, texts: [panel, panel])
+    magi = get_magi_with_fake_panels(monkeypatch)
+    magi.split_tall_panels = split_tall_panels
+
+    chapter = run_magi(magi, tmp_path, False) / "Series" / "Ch 1"
+
+    assert len(os.listdir(chapter)) == panel_count
 
 
 def test_a_chapter_already_split_into_panels_is_skipped_until_something_changes(make_gui, tmp_path, monkeypatch):
@@ -343,3 +409,17 @@ def test_the_picked_folder_says_how_many_new_chapters_will_be_split(make_gui, tm
     gui.page.client_storage.set("split_panels_again", False)
     directories.show_output_directory(str(tmp_path / "other"))
     assert directories.input_summary_text.value == "3 chapters · 3 pages"
+
+
+def test_panel_by_panel_shows_its_stages_finding_then_saving_the_panels(tmp_path, monkeypatch):
+    import gui_classes.ProgressPanel as progress_module
+
+    reported = []
+    monkeypatch.setattr(progress_module, "report_progress", lambda **fields: reported.append(fields))
+
+    run_magi(get_magi_with_fake_panels(monkeypatch), tmp_path, False)
+
+    assert reported[0] == {"stages": ("Finding the panels", "Saving the panels"), "stage": "Finding the panels", "unit": "pages"}
+    saving = reported.index({"stage": "Saving the panels", "pages_done": 0, "pages_total": 2, "detail": None})
+    # Each page's panels are counted as they're saved.
+    assert reported[saving + 1:] == [{"pages_done": 1}, {"pages_done": 2}]

@@ -8,6 +8,7 @@ from gui_classes.ReadingDirectionSetting import READING_DIRECTIONS
 from gui_classes.WrappingCheckbox import WrappingCheckbox
 from default_settings import can_pick_output_folders, get_output_directory
 from gui_classes.MangaDexDownloaderView import get_downloader
+from download_pages_from_url import get_min_image_side
 from gui_classes.PickInputAndOutputDirectories import COMIC_FILES_HELP_TEXT, save_input_to_temporary_folder
 from gui_classes.ProgressPanel import format_duration, report_output_folder, report_progress
 from utils import (
@@ -134,25 +135,45 @@ def get_reading_direction_review(storage, selected_steps):
     return "reading direction Automatic (from the images, unless the folder was downloaded from MangaDex or comix.to)"
 
 
-def get_settings_review(storage, selected_steps):
+def get_download_review(storage, url):
     """
-    A short summary of the settings (from each step's own tab) that the pipeline will use, as (step, details) pairs.
+    The Download step's settings. Only the ones the link's site uses: MangaDex uses all of them, comix.to only the chapters, a web page only "Only keep bigger images", the Internet Archive none. Before a link is entered, the MangaDex ones are shown, marked as such.
+    """
+    get = storage.get
+    try:
+        source = get_downloader(url)[0] if (url or "").strip() else None
+    except ValueError:
+        source = None
+
+    details = []
+    if source in (None, "MangaDex"):
+        language = get("language") or {}
+        details.append(f"language {language.get('name', 'English')}" + (" (MangaDex only)" if source is None else ""))
+    if source in (None, "MangaDex", "comix.to") and get("use_start_and_end_chapters"):
+        details.append(f"chapters {get('start_chapter') or 'first'} to {get('end_chapter') or 'last'}")
+    if source in (None, "MangaDex"):
+        if get("use_start_and_end_pages"):
+            details.append(f"pages {get('start_page') or 'first'} to {get('end_page') or 'last'}")
+        if get("upload_choice") == "first":
+            details.append("first upload of each chapter")
+        elif get("upload_choice") == "group" and (get("preferred_group") or "").strip():
+            details.append("the preferred group's uploads")
+    if source == "the web page" and get_min_image_side(storage):
+        details.append(f"only images at least {get_min_image_side(storage)}px on the shorter side")
+    if source:
+        details.insert(0, f"from {source}")
+    return ", ".join(details)
+
+
+def get_settings_review(storage, selected_steps, url=""):
+    """
+    A short summary of the settings (from each step's own tab) that the pipeline will use, as (step, details) pairs. "url" is the Download step's link.
     """
     get = storage.get
     review = []
 
     if "Download" in selected_steps:
-        language = get("language") or {}
-        details = f"language {language.get('name', 'English')} (MangaDex only)"
-        if get("use_start_and_end_chapters"):
-            details += f", chapters {get('start_chapter') or 'first'} to {get('end_chapter') or 'last'}"
-        if get("use_start_and_end_pages"):
-            details += f", pages {get('start_page') or 'first'} to {get('end_page') or 'last'}"
-        if get("upload_choice") == "first":
-            details += ", first upload of each chapter"
-        elif get("upload_choice") == "group" and (get("preferred_group") or "").strip():
-            details += ", the preferred group's uploads"
-        review.append(("Download", details))
+        review.append(("Download", get_download_review(storage, url)))
 
     if "Panel-By-Panel" in selected_steps:
         details = f"Magi AI Model, {get_reading_direction_review(storage, selected_steps)}, panels saved together (not grouped by page)"
@@ -166,6 +187,8 @@ def get_settings_review(storage, selected_steps):
 
     if "Upscale Images" in selected_steps:
         details = f"{get('upscale_ratio')}x, noise level {get('noise_level')}, {get('image_format')}, {get('upscale_model') or 'fast'} model"
+        if get("limit_upscale_to_4k"):
+            details += ", at most 4K (3840px)"
         if get("use_custom_panel_image_height"):
             details += f", height {get('custom_panel_image_height')}px"
         if get("use_max_image_width"):
@@ -225,6 +248,8 @@ class PipelineView(ft.Container):
             label="Enter a MangaDex, comix.to, Internet Archive or web page URL",
             border_color=Nord.BLUE,
             visible=False,
+            # The Download settings shown depend on the link's site.
+            on_change=self.handle_url_change,
         )
 
         self.input_directory_picker = ft.FilePicker(
@@ -310,7 +335,7 @@ class PipelineView(ft.Container):
                     ft.Icons.RESTART_ALT,
                     icon_color=Nord.TEXT,
                     style=Nord.icon_button_style(),
-                    tooltip="Use the default output folder",
+                    tooltip=Nord.tooltip("Use the default output folder"),
                     on_click=lambda e: self.set_output_directory(""),
                     visible=can_pick_output_folders(),
                 ),
@@ -409,7 +434,7 @@ class PipelineView(ft.Container):
                 vertical_alignment=ft.CrossAxisAlignment.START,
             )
             for step, details in get_settings_review(
-                self.parent_gui.page.client_storage, selected_steps
+                self.parent_gui.page.client_storage, selected_steps, self.mangadex_url_text_field.value
             )
         ]
 
@@ -446,6 +471,10 @@ class PipelineView(ft.Container):
         self.mangadex_url_text_field.visible = uses_mangadex
         self.input_column.visible = not uses_mangadex
 
+        self.refresh_review()
+        self.update()
+
+    def handle_url_change(self, e):
         self.refresh_review()
         self.update()
 

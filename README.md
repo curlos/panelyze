@@ -48,11 +48,27 @@ While a job runs, the bottom of the window shows how far it is, how long it has 
 
 Everything is built in, including the panel-finding AI model and the upscaler. The only download: the first time a video reads the text of your pages, an AI model (about 2 GB) is downloaded automatically.
 
+## Tested on
+
+| | Computers |
+|---|---|
+| **Tested and working** | MacBook Air M1 (16 GB), macOS (the downloadable app and from source) · Windows 11 PC with an AMD Radeon RX 6700 XT, from source |
+| **Should work, not tested** | Other Apple Silicon Macs (M1 or newer) · Windows 10/11 PCs with other AMD Radeon RX 5000, 6000, 7000 or 9000 cards, or NVIDIA cards, from source (install PyTorch for your card, see [DEVELOPING.md](DEVELOPING.md#on-a-windows-pc-with-an-amd-gpu)) · Any other Windows 10/11 PC, from source, with Magi (panels, and reading the text for videos) and the "Best" upscaler on the CPU (about 12× slower) |
+| **Won't work** | Intel Macs (PyTorch's last Intel Mac build is 2.2.2; Panelyze needs 2.5.1) · Windows on ARM, e.g. Snapdragon laptops (the pinned PyTorch 2.5.1 and tokenizers 0.14.1 have no ARM builds for Windows) · Windows 7 and 8 (Python 3.11 doesn't support them) |
+
 ## Good to know
 
-- **Mac with Apple Silicon only** (M1 or newer) for now. Windows is planned.
+- **The downloadable app is for Macs with Apple Silicon only** (M1 or newer) for now. On Windows it runs from source (see [DEVELOPING.md](DEVELOPING.md#on-a-windows-pc-with-an-amd-gpu)).
 - **For personal, non-commercial use.** The Magi AI model that finds the panels is free only for personal, research and non-commercial use (see its [model page](https://huggingface.co/ragavsachdeva/magiv2)). The MangaJaNai and IllustrationJaNai upscale models are licensed [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) (non-commercial).
-- Everything the app does is saved to `~/Library/Logs/Panelyze/panelyze.log` (Settings → Open Log File). Send it along if something goes wrong.
+- Everything the app does is saved to `~/Library/Logs/Panelyze/panelyze.log` (on Windows `%LOCALAPPDATA%\Panelyze\Logs`; Settings → Open Current Log). It holds this run, and `panelyze.1.log` to `panelyze.9.log` the runs before (Settings → Open Logs Folder).
+
+- **Keyboard shortcuts:** Ctrl+1 to Ctrl+5 open the tabs in order (Download to Pipeline) and Ctrl+, opens Settings (⌘ instead of Ctrl on a Mac). While a tab is focused, the arrow keys move between the tabs.
+
+## Something went wrong?
+
+[Open an issue on GitHub](https://github.com/curlos/panelyze/issues/new/choose) (or Settings → Report a Problem). Say what you did, what happened, and your computer (Mac or Windows, and the graphics card on Windows). Attach the log: `panelyze.log` if it happened this time, or `panelyze.1.log` if the app crashed or you've opened it again since.
+
+Issues are public, so look through the log before attaching it. It has your folder paths (with your user name) and the links of the chapters you used. Remove anything you don't want others to see.
 
 ## License
 

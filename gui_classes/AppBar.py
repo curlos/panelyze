@@ -25,9 +25,16 @@ class AppBarButton(ft.Container):
         )
         # An icon-only tab is an icon button, so the icon is centered (a text button with no text still leaves room on the right for it).
         button_class = ft.TextButton if show_text else ft.IconButton
+        # A tooltip only when it says something the tab doesn't: why it can't be opened, or the name when only the icon shows.
+        if is_waiting:
+            tooltip = Nord.tooltip(f'Wait for "{running_job_name}" to finish (only one job runs at a time)')
+        elif not show_text:
+            tooltip = Nord.tooltip(f"{text} ({shortcut})")
+        else:
+            tooltip = None
         self.content = button_class(
             icon=icon,
-            tooltip=f'Wait for "{running_job_name}" to finish (only one job runs at a time)' if is_waiting else f"{text} ({shortcut})",
+            tooltip=tooltip,
             on_click=lambda e: change_view(text),
             # Lets the arrow keys know a tab is focused (see "AppBar.move_to_tab").
             on_focus=lambda e: on_focus_change(text, True),

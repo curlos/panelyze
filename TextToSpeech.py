@@ -284,10 +284,8 @@ class TextToSpeech:
         speech_config.set_speech_synthesis_output_format(
             speechsdk.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3
         )
-        audio_config = speechsdk.audio.AudioOutputConfig(filename=output_file)
-        synthesizer = speechsdk.SpeechSynthesizer(
-            speech_config=speech_config, audio_config=audio_config
-        )
+        # The audio comes back in memory ("audio_config=None") and is saved here. Written by Azure itself, the file stayed open for a while after it was done, and Windows can't delete an open file (the parts of a line read in several pieces are deleted right after).
+        synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
 
         result = synthesizer.speak_ssml_async(self.get_azure_ssml(text, voice_styles)).get()
 
@@ -296,6 +294,9 @@ class TextToSpeech:
             raise RuntimeError(
                 f"Azure Text-To-Speech failed: {getattr(error_details, 'error_details', result.reason)}"
             )
+
+        with open(output_file, "wb") as file:
+            file.write(result.audio_data)
 
     def get_azure_voice_styles(self, speechsdk, speech_config):
         """

@@ -11,12 +11,13 @@ import os
 import platform
 import shutil
 import sys
-import urllib.request
 import zipfile
 
 import numpy
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
+
+from utils import download_file
 
 MODELS_FOLDER = os.path.expanduser("~/Library/Application Support/Panelyze/upscale-models")
 
@@ -89,7 +90,7 @@ def download_model_file(file_name, zip_url, report=print):
     os.makedirs(MODELS_FOLDER, exist_ok=True)
     zip_path = os.path.join(MODELS_FOLDER, "download.zip.tmp")
     report(f"Downloading the upscale model {file_name} (one time only)...")
-    urllib.request.urlretrieve(zip_url, zip_path)
+    download_file(zip_url, zip_path)
 
     try:
         with zipfile.ZipFile(zip_path) as models_zip:
@@ -167,7 +168,7 @@ def get_coreml_upscale_function(model_path, use_neural_engine, report=print):
 
 def get_pytorch_upscale_function(model_path):
     """
-    An "upscale this tile" function that runs on the GPU (or the CPU without one), with PyTorch.
+    An "upscale this tile" function that runs on the GPU (or the CPU without one), with PyTorch, and the device it runs on.
     """
     import torch
     from magi import get_device
@@ -180,7 +181,7 @@ def get_pytorch_upscale_function(model_path):
         with torch.no_grad():
             return model(torch.from_numpy(tile)[None].to(device))[0].cpu().numpy()
 
-    return upscale_tile
+    return upscale_tile, device
 
 
 def upscale_in_tiles(upscale_tile, image, scale, tile_size, fixed_tile_size):
@@ -191,10 +192,22 @@ def upscale_in_tiles(upscale_tile, image, scale, tile_size, fixed_tile_size):
     result = numpy.zeros((channels, height * scale, width * scale), dtype=numpy.float32)
     step = tile_size - 2 * TILE_OVERLAP if fixed_tile_size else tile_size
 
+    def get_tile_start(start, length):
+        # A full tile that starts a little before "start", pulled back so it doesn't go past the image's edge.
+        return max(min(start - TILE_OVERLAP, length - tile_size), 0)
+
+    def reaches_edge(start, length):
+        # A full tile that reaches the image's edge keeps everything up to it: there's no tile after it to cover its edge. Without this, the next tile was the same one again, upscaled only for its last few pixels.
+        return fixed_tile_size and get_tile_start(start, length) + tile_size >= length
+
     for y in range(0, height, step):
+        if y > 0 and reaches_edge(y - step, height):
+            break
         for x in range(0, width, step):
+            if x > 0 and reaches_edge(x - step, width):
+                break
             if fixed_tile_size:
-                tile_y, tile_x = max(min(y - TILE_OVERLAP, height - tile_size), 0), max(min(x - TILE_OVERLAP, width - tile_size), 0)
+                tile_y, tile_x = get_tile_start(y, height), get_tile_start(x, width)
                 tile = image[:, tile_y:tile_y + tile_size, tile_x:tile_x + tile_size]
                 tile = numpy.pad(
                     tile,
@@ -205,7 +218,8 @@ def upscale_in_tiles(upscale_tile, image, scale, tile_size, fixed_tile_size):
                 tile_y, tile_x = max(y - TILE_OVERLAP, 0), max(x - TILE_OVERLAP, 0)
                 tile = image[:, tile_y:min(y + step + TILE_OVERLAP, height), tile_x:min(x + step + TILE_OVERLAP, width)]
 
-            end_y, end_x = min(y + step, height), min(x + step, width)
+            end_y = height if reaches_edge(y, height) else min(y + step, height)
+            end_x = width if reaches_edge(x, width) else min(x + step, width)
             upscaled_tile = upscale_tile(numpy.ascontiguousarray(tile))
             # Only the middle of each tile is kept. Its edges are covered by the tiles next to it.
             result[:, y * scale:end_y * scale, x * scale:end_x * scale] = upscaled_tile[
@@ -219,8 +233,11 @@ def upscale_in_tiles(upscale_tile, image, scale, tile_size, fixed_tile_size):
 
 def get_upscaler(model_path, use_neural_engine, report=print):
     """
-    "upscale(image)" for a model, loaded once and then reused. Core ML when it's available, or else PyTorch.
+    "upscale(image)" for a model, loaded once and then reused. Core ML when it's available, or else PyTorch. Where it runs is shown in the Status view.
     """
+    from gui_classes.ProgressPanel import report_progress
+    from magi import get_device_name, get_mac_chip_name
+
     key = (model_path, use_neural_engine)
     if key not in _loaded_upscalers:
         upscale_tile = None
@@ -228,16 +245,27 @@ def get_upscaler(model_path, use_neural_engine, report=print):
             try:
                 upscale_tile = get_coreml_upscale_function(model_path, use_neural_engine, report)
                 tile_size, fixed_tile_size = COREML_TILE, True
+                # Core ML runs on the Mac's chip (its GPU and Neural Engine).
+                device_name = get_mac_chip_name()
             except Exception as error:
                 report(f"Couldn't use Core ML for the upscale model ({error}). Using PyTorch instead (slower).")
 
         if upscale_tile is None:
-            upscale_tile = get_pytorch_upscale_function(model_path)
-            tile_size, fixed_tile_size = PYTORCH_TILE, False
+            import torch
 
-        _loaded_upscalers[key] = lambda image: upscale_in_tiles(upscale_tile, image, 2, tile_size, fixed_tile_size)
+            upscale_tile, device = get_pytorch_upscale_function(model_path)
+            device_name = get_device_name(device)
+            # With AMD's PyTorch (ROCm, "hip"), every tile is the same size: AMD's GPU software works out how to run each new image size the first time it sees it (slow), and comic panels are all different sizes, so tiles that fit each panel were about 2x slower there. Elsewhere (NVIDIA, the CPU), padding small images to a full tile would only add work.
+            tile_size, fixed_tile_size = PYTORCH_TILE, torch.version.hip is not None
 
-    return _loaded_upscalers[key]
+        _loaded_upscalers[key] = (
+            lambda image: upscale_in_tiles(upscale_tile, image, 2, tile_size, fixed_tile_size),
+            device_name,
+        )
+
+    upscale, device_name = _loaded_upscalers[key]
+    report_progress(device=device_name)
+    return upscale
 
 
 def upscale_image_with_janai(input_image, output_image, upscale_ratio, report=print):

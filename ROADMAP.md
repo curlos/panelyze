@@ -136,16 +136,16 @@ Estimate, not measured: about 20 pages per chapter → about 5,600 pages.
 | Real-ESRGAN | Its anime model is trained on blurry and compressed images. Testers report it can distort text, so test it on speech bubbles first. |
 
 ## 10. Run on the AMD gaming PC
-**Why:** the user's PC (Radeon RX 6700 XT, 12 GB) might run Magi and the upscalers about 3–5× faster than the M1. That's an estimate.
+**Result (2026-11-22, spec 10):** Panelyze runs from source on the user's Windows 11 PC (Radeon RX 6700 XT, 12 GB), with Magi and the upscalers on the GPU. Measured 1.7× (Panel-By-Panel), 2.5–5× ("Best" upscale) and 5× (the video) faster than the M1; the first run of each new image size is 2–4× slower (`benchmarks/README.md`). Setup is in `DEVELOPING.md`.
 
 | Option | Status |
 |---|---|
-| Linux (dual boot) with ROCm | The most proven route. Needs `HSA_OVERRIDE_GFX_VERSION=10.3.0`. |
-| Windows with AMD's new PyTorch builds ("TheRock") | They list the card's chip (gfx1031), but they're previews. Nobody has reported testing this exact card. |
-| VM or WSL2 | ❌ Can't use the card. |
-| DirectML | ❌ Unmaintained, stuck on PyTorch 2.0. |
+| Windows with AMD's PyTorch builds ("TheRock", `torch[device-gfx1031]`) | ✅ Works. Nightly builds, so pin the one that works. Needs Python 3.11. The app picks the most powerful GPU that works on its own (the CPU's built-in graphics is GPU 0 there and doesn't work). |
+| Linux (dual boot) with ROCm | Not needed. Backup: `torch==2.5.1+rocm6.2` with `HSA_OVERRIDE_GFX_VERSION=10.3.0`. |
+| VM or WSL2 | ❌ Can't use the card (AMD's WSL support is RX 7000/9000 only). |
+| DirectML | ❌ Unmaintained since Sept 2024, stuck on PyTorch 2.4.1. |
 
-Panelyze runs from source there, not as the Mac app, and waifu2x needs its Windows or Linux download. Because AMD cards show up in PyTorch as "cuda", the GPU picker needs no code change.
+Small fixes it needed: `.cbr` files open with Windows' own `tar.exe`, the comix.to downloader finds Chrome and Edge on Windows, and some tests assumed Mac paths. Still Mac-only: the downloadable app (Windows runs from source).
 
 ## 11. Smaller ideas
 | Idea | Notes |

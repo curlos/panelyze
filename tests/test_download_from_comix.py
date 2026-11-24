@@ -689,21 +689,21 @@ def test_the_chapter_list_shows_how_far_it_is(monkeypatch, tmp_path):
     assert comix.CHAPTER_LIST_PROGRESS_CALLBACK is None
 
 
-def test_the_web_page_options_start_off_and_show_their_size_box_when_turned_on(make_gui):
+def test_the_web_page_size_limit_starts_on_and_hides_its_size_box_when_turned_off(make_gui):
     from tests.fake_gui import fake_event
 
     gui = make_gui()
     settings = gui.MangaDexDownloaderView.settings
 
-    # Every image is saved by default.
-    assert gui.page.client_storage.get("use_web_page_min_size") is False
-    assert not settings.web_page_min_size_textfield.visible
-
-    checkbox = settings.web_page_options.controls[0]
-    checkbox.on_checkbox_change(fake_event(data="true"))
+    # Only the bigger images are kept by default (a web page is full of logos and icons).
     assert gui.page.client_storage.get("use_web_page_min_size") is True
     assert settings.web_page_min_size_textfield.visible
     assert gui.page.client_storage.get("web_page_min_size") == "600"
+
+    checkbox = settings.web_page_options.controls[0]
+    checkbox.on_checkbox_change(fake_event(data="false"))
+    assert gui.page.client_storage.get("use_web_page_min_size") is False
+    assert not settings.web_page_min_size_textfield.visible
 
 
 def test_a_pipeline_download_copies_a_chapter_from_the_download_tabs_folder(monkeypatch, tmp_path):

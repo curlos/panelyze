@@ -217,6 +217,78 @@ def test_settings_review_only_lists_the_selected_steps():
     ]
 
 
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        # MangaDex uses every Download setting.
+        ("https://mangadex.org/title/x", "from MangaDex, language French, chapters 1 to 3, pages 2 to last, first upload of each chapter"),
+        # comix.to only uses the chapters.
+        ("https://comix.to/title/w25zn-slam-dunk", "from comix.to, chapters 1 to 3"),
+        ("https://archive.org/details/x", "from the Internet Archive"),
+        # A web page only uses "Only keep bigger images".
+        ("https://example.com/chapter-1", "from the web page, only images at least 600px on the shorter side"),
+        # No link yet (or not a link): the MangaDex settings, marked as such.
+        ("", "language French (MangaDex only), chapters 1 to 3, pages 2 to last, first upload of each chapter"),
+        ("not a link", "language French (MangaDex only), chapters 1 to 3, pages 2 to last, first upload of each chapter"),
+    ],
+)
+def test_settings_review_only_lists_the_download_settings_the_links_site_uses(url, expected):
+    storage = {
+        "language": {"name": "French"},
+        "use_start_and_end_chapters": True,
+        "start_chapter": 1,
+        "end_chapter": 3,
+        "use_start_and_end_pages": True,
+        "start_page": 2,
+        "upload_choice": "first",
+        "use_web_page_min_size": True,
+        "web_page_min_size": "600",
+    }
+
+    assert dict(get_settings_review(storage, ["Download"], url))["Download"] == expected
+
+
+def test_the_settings_review_changes_as_the_link_is_typed(make_gui):
+    gui = make_gui()
+    pipeline = gui.PipelineView
+    pipeline.step_checkboxes["Download"].value = True
+    pipeline.refresh_review()
+    assert any("(MangaDex only)" in text for text in get_review_texts(gui))
+
+    assert pipeline.mangadex_url_text_field.on_change == pipeline.handle_url_change
+    pipeline.mangadex_url_text_field.value = "https://comix.to/title/w25zn-slam-dunk"
+    pipeline.handle_url_change(None)
+
+    texts = get_review_texts(gui)
+    assert any(text.startswith("from comix.to") for text in texts)
+    assert not any("language" in text for text in texts)
+
+
+@pytest.mark.parametrize("limit_to_4k", [True, False])
+def test_the_settings_review_says_when_upscaling_stops_at_4k(limit_to_4k):
+    storage = {"upscale_ratio": 32, "noise_level": 0, "image_format": "webp", "upscale_model": "best", "limit_upscale_to_4k": limit_to_4k}
+
+    details = dict(get_settings_review(storage, ["Upscale Images"]))["Upscale Images"]
+
+    assert details.startswith("32x, noise level 0, webp, best model")
+    assert ("at most 4K" in details) == limit_to_4k
+
+
+def test_ticking_download_shows_the_link_box_instead_of_the_input_folder(make_gui):
+    from tests.fake_gui import fake_event
+
+    pipeline = make_gui().PipelineView
+    assert pipeline.input_column.visible and not pipeline.mangadex_url_text_field.visible
+
+    pipeline.step_checkboxes["Download"].value = True
+    pipeline.handle_steps_change(fake_event())
+    assert pipeline.mangadex_url_text_field.visible and not pipeline.input_column.visible
+
+    pipeline.step_checkboxes["Download"].value = False
+    pipeline.handle_steps_change(fake_event())
+    assert pipeline.input_column.visible and not pipeline.mangadex_url_text_field.visible
+
+
 def test_settings_review_says_where_the_reading_direction_comes_from():
     def panel_by_panel_review(storage, steps):
         return dict(get_settings_review(storage, steps))["Panel-By-Panel"]
@@ -328,6 +400,8 @@ def test_upscaling_keeps_the_text_panel_by_panel_read_with_the_images(make_gui, 
     import gui_classes.UpscaleImagesView as upscale_module
 
     gui = make_gui()
+    # The fake waifu2x below copies the PNG panels as they are, so the output is PNG too.
+    gui.page.client_storage.set("image_format", "png")
     # A fake waifu2x that "upscales" a whole folder by copying its images.
     monkeypatch.setattr(
         upscale_module,
@@ -349,6 +423,7 @@ def test_upscaling_keeps_the_text_panel_by_panel_read_with_the_images(make_gui, 
         )
 
     upscale()
+    assert (upscaled_chapter / "panel_1.png").exists()
     assert (upscaled_chapter / "panel-text.json").read_text() == '[["Hello."]]'
     assert (upscaled_chapter / "reading-direction.txt").read_text() == "ltr"
 

@@ -14,6 +14,7 @@ The MangaDex links were recovered on 2026-11-21 from the `download.db` file the 
 | Chainsaw Man | Vol. 1 Ch. 3 - Arrival in Tokyo | MangaDex: [chapter](https://mangadex.org/chapter/139f4a2c-5b1a-4b43-9c6c-df1f26b1f5e3) | 24 | 2026-11-19 | Panel cropping (`benchmarks/panel-cropping.md`) |
 | Chainsaw Man | Vol. 2 Ch. 8 - Chainsaw Vs Bat | MangaDex: [chapter](https://mangadex.org/chapter/002e53cd-0586-4315-82ac-5dc01831155d) | 18 | 2026-11-19 | Panel cropping (`benchmarks/panel-cropping.md`) |
 | Dragon Ball (Official Colored) | Vol. 8 Ch. 93 - Goku's Charge | MangaDex: [chapter](https://mangadex.org/chapter/ac33cc50-a1b2-49b0-a388-0d0ee4ebce18) | 16 | 2026-11-19 | The default test chapter; panel cropping |
+| Dragon Ball (Official Colored) | Vol. 8 Ch. 93 - Goku's Charge | MangaDex: [chapter](https://mangadex.org/chapter/ac33cc50-a1b2-49b0-a388-0d0ee4ebce18) | 16 | 2026-11-22 | Windows PC + AMD RX 6700 XT timings and panel count (spec 10, `benchmarks/README.md`) |
 | Eleceed | Ch. 1 | MangaDex: [chapter](https://mangadex.org/chapter/59dcd5b1-8d41-4940-b5c6-60c684be5f69) | 7 | 2026-11-20 | Reading direction from MangaDex (spec 27) |
 | Eleceed | Ch. 2 | MangaDex: [chapter](https://mangadex.org/chapter/87c3b804-a119-4285-b2f7-74d9d807ac93) | 5 | 2026-11-19 | Webtoon mode (`benchmarks/webtoons.md`) |
 | Fruits Basket | Vol. 1 Ch. 2 | MangaDex: [chapter](https://mangadex.org/chapter/1f308bfc-507d-47ad-9cb8-2e6d6b9e7569) | 30 | 2026-11-19 | Panel cropping (`benchmarks/panel-cropping.md`) |
@@ -29,7 +30,10 @@ The MangaDex links were recovered on 2026-11-21 from the `download.db` file the 
 | Nán Hào Shàng Fēng | Ch. 3 - Daily Routine | MangaDex: [chapter](https://mangadex.org/chapter/524a02a0-6a4e-46f9-a537-279f5c15bea2) | 23 | 2026-11-19 | Webtoon mode (`benchmarks/webtoons.md`) |
 | Oemo Jisangjuui (Lookism) | Ch. 553 - DIVINE ORDER [02] | MangaDex: [chapter](https://mangadex.org/chapter/0b159e3e-4aad-4006-97ea-720be0f53f1b) | 50 | 2026-11-19 | Webtoon mode (`benchmarks/webtoons.md`); spec 28's main test case (panels 202–204) |
 | One Piece (Official Colored) | Vol. 58 Ch. 567 - Marineford Marine HQ, Orisu Plaza | MangaDex: [chapter](https://mangadex.org/chapter/03c8f635-f361-45fe-84c6-f6c1da7ba3ff) | 17 | 2026-11-19 | Upscaling and file-size benchmarks; panel cropping |
+| One Piece (Official Colored) | Vol. 58 Ch. 567 - Marineford Marine HQ, Orisu Plaza | MangaDex: [chapter](https://mangadex.org/chapter/03c8f635-f361-45fe-84c6-f6c1da7ba3ff) | 17 | 2026-11-22 | Windows PC + AMD RX 6700 XT vs M1 upscaling timings (spec 10, `benchmarks/README.md`) |
 | Shachou to Sake to Hoshi (Shachou) | Vol. 1 Ch. 3 - Boss and The Panda | MangaDex: [chapter](https://mangadex.org/chapter/f54fb875-d732-42d2-9926-b25767ee4cda) | 27 | 2026-11-18 | Speed, upscaling and video benchmarks; panel cropping |
+| Shachou to Sake to Hoshi (Shachou) | Vol. 1 Ch. 3 - Boss and The Panda | MangaDex: [chapter](https://mangadex.org/chapter/f54fb875-d732-42d2-9926-b25767ee4cda) | 27 | 2026-11-22 | Windows PC + AMD RX 6700 XT vs M1 timings (spec 10, `benchmarks/README.md`) |
+| Shachou to Sake to Hoshi (Shachou) | Vol. 6 Ch. 41 | MangaDex: [chapter](https://mangadex.org/chapter/05d763c0-93e1-4a4e-8645-59bec056878d) | 22 | 2026-11-23 | Hand test on the Windows PC (spec 10): download and Panel-By-Panel |
 | Shachou to Sake to Hoshi (Shachou) | Vol. 1 Ch. 4 - Boss and The Bento | MangaDex: [chapter](https://mangadex.org/chapter/e1434566-8936-49ff-93c7-74ead8d1b2e5) | 25 | 2026-11-19 | Panel cropping (`benchmarks/panel-cropping.md`) |
 | Shachou to Sake to Hoshi (Shachou) | Vol. 1 Ch. 5 - Boss and Drinking at Home | MangaDex: [chapter](https://mangadex.org/chapter/baa30a00-ab04-4789-85b8-4a2d1fcae5d9) | 26 | 2026-11-19 | Panel cropping (`benchmarks/panel-cropping.md`) |
 | Shachou to Sake to Hoshi (Shachou) | Vol. 1 Ch. 6 - Boss and the Lost Item | MangaDex: [chapter](https://mangadex.org/chapter/c083bade-6ab3-4de2-8a80-f0d98b6b4abc) | 22 | 2026-11-19 | Panel cropping (`benchmarks/panel-cropping.md`) |
@@ -58,6 +62,8 @@ The MangaDex links were recovered on 2026-11-21 from the `download.db` file the 
 | Dragon Ball | Ch. 93 (VIZ Media upload) | comix.to: [series](https://comix.to/title/699r0-dragon-ball) | 14 | 2026-11-20 | First comix.to download; compare with the MangaDex copy |
 | Slam Dunk | Ch. 1–3 ("VIZ Media" ✓, really a fan-colored edit) | comix.to: [series](https://comix.to/title/w25zn-slam-dunk) | 77 | 2026-11-20 | Chapter range and picking the official upload; panel order right to left |
 | Solo Leveling | Ch. 5 | comix.to: [chapter](https://comix.to/title/emqg8-solo-leveling/6839172-chapter-5) | 169 | 2026-11-20 | The Downloader tab; reading direction saved as `webtoon` |
+| Absolute Batman | Ch. 1 "Absolute Batman, Vol. 1: The Zoo" | comix.to (by the user, in the app, on the Windows PC) | 45 | 2026-11-23 | Spec 10: "Best" to 4K was slow on the AMD card (fixed: same-size tiles, stopping short of 4K), Panel-By-Panel and Images To Video timings (`benchmarks/README.md`) |
+| Absolute Batman | Ch. 2–3 "The Zoo 2", "The Zoo 3" | comix.to (by the user, in the app, on the Windows PC) | 28, 28 | 2026-11-23 | Spec 10: Panel-By-Panel by hand |
 | Absolute Batman | Ch. 25 "Scarecrow" | comix.to (by the user, in the app) | – | 2026-11-20 | Hand test of the Pipeline (output deleted) |
 
 ## Other sources (spec 17)

@@ -237,7 +237,8 @@ def download_in_the_tab(make_gui, tmp_path, url, **settings):
     gui = make_gui()
     downloads = tmp_path / "Downloads"
     gui.page.client_storage.set("output_directory_mangadex", str(downloads))
-    for setting, value in settings.items():
+    # The test pages' images are tiny, so every image is kept unless a test asks for the size limit (on by default).
+    for setting, value in {"use_web_page_min_size": False, **settings}.items():
         gui.page.client_storage.set(setting, value)
     tab = gui.MangaDexDownloaderView
     tab.mangadex_url_text_field.value = url
@@ -306,11 +307,10 @@ def test_a_web_page_with_only_small_images_says_why_nothing_was_kept(make_gui, t
 
 
 def test_a_web_page_that_blocks_us_shows_why(make_gui, tmp_path, monkeypatch):
-    def blocked(url, headers=None, timeout=None):
-        def raise_for_status():
-            raise requests.HTTPError(f"403 Client Error: Forbidden for url: {url}")
+    from tests.test_download_pages_from_url import FakeResponse
 
-        return SimpleNamespace(text="", content=b"", raise_for_status=raise_for_status)
+    def blocked(url, headers=None, timeout=None, stream=False):
+        return FakeResponse(b"", error=requests.HTTPError(f"403 Client Error: Forbidden for url: {url}"))
 
     monkeypatch.setattr(requests, "get", blocked)
 

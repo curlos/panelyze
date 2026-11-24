@@ -1,12 +1,66 @@
 import os
+import shutil
+import stat
 import subprocess
-from utils import get_waifu2x_path
+import sys
+import zipfile
+
+from utils import DOWNLOADED_WAIFU2X_FOLDER, download_file, get_waifu2x_path
+
+WAIFU2X_VERSION = "20250915"
 
 # The waifu2x models (in folders next to the program). "fast" is the default: on manga panels it looks nearly the same as "better" and is about 2x faster.
 WAIFU2X_MODELS = {
     "fast": "models-upconv_7_anime_style_art_rgb",
     "better": "models-cunet",
 }
+
+
+def get_waifu2x_zip_url():
+    system = {"win32": "windows", "darwin": "macos"}.get(sys.platform, "linux")
+    return f"https://github.com/nihui/waifu2x-ncnn-vulkan/releases/download/{WAIFU2X_VERSION}/waifu2x-ncnn-vulkan-{WAIFU2X_VERSION}-{system}.zip"
+
+
+def download_waifu2x(report=print):
+    """
+    The path of waifu2x, downloaded from its GitHub releases the first time if it isn't installed (like the "Best" models, see "janai.py").
+    """
+    waifu2x_path = get_waifu2x_path()
+    if waifu2x_path:
+        return waifu2x_path
+
+    report("Downloading waifu2x (about 40 MB, one time only)...")
+    os.makedirs(os.path.dirname(DOWNLOADED_WAIFU2X_FOLDER), exist_ok=True)
+    unzipped_folder = f"{DOWNLOADED_WAIFU2X_FOLDER}.tmp"
+    zip_path = f"{DOWNLOADED_WAIFU2X_FOLDER}.zip.tmp"
+    shutil.rmtree(unzipped_folder, ignore_errors=True)
+    # A download that stopped half-way.
+    shutil.rmtree(DOWNLOADED_WAIFU2X_FOLDER, ignore_errors=True)
+    try:
+        download_file(get_waifu2x_zip_url(), zip_path)
+        with zipfile.ZipFile(zip_path) as waifu2x_zip:
+            waifu2x_zip.extractall(unzipped_folder)
+        # The zip has one folder (like "waifu2x-ncnn-vulkan-20250915-windows") with the program and its models. A zip made on a Mac can also have a "__MACOSX" folder, which is skipped.
+        [folder_name] = [
+            name
+            for name in os.listdir(unzipped_folder)
+            if os.path.isdir(os.path.join(unzipped_folder, name)) and not name.startswith("__")
+        ]
+        extracted_folder = os.path.join(unzipped_folder, folder_name)
+        # Unzipping doesn't keep the "can be run" permission on a Mac or Linux. It's set before the folder is moved into place, so a folder that's there is always ready to use.
+        if sys.platform != "win32":
+            program_path = os.path.join(extracted_folder, "waifu2x-ncnn-vulkan")
+            os.chmod(program_path, os.stat(program_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        os.replace(extracted_folder, DOWNLOADED_WAIFU2X_FOLDER)
+    finally:
+        shutil.rmtree(unzipped_folder, ignore_errors=True)
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+
+    waifu2x_path = get_waifu2x_path()
+    if not waifu2x_path:
+        raise RuntimeError("The waifu2x download didn't have the program in it.")
+    return waifu2x_path
 
 
 def get_waifu2x_model(upscale_model, upscale_ratio):

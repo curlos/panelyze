@@ -2,7 +2,7 @@
 
 Notes for working on the code. If you just want to use the app, see the [README](README.md).
 
-Tested on macOS with Python 3.12.
+Tested on macOS with Python 3.12, and from source on Windows 11 with an AMD GPU and Python 3.11 (see below).
 
 ## Shortcuts in VS Code
 
@@ -33,19 +33,32 @@ pip install -r requirements.txt        # or, for the exact tested versions of ev
 
 The first time you use Panel-By-Panel, the small panels-only Magi model is built from the full model (about 2 GB, downloaded from Hugging Face once). See `magi_model/README.md`.
 
-**For the "Upscale Images" tab:** download waifu2x-ncnn-vulkan and add it to your PATH (the downloadable app already includes it):
+**For the "Upscale Images" tab:** waifu2x-ncnn-vulkan is downloaded the first time you upscale (about 40 MB, into `~/Library/Application Support/Panelyze/waifu2x`, from its [GitHub releases](https://github.com/nihui/waifu2x-ncnn-vulkan/releases)), like the "Best" models. If waifu2x is already on your PATH, that one is used instead. The downloadable app already includes it.
 
-```bash
-cd ~/Downloads
-curl -L -o waifu2x.zip https://github.com/nihui/waifu2x-ncnn-vulkan/releases/download/20250915/waifu2x-ncnn-vulkan-20250915-macos.zip
-unzip waifu2x.zip && rm -rf waifu2x-ncnn-vulkan && mv waifu2x-ncnn-vulkan-20250915-macos waifu2x-ncnn-vulkan
-echo 'export PATH=$PATH:~/Downloads/waifu2x-ncnn-vulkan' >> ~/.zshrc
+### On a Windows PC with an AMD GPU
+
+Tested on Windows 11 with a Radeon RX 6700 XT (gfx1031), 2026-11-22. Only running from source; there's no Windows app to download. In PowerShell:
+
+```powershell
+winget install Python.Python.3.11   # 3.11, not 3.12: tokenizers 0.14.1 has no Windows build for 3.12
+py -3.11 -m venv venv
+.\venv\Scripts\python.exe -m pip install --index-url https://nightly.repo.amd.com/rocm/whl-next/ "torch[device-gfx1031]" "torchvision[device-gfx1031]"
+Get-Content requirements.txt | Where-Object { $_ -notmatch '^(torch|torchvision)==' } | Set-Content requirements-no-torch.txt
+.\venv\Scripts\python.exe -m pip install -r requirements-no-torch.txt; Remove-Item requirements-no-torch.txt
 ```
+
+- **PyTorch comes from AMD's "TheRock" nightly builds**, not the pinned `torch==2.5.1` (on Windows that's the CPU-only build). The line above is for the RX 6700 XT (`gfx1031`). For another AMD card, change both `gfx1031`s to its chip (see your card's name with `Get-CimInstance Win32_VideoController | Select-Object Name`, then its chip in [TheRock's list](https://github.com/ROCm/TheRock/blob/main/SUPPORTED_GPUS.md); RX 5000 to RX 9000 are all there). For NVIDIA, use `--index-url https://download.pytorch.org/whl/cu124 torch==2.5.1 torchvision==0.20.1` instead (RTX 50 cards: `--index-url https://download.pytorch.org/whl/cu128 torch torchvision`). Neither has been tested. With the wrong chip, nothing crashes, but Magi and "Best" quietly run on the CPU (about 12× slower). Tested with `torch 2.15.0+rocm10.3.0a20261122`; nightlies can break, so if a newer one fails, install that exact version (`"torch[device-gfx1031]==<version>"`).
+- **A CPU with built-in graphics (most Ryzen 7000/9000) also shows up as a GPU**, often GPU 0, and PyTorch installed for the graphics card's chip can't run on it ("invalid kernel file"). The app skips it on its own: `get_device()` in `magi.py` tries a tiny calculation on each GPU and uses the one with the most compute units of those that work. Check which one it picks in Settings → GPU, or with `.\venv\Scripts\python.exe -c "import magi; magi.get_device()"`: it should print your card's name. "The AI models run on the CPU" means the installed PyTorch doesn't match your card.
+- **waifu2x** is downloaded the first time you upscale, as on the Mac (into `C:\Users\<you>\Library\Application Support\Panelyze\waifu2x`). It uses Vulkan, so it works on any AMD, NVIDIA or Intel GPU.
+- `.cbr` files are opened with Windows' own `tar.exe`. Logs go to `%LOCALAPPDATA%\Panelyze\Logs` (Settings → Open Logs Folder).
+- Run with `.\venv\Scripts\python.exe gui.py`, and the tests the same way. The `npm` shortcuts have Windows versions ending in `:windows` (`npm run dev:windows`, `npm run test:windows`, ...); the plain ones use Mac paths. The worktree steps in `CLAUDE.md` use `ln -s`. On Windows, link a worktree's folders with `cmd /c mklink /J venv ..\panelyze-main\venv` (the same for `test-chapter-cache`), and copy `magi_model\panels_fp16.safetensors` (or let the first Panel-By-Panel run build it).
+- **Harmless warnings:** MIOpen's "CK grouped conv library not found" and "File is unreadable ... .fdb.txt" on the first GPU run, huggingface_hub's "symlinks aren't supported", and "Event loop is closed" tracebacks when the app closes after a comix.to download.
+- **PowerShell 5.1's `>` writes UTF-16**, which git and Python don't read as text. Use `Out-File -Encoding utf8` (or Git Bash) for files the app, the tests or git read.
 
 ## Run
 
 - `python gui.py` (with the venv activated).
-- `flet run -r gui.py` restarts the app every time a file in the repo is saved.
+- `flet run -r gui.py` restarts the app every time a file in the repo is saved, which also stops a job that's running. For a long job, use `python gui.py` (restart it to pick up code changes).
 - `flet run --web --port 8577 gui.py` opens the app in your web browser instead of a window. Handy for checking how it looks, including at phone sizes (make the browser window narrow). Its settings are separate from the window's.
 - `python gui.py --self-test` checks that Magi, waifu2x, video, MangaDex Downloader, text-to-speech, opening comic files (.pdf, .cbz) and the comix.to downloader all work, without opening the window.
 
@@ -72,12 +85,12 @@ It bundles everything (including waifu2x and the panels-only Magi model) into `d
 - **Default output folders:** every tool saves to its own folder in the Panelyze folder (`panelyze_folder` setting, `~/Documents/Panelyze` by default, changed in Settings) unless the user picks another one for that tool, which is remembered in the `output_directory_*` settings (empty means the default). `get_output_directory` in `default_settings.py` works out the folder. **Run from source** (the repo has a `.git`), the Panelyze folder is `~/Documents/Panelyze/<repo folder>` instead, e.g. `.../Panelyze/panelyze-main` or `.../Panelyze/17-second-downloader` for a spec's worktree (`get_dev_output_folder`), so development never mixes with the packaged app's folders. The `panelyze_folder` setting and folders picked for one tool are ignored there, and the buttons to pick output folders are hidden (`can_pick_output_folders`): picked folders are saved in settings that every run shares, so a pick made while developing would send other runs' files to the wrong place. When a job finishes, the next tab's input folder is filled in with the result (`JobView.fill_in_next_tab_input`), unless the user picked a folder there themselves.
 - **Downloads** go to `<output>/<manga title>/Vol. 1 Ch. 3 - <chapter title>/`. The downloader is given its own placeholders for this (`download_from_mangadex.py`), because passing it a plain folder drops the manga folder, and its "use chapter title" option doesn't change these folder names for the raw format. A chapter without a title keeps the downloader's folder name, `Vol. 1 Ch. 3 - ` (the downloader finds its pages by it); only the result line drops the dash. Pages keep the downloader's names, from `00.jpg`.
 - **Pipeline:** each step saves to its own numbered folder (`1-download`, `2-panel-by-panel`, ...) inside the output folder, and the pipeline stops if a step fails or saves no images.
-- **Terminal Output** shows everything the app prints (progress, errors, tool output) and also saves it to `~/Library/Logs/Panelyze/panelyze.log`.
+- **Terminal Output** shows everything the app prints (progress, errors, tool output) and also saves it to `~/Library/Logs/Panelyze/panelyze.log`, or `%LOCALAPPDATA%\Panelyze\Logs` on Windows (this run only; the 9 runs before it are `panelyze.1.log` to `panelyze.9.log`).
 
 ## Magi models
 
 - **Panel-By-Panel uses only the part of Magi that finds panels** (87 MB instead of 2 GB, about 18x faster than running the full model, same panels).
-- **Images To Video reads text with the full Magi v2 model.** It's downloaded the first time it's needed. Both Magi models run on the GPU when there is one (the Mac GPU or an NVIDIA GPU), and on the CPU otherwise. Only the dialogue is read (sound effects are skipped), one image at a time and 8 lines at a time, which measured fastest.
+- **Images To Video reads text with the full Magi v2 model.** It's downloaded the first time it's needed. Both Magi models run on the GPU when there is one (the Mac GPU, or an NVIDIA or AMD GPU), and on the CPU otherwise. Only the dialogue is read (sound effects are skipped), one image at a time and 8 lines at a time, which measured fastest.
 - **When the Pipeline also makes a video, Panel-By-Panel reads the text on the whole pages** (much faster than reading every panel) and saves it as `panel-text.json` next to the panels. Upscale carries it along, and Images To Video uses it instead of running Magi again (not when highlighting text boxes, which needs the boxes on each panel).
 - Magi v1 and v3 were also measured. v1 found slightly different panels, and v3 was much slower (about 15–38 seconds per page) and marks every text as dialogue.
 - Magi was trained on manga, so panels on western comics may be found a little less reliably.

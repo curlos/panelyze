@@ -1,8 +1,11 @@
 import os
+import sys
 from types import SimpleNamespace
 
 import pytest
-from tests.fake_gui import fake_event
+import flet as ft
+
+from tests.fake_gui import fake_event, get_all_controls
 
 TABS = [
     "Download",
@@ -14,10 +17,54 @@ TABS = [
 ]
 
 
-def test_app_opens_on_panel_by_panel(make_gui):
+def test_a_new_video_is_timed_by_the_voice_and_only_its_settings_show(make_gui):
+    gui = make_gui()
+    controls = list(get_all_controls(gui.ImagesToVideoView))
+
+    # The three ways to time a panel are one choice: only the voice is picked.
+    radio_group = next(control for control in controls if isinstance(control, ft.RadioGroup))
+    assert radio_group.value == "use_text_to_speech_azure"
+    from gui_classes.SettingsImagesToVideo import SettingsImagesToVideo
+
+    settings = next(control for control in controls if isinstance(control, SettingsImagesToVideo))
+    for setting_key, choice in settings.radio_group_dict.items():
+        assert choice["toggle_elem"].visible == (setting_key == "use_text_to_speech_azure"), setting_key
+
+
+def test_the_download_tab_links_each_site_so_a_link_can_be_found_there(make_gui):
     gui = make_gui()
 
-    assert gui.current_view == "Panel-By-Panel"
+    links = {
+        span.text: span.url
+        for control in get_all_controls(gui.MangaDexDownloaderView)
+        if isinstance(control, ft.Text) and control.spans
+        for span in control.spans
+    }
+
+    assert links == {
+        "MangaDex": "https://mangadex.org",
+        "comix.to": "https://comix.to",
+        "Internet Archive": "https://archive.org/details/comics",
+    }
+    # "Any web page" is any site, so it isn't a link.
+    assert any(isinstance(control, ft.Text) and control.value == "Any web page" for control in get_all_controls(gui.MangaDexDownloaderView))
+
+
+def test_every_tooltip_is_a_box_on_top_of_the_page(make_gui):
+    gui = make_gui()
+    views = [gui.app_bar, gui.terminal_output, gui.MangaDexDownloaderView, gui.MagiPanelByPanelView, gui.UpscaleImagesView, gui.ImagesToVideoView, gui.PipelineView, gui.AppSettingsView]
+    tooltips = [control.tooltip for view in views for control in get_all_controls(view) if getattr(control, "tooltip", None)]
+
+    # Not plain text floating over the page (see "Nord.tooltip").
+    assert len(tooltips) > 10
+    assert all(isinstance(tooltip, ft.Tooltip) and tooltip.bgcolor and tooltip.border for tooltip in tooltips)
+
+
+def test_app_opens_on_download(make_gui):
+    gui = make_gui()
+
+    # A new user has nothing to split into panels yet, so the first step is pasting a link.
+    assert gui.current_view == "Download"
     assert gui.page.controls
 
 
@@ -46,6 +93,29 @@ def test_the_terminal_stays_on_the_page_when_switching_tabs(make_gui):
         assert gui.view_slot.content is gui.view_element
 
 
+def test_the_settings_page_shows_which_gpu_the_ai_models_use(make_gui):
+    import time
+
+    from gui_classes import Nord
+
+    gui = make_gui()
+    assert gui.AppSettingsView.device_text.value == "Checking..."
+
+    # Found in the background the first time the page is opened (a fixed answer in tests, see "conftest.py").
+    gui.app_bar.change_view("Settings")
+    for _ in range(100):
+        if gui.AppSettingsView.device_text.spans:
+            break
+        time.sleep(0.02)
+
+    spans = gui.AppSettingsView.device_text.spans
+    # "Checking..." is gone (Flet would show it in front of the spans).
+    assert not gui.AppSettingsView.device_text.value
+    assert "".join(span.text for span in spans) == "The AI models run on the Test GPU. Not used: the Old GPU (PyTorch can't run on it)."
+    # Every GPU's name stands out, used or not.
+    assert [span.text for span in spans if span.style and span.style.color == Nord.DEVICE] == ["Test GPU", "Old GPU"]
+
+
 def test_reset_all_settings_restores_defaults(make_gui):
     gui = make_gui()
     storage = gui.page.client_storage
@@ -56,6 +126,69 @@ def test_reset_all_settings_restores_defaults(make_gui):
 
     assert storage.get("video_height") == 1080
     assert storage.get("tts_engine") == "edge"
+
+
+def test_reset_all_settings_puts_every_setting_back_and_the_tabs_show_it(make_gui):
+    from default_settings import DEFAULT_SETTINGS
+    from tests.test_mangadex_folders import find_checkbox
+
+    gui = make_gui()
+    storage = gui.page.client_storage
+    for setting_key in DEFAULT_SETTINGS:
+        storage.set(setting_key, "changed")
+
+    gui.reset_settings_to_default()
+
+    for setting_key, default_value in DEFAULT_SETTINGS.items():
+        assert storage.get(setting_key) == default_value, setting_key
+    # The tabs are made again, so they show the defaults too (this one is on by default).
+    assert find_checkbox(gui.MagiPanelByPanelView, "Split very tall panels for phones (never through text)").value is True
+
+
+def test_reset_keeps_the_settings_page_shows_its_defaults_and_a_message_for_a_few_seconds(make_gui, monkeypatch, tmp_path):
+    from gui_classes import AppSettingsView
+
+    monkeypatch.setattr(AppSettingsView, "RESET_MESSAGE_SECONDS", 0.01)
+    gui = make_gui()
+    gui.app_bar.change_view("Settings")
+    settings_page = gui.AppSettingsView
+    settings_page.start_tab_dropdown.value = "Pipeline"
+    settings_page.cbz_dropdown.value = "full"
+    settings_page.cbz_dropdown.helper_text = AppSettingsView.CBZ_DESCRIPTIONS["full"]
+    storage = gui.page.client_storage
+    storage.set("start_tab", "Pipeline")
+    storage.set("save_as_cbz", "full")
+    storage.set("panelyze_folder", str(tmp_path))
+    settings_page.panelyze_folder_text.value = str(tmp_path)
+
+    gui.reset_settings_to_default()
+
+    # The same page (so it stays scrolled where it was), showing the defaults.
+    assert gui.AppSettingsView is settings_page and gui.view_slot.content is settings_page
+    assert settings_page.start_tab_dropdown.value == "Download"
+    assert settings_page.cbz_dropdown.value == "no"
+    # The description under the .cbz choice goes with it ("No" has none).
+    assert settings_page.cbz_dropdown.helper_text == ""
+    assert settings_page.panelyze_folder_text.value != str(tmp_path)
+    # A normal window: the message is next to the button.
+    beside, above = settings_page.reset_message_beside, settings_page.reset_message_above
+    button_row = next(
+        control for control in get_all_controls(settings_page)
+        if isinstance(control, ft.Row) and any(getattr(button, "text", "") == "Reset All Settings" for button in control.controls)
+    )
+    assert beside in button_row.controls and beside.visible and not above.visible
+
+    # A narrow window: above the button (next to it doesn't fit, and under it is out of view). Clicking again also starts the few seconds over.
+    first_timer = settings_page.hide_reset_message_timer
+    gui.is_narrow = True
+    gui.reset_settings_to_default()
+    section_controls = next(control for control in get_all_controls(settings_page) if isinstance(control, ft.Column) and button_row in control.controls).controls
+    assert section_controls.index(above) == section_controls.index(button_row) - 1
+    assert above.visible and not beside.visible
+    assert settings_page.hide_reset_message_timer is not first_timer and first_timer.finished.is_set()
+
+    settings_page.hide_reset_message_timer.join(timeout=5)
+    assert not above.visible and not beside.visible
 
 
 def test_reset_is_blocked_while_a_job_runs(make_gui):
@@ -248,7 +381,10 @@ def test_reading_direction_dropdown_saves_the_setting(make_gui):
 def test_a_failed_job_shows_a_short_error_and_does_not_crash(make_gui, tmp_path, monkeypatch):
     from gui_classes import UpscaleImagesView
 
-    monkeypatch.setattr(UpscaleImagesView, "get_waifu2x_path", lambda: None)
+    def no_internet():
+        raise OSError("No internet")
+
+    monkeypatch.setattr(UpscaleImagesView, "download_waifu2x", no_internet)
     chapter = tmp_path / "Manga" / "Ch 1"
     chapter.mkdir(parents=True)
     (chapter / "page_1.png").write_bytes(b"")
@@ -258,7 +394,7 @@ def test_a_failed_job_shows_a_short_error_and_does_not_crash(make_gui, tmp_path,
 
     terminal_lines = [c.value for c in gui.terminal_output.terminal_output_list_view.controls]
     assert finished is False
-    assert any('"waifu2x-ncnn-vulkan" was not found' in line for line in terminal_lines)
+    assert any('"waifu2x-ncnn-vulkan" couldn\'t be downloaded (No internet)' in line for line in terminal_lines)
 
 
 def test_every_setting_starts_at_its_default(make_gui):
@@ -268,6 +404,87 @@ def test_every_setting_starts_at_its_default(make_gui):
 
     for setting_key, default_value in DEFAULT_SETTINGS.items():
         assert gui.page.client_storage.get(setting_key) == default_value, setting_key
+
+
+def test_upscaled_images_are_webp_by_default_and_stop_at_4k(make_gui):
+    # WebP files are smaller than PNG.
+    storage = make_gui().page.client_storage
+
+    assert storage.get("image_format") == "webp"
+    assert storage.get("limit_upscale_to_4k") is True
+
+
+def test_open_log_file_opens_the_log_or_says_there_is_none_yet(make_gui, tmp_path, monkeypatch):
+    from gui_classes import AppSettingsView
+
+    gui = make_gui()
+    opened, errors = [], []
+    monkeypatch.setattr(AppSettingsView, "open_directory", opened.append)
+    monkeypatch.setattr(gui.terminal_output, "update_terminal_with_error_message", errors.append)
+    log_file = tmp_path / "panelyze.log"
+    monkeypatch.setattr(AppSettingsView, "LOG_FILE_PATH", str(log_file))
+
+    gui.AppSettingsView.open_log_file()
+    assert opened == [] and "no log file yet" in errors[0]
+
+    log_file.write_text("started")
+    gui.AppSettingsView.open_log_file()
+    assert opened == [str(log_file)]
+
+
+def test_open_logs_folder_opens_the_folder_with_the_past_runs(make_gui, tmp_path, monkeypatch):
+    from gui_classes import AppSettingsView
+
+    gui = make_gui()
+    opened = []
+    monkeypatch.setattr(AppSettingsView, "open_directory", opened.append)
+    monkeypatch.setattr(AppSettingsView, "LOG_FOLDER", str(tmp_path))
+
+    button = next(
+        control for control in get_all_controls(gui.AppSettingsView)
+        if isinstance(control, ft.ElevatedButton) and control.text == "Open Logs Folder"
+    )
+    button.on_click(None)
+
+    assert opened == [str(tmp_path)]
+
+
+def test_report_a_problem_opens_the_github_issues(make_gui):
+    gui = make_gui()
+
+    button = next(
+        control for control in get_all_controls(gui.AppSettingsView)
+        if isinstance(control, ft.ElevatedButton) and control.text == "Report a Problem"
+    )
+
+    assert button.url == "https://github.com/curlos/panelyze/issues/new/choose"
+
+
+def test_about_shows_the_version_and_links_to_the_repo(make_gui):
+    gui = make_gui()
+    controls = list(get_all_controls(gui.AppSettingsView))
+
+    assert any(isinstance(control, ft.Text) and control.value == "Panelyze 1.0.0" for control in controls)
+    button = next(control for control in controls if isinstance(control, ft.ElevatedButton) and control.text == "View on GitHub")
+    assert button.url == "https://github.com/curlos/panelyze"
+
+
+def test_logs_are_kept_where_the_system_keeps_app_logs():
+    from gui_classes.AppOutput import LOG_FILE_PATH
+
+    if sys.platform == "win32":
+        expected_folder = os.path.join(os.environ["LOCALAPPDATA"], "Panelyze", "Logs")
+    else:
+        expected_folder = os.path.expanduser(os.path.join("~", "Library", "Logs", "Panelyze"))
+    assert os.path.dirname(LOG_FILE_PATH) == expected_folder
+
+
+def test_videos_clean_up_their_working_folders_by_default(make_gui):
+    # Most people only want the video: the voice-over mp3s and the highlighted copies of the images are deleted once it's made.
+    storage = make_gui().page.client_storage
+
+    assert storage.get("clean_up_tts_audio_files_folder") is True
+    assert storage.get("clean_up_images_with_highlighted_text_boxes_folder") is True
 
 
 def test_reset_keeps_the_azure_key(make_gui):
@@ -602,7 +819,7 @@ def test_upscale_says_waifu2x_is_stopped_at_once(make_gui):
 
     tab.pick_input_output_directories_container.cancel_button.on_click(fake_event())
 
-    assert gui.terminal_output.progress_panel.title == "Stopping waifu2x..."
+    assert gui.terminal_output.progress_panel.title == "Stopping waifu2x, then resizing the images that finished..."
 
 
 def test_while_a_job_runs_every_other_tab_is_faded_and_says_what_it_waits_for(make_gui, tmp_path, monkeypatch):
@@ -620,7 +837,8 @@ def test_while_a_job_runs_every_other_tab_is_faded_and_says_what_it_waits_for(ma
 
     def get_tab_state(tab_name):
         button = gui.app_bar.buttons[tab_name]
-        return button.opacity, button.content.tooltip
+        tooltip = button.content.tooltip
+        return button.opacity, tooltip.message if tooltip else None
 
     seen = []
     button_opacity = []
@@ -632,10 +850,11 @@ def test_while_a_job_runs_every_other_tab_is_faded_and_says_what_it_waits_for(ma
 
     directories.handle_submit(fake_event())
 
-    assert seen == [(0.5, 'Wait for "Upscale" to finish (only one job runs at a time)')] * 5 + [(1, "Upscale Images (Ctrl+3)")]
+    # A tab that shows its name has no tooltip, unless it says why it can't be opened.
+    assert seen == [(0.5, 'Wait for "Upscale" to finish (only one job runs at a time)')] * 5 + [(1, None)]
     # Its own main button is faded too, and back to normal afterwards.
     assert button_opacity == [0.5] and directories.submit_button.opacity == 1
-    assert get_tab_state("Download") == (1, "Download (Ctrl+1)")
+    assert get_tab_state("Download") == (1, None)
 
 
 def test_two_clicks_at_once_start_only_one_job(make_gui):

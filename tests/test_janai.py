@@ -1,4 +1,5 @@
 import os
+import shutil
 import zipfile
 
 import numpy
@@ -13,6 +14,57 @@ def upscale_tile_like_nearest(tile):
     A fake model: makes the tile 2x bigger by repeating each pixel, so the right result is easy to know.
     """
     return tile.repeat(2, axis=1).repeat(2, axis=2)
+
+
+@pytest.mark.parametrize("hip_version, expected_fixed_tile_size", [("10.3.0", True), (None, False)])
+def test_pytorch_tiles_are_all_the_same_size_only_with_amd_s_pytorch(monkeypatch, hip_version, expected_fixed_tile_size):
+    import torch
+
+    # AMD's PyTorch (ROCm) works out each new tile size the first time it sees it, so there it's always 512x512.
+    monkeypatch.setattr(torch.version, "hip", hip_version)
+    monkeypatch.setattr(janai, "can_use_coreml", lambda: False)
+    monkeypatch.setattr(janai, "get_pytorch_upscale_function", lambda model_path: (lambda tile: tile, "cpu"))
+    monkeypatch.setattr(janai, "_loaded_upscalers", {})
+    calls = []
+    monkeypatch.setattr(janai, "upscale_in_tiles", lambda upscale_tile, image, scale, tile_size, fixed_tile_size: calls.append((tile_size, fixed_tile_size)))
+
+    janai.get_upscaler("model.pth", use_neural_engine=False)(numpy.zeros((3, 10, 10)))
+
+    assert calls == [(512, expected_fixed_tile_size)]
+
+
+def test_the_status_view_shows_where_best_runs(monkeypatch):
+    from gui_classes import ProgressPanel
+
+    reported = []
+    monkeypatch.setattr(ProgressPanel, "report_progress", lambda **fields: reported.append(fields))
+    monkeypatch.setattr(janai, "can_use_coreml", lambda: False)
+    monkeypatch.setattr(janai, "get_pytorch_upscale_function", lambda model_path: (lambda tile: tile, "cpu"))
+    monkeypatch.setattr(janai, "_loaded_upscalers", {})
+
+    # Each time, also once the model is loaded.
+    janai.get_upscaler("model.pth", use_neural_engine=False)
+    janai.get_upscaler("model.pth", use_neural_engine=False)
+
+    assert reported == [{"device": "CPU"}, {"device": "CPU"}]
+
+
+@pytest.mark.parametrize("width, tiles_across", [(1000, 2), (512, 1), (300, 1), (1100, 3)])
+def test_no_same_size_tile_is_upscaled_twice(width, tiles_across):
+    # 512 px tiles overlapping by 8 px: a 1000 px image is two tiles (0-512 and 488-1000). The second reaches the edge, so it keeps everything to it, and the same tile isn't upscaled again for the last 8 px.
+    tiles = []
+
+    def record(tile):
+        tiles.append(tile.shape)
+        return upscale_tile_like_nearest(tile)
+
+    image = numpy.random.default_rng(0).random((3, width, width), dtype=numpy.float32)
+    result = janai.upscale_in_tiles(record, image, 2, 512, fixed_tile_size=True)
+
+    assert len(tiles) == tiles_across**2
+    assert set(tiles) == {(3, 512, 512)}
+    # Still the whole image, without seams.
+    assert numpy.array_equal(result, upscale_tile_like_nearest(image))
 
 
 @pytest.mark.parametrize("fixed_tile_size", [True, False])
@@ -123,11 +175,8 @@ def test_models_are_downloaded_once_keeping_only_the_2x_ones(tmp_path, monkeypat
         models_zip.writestr("folder/2x_Model_B.safetensors", b"b")
         models_zip.writestr("folder/4x_Model_C.pth", b"c")
     downloads = []
-    original_urlretrieve = janai.urllib.request.urlretrieve
     monkeypatch.setattr(
-        janai.urllib.request,
-        "urlretrieve",
-        lambda url, path: downloads.append(url) or original_urlretrieve(zip_path.as_uri(), path),
+        janai, "download_file", lambda url, path: downloads.append(url) or shutil.copyfile(zip_path, path)
     )
 
     path = janai.download_model_file("2x_Model_A.pth", "https://example.com/models.zip", report=lambda text: None)

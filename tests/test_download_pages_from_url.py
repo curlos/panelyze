@@ -16,23 +16,96 @@ def make_image_bytes(width, height, color="white", image_format="PNG"):
     return image_bytes.getvalue()
 
 
+class FakeResponse:
+    """
+    What "requests.get(..., stream=True)" returns, for content given as text or bytes.
+    """
+
+    def __init__(self, content, error=None):
+        self.content = content.encode("utf-8") if isinstance(content, str) else content
+        self.headers = {}
+        self.encoding = "utf-8"
+        self.error = error
+
+    def raise_for_status(self):
+        if self.error:
+            raise self.error
+
+    def iter_content(self, chunk_size):
+        for start in range(0, len(self.content), chunk_size):
+            yield self.content[start : start + chunk_size]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+
 def fake_internet(monkeypatch, responses):
     """
     "requests.get" returns the content in "responses" for each URL, without using the internet.
     """
     requested_urls = []
 
-    def fake_get(url, headers=None, timeout=None):
+    def fake_get(url, headers=None, timeout=None, stream=False):
         requested_urls.append(url)
-        content = responses[url]
-        return SimpleNamespace(
-            content=content,
-            text=content if isinstance(content, str) else "",
-            raise_for_status=lambda: None,
-        )
+        return FakeResponse(responses[url])
 
     monkeypatch.setattr(module.requests, "get", fake_get)
     return requested_urls
+
+
+def test_an_image_bigger_than_the_limit_is_skipped_and_the_others_are_kept(monkeypatch):
+    # A broken or hostile site can't fill the memory with one huge "image".
+    big_image = make_image_bytes(300, 300, "red")
+    small_image = make_image_bytes(10, 10, "blue")
+    monkeypatch.setattr(module, "MAX_IMAGE_BYTES", len(big_image) - 1)
+    fake_internet(
+        monkeypatch,
+        {
+            "https://example.com/preview": '<html><body><img src="/big.png"><img src="/small.png"></body></html>',
+            "https://example.com/big.png": big_image,
+            "https://example.com/small.png": small_image,
+        },
+    )
+
+    folder = download_pages_from_url("https://example.com/preview")
+
+    assert read_page_colors(folder) == [("001.png", (0, 0, 255))]
+    shutil.rmtree(os.path.dirname(folder))
+
+
+def test_a_page_bigger_than_the_limit_isn_t_read(monkeypatch):
+    monkeypatch.setattr(module, "MAX_PAGE_BYTES", 100)
+    fake_internet(monkeypatch, {"https://example.com/huge": "<html>" + "x" * 200 + "</html>"})
+
+    with pytest.raises(RuntimeError, match="This page is bigger than"):
+        download_pages_from_url("https://example.com/huge")
+
+
+@pytest.mark.parametrize(
+    "encoding, page_bytes",
+    [
+        # A misspelled charset from the site: read as UTF-8 instead of failing.
+        ("bogus", '<html><head><title>Café chapter one</title></head><body><img src="/a.png"></body></html>'.encode("utf-8")),
+        # No charset at all: guessed from the bytes (here Windows' Western European).
+        (None, '<html><head><title>Café chapter one, where the story begins again</title></head><body><img src="/a.png"></body></html>'.encode("cp1252")),
+    ],
+)
+def test_the_page_s_text_is_read_even_with_a_wrong_or_missing_charset(monkeypatch, encoding, page_bytes):
+    def fake_get(url, headers=None, timeout=None, stream=False):
+        response = FakeResponse(page_bytes if url.endswith("/page") else make_image_bytes(10, 10))
+        response.encoding = encoding
+        return response
+
+    monkeypatch.setattr(module.requests, "get", fake_get)
+
+    folder = download_pages_from_url("https://example.com/page")
+
+    # The page's title, read correctly, is the folder's name.
+    assert os.path.basename(folder).startswith("Café chapter one")
+    shutil.rmtree(os.path.dirname(folder))
 
 
 def read_page_colors(folder):
@@ -138,6 +211,11 @@ def test_the_minimum_size_is_only_used_when_it_is_turned_on(settings, expected):
 def test_only_web_page_urls_are_opened():
     with pytest.raises(ValueError, match="Not a web page URL"):
         download_pages_from_url("file:///etc/passwd")
+
+
+def test_a_long_title_cut_to_100_letters_never_ends_in_a_space():
+    # Windows drops a space at the end of a folder name, and then can't find the pages inside it.
+    assert module.get_safe_folder_name("x" * 99 + " Read it online for free") == "x" * 99
 
 
 def test_the_largest_srcset_image_is_picked():

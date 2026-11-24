@@ -164,6 +164,21 @@ def test_a_webtoon_picked_as_manga_is_still_split_as_a_webtoon(tmp_path, monkeyp
     assert directions == ["webtoon"]
 
 
+@pytest.mark.parametrize("split_tall_panels", [True, False])
+def test_a_webtoon_s_tall_panel_is_split_only_with_split_tall_panels_on(tmp_path, monkeypatch, split_tall_panels):
+    # A webtoon is joined into one strip first; a panel many phone screens tall is then cut into pieces, or kept whole.
+    magi = Magi()
+    magi.split_tall_panels = split_tall_panels
+    monkeypatch.setattr(magi, "predict_panels", lambda chapter_pages, reading_direction: [{"panels": [[0, 0, 700, 6000]]}])
+    # Two 700 px wide strips with art and quiet gaps (see "tall_page" below).
+    page = tall_page(9000).repeat(7, axis=1)
+
+    magi.get_panels_using_local_cpu([page, page], "Series/Ch 1", str(tmp_path), reading_direction="webtoon")
+
+    panels = os.listdir(tmp_path / "Series" / "Ch 1")
+    assert (len(panels) > 1) if split_tall_panels else (len(panels) == 1)
+
+
 # 100 px wide, so a phone screen is 217 px tall and panels over 434 px are split.
 def tall_page(height):
     page = blank(height, 100)

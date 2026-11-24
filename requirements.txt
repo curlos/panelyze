@@ -26,6 +26,8 @@ Pillow==11.1.0
 # Upscale Images "Best" model (MangaJaNai and IllustrationJaNai, see janai.py). spandrel loads the models. coremltools runs them on Apple's Neural Engine and GPU (Mac only).
 spandrel==0.4.2
 coremltools==8.1; sys_platform == "darwin"
+# The certificates the "Best" models and waifu2x are downloaded with (see "download_file" in utils.py). Already installed with "requests"; same version as requirements-lock.txt.
+certifi==2026.10.23
 
 # MangaDex Downloader
 mangadex-downloader==3.1.4

@@ -12,13 +12,21 @@ def get_help_text(text):
     return ft.Text(text, size=12, color=Nord.TEXT_MUTED)
 
 
-# What can be pasted in the Download tab, shown before a link is pasted.
+# What can be pasted in the Download tab, shown before a link is pasted. Each site's name opens the site, to find something to paste.
 SOURCES = [
-    ("MangaDex", "a series or a chapter"),
-    ("comix.to", "a series or a chapter"),
-    ("Internet Archive", "a public-domain comic"),
-    ("Any web page", "its images"),
+    ("MangaDex", "a series or a chapter", "https://mangadex.org"),
+    ("comix.to", "a series or a chapter", "https://comix.to"),
+    ("Internet Archive", "a public-domain comic", "https://archive.org/details/comics"),
+    ("Any web page", "its images", None),
 ]
+
+
+def get_source_name(source, url):
+    if not url:
+        return ft.Text(source, weight=ft.FontWeight.BOLD, color=Nord.TEXT, width=120)
+    # Underlined and light blue, like a link on a web page (Nord's darker blue is hard to read on the background).
+    link_style = ft.TextStyle(weight=ft.FontWeight.BOLD, color=Nord.ACCENT, decoration=ft.TextDecoration.UNDERLINE)
+    return ft.Text(spans=[ft.TextSpan(source, style=link_style, url=url)], width=120, tooltip=Nord.tooltip(url))
 
 # The sidebar's title for each source (see "get_downloader" for the sources).
 SOURCE_TITLES = {
@@ -52,13 +60,13 @@ class SettingsMangaDexDownloader(SettingsBase):
             controls=[
                 ft.Row(
                     controls=[
-                        ft.Text(source, weight=ft.FontWeight.BOLD, color=Nord.TEXT, width=120),
+                        get_source_name(source, url),
                         ft.Text(what, color=Nord.TEXT, expand=True),
                     ]
                 )
-                for source, what in SOURCES
+                for source, what, url in SOURCES
             ]
-            + [get_help_text("Settings for that site show up here once you paste a link.")],
+            + [get_help_text("Click a site's name to open it and find something to paste. Settings for that site show up here once you paste a link.")],
             spacing=6,
         )
 

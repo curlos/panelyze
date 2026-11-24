@@ -1,3 +1,5 @@
+import threading
+
 EMOTION_MODEL_NAME = "j-hartmann/emotion-english-distilroberta-base"
 
 # For each emotion the model can find, the Azure voice styles that fit it, best first. Not every Azure voice has every style, so the first one the voice actually has is used.
@@ -46,6 +48,23 @@ AZURE_STYLES_BY_EMOTION = {
 MIN_EMOTION_CONFIDENCE = 0.5
 
 
+def get_emotion_model_device(magi_device):
+    """
+    Where the emotion model runs: the GPU Magi picked ("magi_device", see "magi.get_device"). On its own, transformers takes the first GPU, which can be one PyTorch can't run on (e.g. a PC's built-in graphics). On a Mac it runs on the CPU.
+    """
+    return magi_device if magi_device.startswith("cuda") else "cpu"
+
+
+def load_emotion_pipeline():
+    # Imported here so that transformers only loads when emotions are actually used.
+    from transformers import pipeline
+
+    from magi import get_device
+
+    print("Loading the emotion model (the first time, this downloads about 330 MB)...")
+    return pipeline("text-classification", model=EMOTION_MODEL_NAME, device=get_emotion_model_device(get_device()))
+
+
 class EmotionAnalyzer:
     """
     Finds the emotion of a line of text (anger, joy, sadness, etc.) so Azure Text-To-Speech can read it in a matching voice style. Only used with Azure's "Auto (emotion of each line)" voice style.
@@ -55,17 +74,14 @@ class EmotionAnalyzer:
 
     def __init__(self):
         self._emotion_pipeline = None
+        self._loading_lock = threading.Lock()
 
     @property
     def emotion_pipeline(self):
-        if self._emotion_pipeline is None:
-            # Imported here so that transformers only loads when emotions are actually used.
-            from transformers import pipeline
-
-            print(
-                "Loading the emotion model (the first time, this downloads about 330 MB)..."
-            )
-            self._emotion_pipeline = pipeline("text-classification", model=EMOTION_MODEL_NAME)
+        # A video makes several voice-over lines at the same time, and they'd all start loading the model at once, which breaks it ("Cannot copy out of meta tensor"). So the first one loads it and the others wait for it.
+        with self._loading_lock:
+            if self._emotion_pipeline is None:
+                self._emotion_pipeline = load_emotion_pipeline()
 
         return self._emotion_pipeline
 
@@ -93,16 +109,12 @@ class EmotionAnalyzer:
         return ""
 
 
-_shared_emotion_analyzer = None
+# Made right away (it loads its model only when first used), so voice-over lines made at the same time can't each make their own.
+_shared_emotion_analyzer = EmotionAnalyzer()
 
 
 def get_emotion_analyzer():
     """
     The one EmotionAnalyzer the app shares, so its model is only loaded once.
     """
-    global _shared_emotion_analyzer
-
-    if _shared_emotion_analyzer is None:
-        _shared_emotion_analyzer = EmotionAnalyzer()
-
     return _shared_emotion_analyzer

@@ -1,4 +1,7 @@
+import functools
 import os
+import subprocess
+import threading
 
 # Anything the Mac GPU can't do runs on the CPU instead of failing. It has to be set before "torch" is imported.
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
@@ -84,20 +87,99 @@ def get_magi():
     return _shared_magi
 
 
-def get_device():
+_device_choice_lock = threading.Lock()
+
+
+def get_device_choice():
     """
-    The fastest place to run Magi on this computer: the Mac GPU, an NVIDIA GPU, or else the CPU.
+    Where the AI models run on this computer, a sentence saying so (shown in Settings and printed once), and the names of the devices in it, as (device, sentence, device_names). The device is the Mac GPU ("mps"), an NVIDIA or AMD GPU (PyTorch calls both "cuda"), or else the CPU. It's only worked out once: trying a GPU sets it up, which takes some of its memory for the whole run. The Settings page and a job can ask at the same time, so the second one waits for the first one's answer.
     """
+    with _device_choice_lock:
+        return find_device_choice()
+
+
+@functools.cache
+def find_device_choice():
+    device = "cpu"
+    working_gpus = []
+    skipped_gpus = []
     if torch.backends.mps.is_available():
-        return "mps"
+        device = "mps"
+    elif torch.cuda.is_available():
+        # A PC can show more than one GPU, like a graphics card and the CPU's built-in graphics. Use the most powerful one that works: AMD's PyTorch only runs on the chips it was installed for. Compute units say which is most powerful (memory doesn't: built-in graphics reports a share of the computer's memory).
+        gpus = range(torch.cuda.device_count())
+        working_gpus = [index for index in gpus if gpu_works(index)]
+        skipped_gpus = [torch.cuda.get_device_name(index) for index in gpus if index not in working_gpus]
+        if working_gpus:
+            device = f"cuda:{max(working_gpus, key=lambda index: torch.cuda.get_device_properties(index).multi_processor_count)}"
 
-    if torch.cuda.is_available():
-        return "cuda"
+    sentence = f"The AI models run on the {get_device_name(device)}"
+    if len(working_gpus) > 1:
+        sentence += f" (the most powerful of the {len(working_gpus)} GPUs)"
+    if device == "cpu":
+        sentence += ", since there's no GPU they can run on (slower)"
+    sentence += "."
+    if skipped_gpus:
+        sentence += f" Not used: the {', the '.join(skipped_gpus)} (PyTorch can't run on {'it' if len(skipped_gpus) == 1 else 'them'})."
+    print(sentence)
+    return device, sentence, [get_device_name(device), *skipped_gpus]
 
-    return "cpu"
+
+def get_device():
+    return get_device_choice()[0]
 
 
-DEVICE_NAMES = {"mps": "the Mac GPU", "cuda": "the NVIDIA GPU", "cpu": "the CPU"}
+def get_device_name(device):
+    """
+    The name of "device" ("cuda:1", "mps", "cpu" or a torch.device), as the computer calls it: "AMD Radeon RX 6700 XT", "NVIDIA GeForce RTX 4070", "Apple M1" or "CPU".
+    """
+    device = torch.device(device)
+    if device.type == "cuda":
+        return torch.cuda.get_device_name(device.index or 0)
+    if device.type == "mps":
+        return get_mac_chip_name()
+    return "CPU"
+
+
+@functools.cache
+def get_mac_chip_name():
+    """
+    "Apple M1", "Apple M2 Pro", ...: a Mac's GPU is part of its chip, and PyTorch can't tell its name, so macOS is asked. "Mac GPU" if it can't say, or on an Intel Mac (there it's the Intel CPU's name, not the GPU's).
+    """
+    try:
+        chip_name = subprocess.run(
+            ["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True, check=True
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "Mac GPU"
+    return chip_name if chip_name.startswith("Apple") else "Mac GPU"
+
+
+def report_device(model):
+    """
+    Shows in the Status view where "model" runs (see "ProgressPanel.get_device_text").
+    """
+    from gui_classes.ProgressPanel import report_progress
+
+    report_progress(device=get_device_name(model.device))
+
+
+def gpu_works(index):
+    """
+    Whether PyTorch can run on GPU "index". On a chip it has no code for, even adding 1 fails ("invalid kernel file").
+    """
+    try:
+        (torch.ones(1, device=f"cuda:{index}") + 1).item()
+        return True
+    except RuntimeError:
+        return False
+
+
+# Panel-By-Panel's stages, shown in the Status view (see "ProgressPanel.get_stages_text"). The text stages are Images To Video's too (see VideoCreatorFromImages.py).
+FINDING_PANELS_STAGE = "Finding the panels"
+SAVING_PANELS_STAGE = "Saving the panels"
+FINDING_TEXT_STAGE = "Finding the text"
+READING_TEXT_STAGE = "Reading the text"
 
 
 def load_magi_config(config_file_name):
@@ -726,15 +808,15 @@ class Magi:
     def panels_model(self):
         if self._panels_model is None:
             self._panels_model = load_panels_magi_model().to(get_device())
+        report_device(self._panels_model)
         return self._panels_model
 
     @property
     def full_model(self):
         if self._full_model is None:
             print("Loading the full Magi AI Model to read the text (the first time, this downloads about 2 GB)...")
-            device = get_device()
-            self._full_model = load_full_magi_model().to(device)
-            print(f"Magi will read the text on {DEVICE_NAMES[device]}.")
+            self._full_model = load_full_magi_model().to(get_device())
+        report_device(self._full_model)
         return self._full_model
 
     def run_with_cpu_fallback(self, model_attribute, run):
@@ -928,7 +1010,7 @@ class Magi:
         with torch.no_grad():
             # "stage" moves Images To Video's stages line on (see "VideoCreatorFromImages.create_video_from_images").
             report_progress(
-                stage="Finding the text", pages_done=0, pages_total=len(chapter_pages), unit="images", detail="Finding the text"
+                stage=FINDING_TEXT_STAGE, pages_done=0, pages_total=len(chapter_pages), unit="images", detail="Finding the text"
             )
             for batch_start in tqdm(range(0, len(chapter_pages), FIND_TEXT_BATCH_SIZE)):
                 per_page_results += model.predict_detections_and_associations(
@@ -969,7 +1051,7 @@ class Magi:
         ]
         text_on_each_page = [[] for _ in chapter_pages]
         # Each is one text box (a speech bubble or a caption), not a line of words.
-        report_progress(stage="Reading the text", pages_done=0, pages_total=len(lines), unit="text boxes", detail="Reading the text")
+        report_progress(stage=READING_TEXT_STAGE, pages_done=0, pages_total=len(lines), unit="text boxes", detail="Reading the text")
 
         with tqdm(total=len(lines)) as progress_bar:
             for part_start in range(0, len(lines), READ_TEXT_BATCH_SIZE):
@@ -1103,6 +1185,16 @@ class Magi:
         if reading_direction == "webtoon":
             chapter_pages_image_numpy_array = [join_webtoon_strip(chapter_pages_image_numpy_array)]
 
+        from gui_classes.ProgressPanel import report_progress
+
+        # The stages shown in the Status view, like Images To Video's. The text is only read here for a Pipeline that also makes a video (see "save_panel_text").
+        reads_text = read_text and not group_by_page and reading_direction != "webtoon"
+        report_progress(
+            stages=(FINDING_PANELS_STAGE, SAVING_PANELS_STAGE, *((FINDING_TEXT_STAGE, READING_TEXT_STAGE) if reads_text else ())),
+            stage=FINDING_PANELS_STAGE,
+            # Each chapter starts counting pages again (the text stages of the chapter before count text boxes).
+            unit="pages",
+        )
         per_page_predictions = self.predict_panels(chapter_pages_image_numpy_array, reading_direction)
         # The 4-koma check needs the panels, so with "Automatic" they're found in manga order first.
         if is_automatic and reading_direction == "rtl":
@@ -1141,6 +1233,7 @@ class Magi:
             panels_output_dir if group_by_page else tempfile.mkdtemp(prefix="panelyze-")
         )
 
+        report_progress(stage=SAVING_PANELS_STAGE, pages_done=0, pages_total=len(per_page_results), detail=None)
         try:
             for i, (image_as_np_array, page_result_predictions) in enumerate(
                 zip(chapter_pages_image_numpy_array, per_page_results)
@@ -1150,6 +1243,7 @@ class Magi:
                     page_result_predictions,
                     f"{pages_dir}/page_{i + 1}",
                 )
+                report_progress(pages_done=i + 1)
 
             if not group_by_page:
                 copy_panels_to_one_level_directory(pages_dir, panels_output_dir)

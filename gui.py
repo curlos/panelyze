@@ -93,22 +93,24 @@ class GUI:
         window.min_width = MIN_WINDOW_WIDTH
         window.min_height = MIN_WINDOW_HEIGHT
 
-    def create_views(self):
+    def create_views(self, keep_settings_view=False):
         self.MangaDexDownloaderView = MangaDexDownloaderView(self)
         self.MagiPanelByPanelView = MagiPanelByPanelView(self)
         self.UpscaleImagesView = UpscaleImagesView(self)
         self.ImagesToVideoView = ImagesToVideoView(self)
         self.PipelineView = PipelineView(self)
-        self.AppSettingsView = AppSettingsView(self)
+        # Kept when resetting from the Settings page, so it stays scrolled where it was.
+        if not keep_settings_view:
+            self.AppSettingsView = AppSettingsView(self)
         self.set_views_narrow()
 
     def get_start_tab(self):
-        # The tab picked in Settings. Panel-By-Panel if it isn't one of the tabs (e.g. a tab that was renamed).
+        # The tab picked in Settings. The default tab if it isn't one of the tabs (e.g. a tab that was renamed).
         start_tab = self.page.client_storage.get("start_tab")
         # The Download tab's old name, saved before it was renamed.
         if start_tab == "MangaDex Downloader":
             return "Download"
-        return start_tab if start_tab in TAB_NAMES else "Panel-By-Panel"
+        return start_tab if start_tab in TAB_NAMES else DEFAULT_SETTINGS["start_tab"]
 
     def get_is_narrow(self):
         return (self.window_width or DEFAULT_WINDOW_WIDTH) < NARROW_WINDOW_WIDTH
@@ -216,7 +218,8 @@ class GUI:
 
         self.set_client_storage_default_values()
 
-        self.create_views()
+        self.create_views(keep_settings_view=True)
+        self.AppSettingsView.show_reset_settings()
 
         self.render_page_based_on_current_view()
         self.page.update()
@@ -290,6 +293,8 @@ class GUI:
         if self.current_view == "Pipeline":
             # Settings may have changed in the other tabs since the review was last shown.
             self.PipelineView.refresh_review()
+        if self.current_view == "Settings":
+            self.AppSettingsView.show_device()
 
         return {
             "Download": self.MangaDexDownloaderView,

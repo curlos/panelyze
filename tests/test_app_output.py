@@ -153,3 +153,49 @@ def test_the_app_terminal_keeps_only_the_newest_lines(app_output, monkeypatch):
 
     assert app_output.lines() == [f"line {n}" for n in range(15, 25)]
     assert "line 0" in app_output.log()
+
+
+def test_each_start_rotates_the_logs_so_panelyze_log_is_only_this_run(tmp_path):
+    from gui_classes.AppOutput import open_log_file
+
+    log_file_path = tmp_path / "panelyze.log"
+    for run in range(1, 13):
+        log_file = open_log_file(str(log_file_path))
+        log_file.write(f"run {run}\n")
+        log_file.close()
+
+    # 12 runs: this run, then the 9 before it; the 2 oldest are gone.
+    assert "run 12" in log_file_path.read_text() and "run 11" not in log_file_path.read_text()
+    assert "run 11" in (tmp_path / "panelyze.1.log").read_text()
+    assert "run 3" in (tmp_path / "panelyze.9.log").read_text()
+    assert {path.name for path in tmp_path.iterdir()} == {"panelyze.log"} | {f"panelyze.{number}.log" for number in range(1, 10)}
+
+
+@pytest.mark.parametrize("locked_file", ["panelyze.log", "panelyze.2.log"])
+def test_a_log_that_can_t_be_moved_leaves_every_log_as_it_was_and_this_run_is_added(tmp_path, monkeypatch, locked_file):
+    import os
+
+    from gui_classes import AppOutput
+
+    logs = {"panelyze.log": "the run before\n", "panelyze.1.log": "two runs ago\n", "panelyze.2.log": "three runs ago\n"}
+    for name, text in logs.items():
+        (tmp_path / name).write_text(text)
+    real_replace = os.replace
+
+    def replace(source, destination):
+        # Windows can't move a file another program has open (another Panelyze, or a viewer).
+        if os.path.basename(source) == locked_file:
+            raise PermissionError(32, "The process cannot access the file because it is being used by another process")
+        real_replace(source, destination)
+
+    monkeypatch.setattr(AppOutput.os, "replace", replace)
+
+    log_file = AppOutput.open_log_file(str(tmp_path / "panelyze.log"))
+    log_file.write("this run\n")
+    log_file.close()
+
+    # No old run is lost, and none moved: this run is added to the last one.
+    assert {path.name for path in tmp_path.iterdir()} == set(logs)
+    assert (tmp_path / "panelyze.log").read_text().startswith("the run before") and "this run" in (tmp_path / "panelyze.log").read_text()
+    assert (tmp_path / "panelyze.1.log").read_text() == "two runs ago\n"
+    assert (tmp_path / "panelyze.2.log").read_text() == "three runs ago\n"

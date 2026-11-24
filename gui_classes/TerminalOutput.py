@@ -78,7 +78,7 @@ class TerminalOutput(ft.Container):
         self.terminal_arrow_icon = ft.IconButton(
             ft.Icons.KEYBOARD_ARROW_DOWN,
             on_click=self.toggle_terminal_visibility,
-            tooltip="Show or hide the terminal",
+            tooltip=Nord.tooltip("Show or hide the terminal"),
             style=ft.ButtonStyle(shape=Nord.SQUARE, side=Nord.get_focus_border(), padding=1),
         )
 

@@ -80,6 +80,20 @@ def get_capped_upscale_ratio(width, height, upscale_ratio, max_side=MAX_UPSCALED
     return capped_ratio
 
 
+# "Best" can stop one 2x pass early when the image is then at most this much under 4K. Its last pass is by far the slowest (4x the pixels of the one before). The image stays a bit under 4K: stretching it up afterwards would add no detail.
+MAX_SHORT_OF_4K_AFTER_BEST = 1.5
+
+
+def get_best_upscale_ratio(width, height, upscale_ratio, max_side=MAX_UPSCALED_IMAGE_SIDE):
+    """
+    Like "get_capped_upscale_ratio", for "Best": one 2x pass less when the last pass would go far past "max_side" (e.g. a 429px panel: 8x is 3432px, 16x would be 6864px), as long as "Best" still does at least one pass. The image then stays a bit under "max_side" (at least "max_side" / MAX_SHORT_OF_4K_AFTER_BEST).
+    """
+    capped_ratio = get_capped_upscale_ratio(width, height, upscale_ratio, max_side)
+    if capped_ratio > 2 and max_side / (max(width, height) * capped_ratio // 2) <= MAX_SHORT_OF_4K_AFTER_BEST:
+        return capped_ratio // 2
+    return capped_ratio
+
+
 def copy_picked_images_to_folder(image_paths):
     """
     When individual images are picked instead of a folder, copy them into a new temporary folder so every tool can process them exactly like a picked folder.
@@ -90,7 +104,8 @@ def copy_picked_images_to_folder(image_paths):
 
     if len(image_paths) == 1:
         image_name = os.path.splitext(os.path.basename(image_paths[0]))[0]
-        folder_name = f"{parent_folder_name} - {image_name}"
+        # Windows drops a space or dot at the end of a folder name ("page .png"), and then can't find the files inside it.
+        folder_name = f"{parent_folder_name} - {image_name}".rstrip(" .")
     else:
         folder_name = f"{parent_folder_name} - {len(image_paths)} images"
 
@@ -182,7 +197,8 @@ def extract_comic_files_to_folder(comic_paths):
             raise ValueError(f"Not a comic file: {comic_path}")
 
     def get_name(comic_path):
-        return os.path.splitext(os.path.basename(comic_path))[0]
+        # Windows drops a space or dot at the end of a folder name ("Issue 1 .cbz"), and then can't find the pages inside it.
+        return os.path.splitext(os.path.basename(comic_path))[0].rstrip(" .") or "Comic"
 
     if len(comic_paths) == 1:
         folder_name = get_name(comic_paths[0])
@@ -255,19 +271,26 @@ def save_pages_in_order(entries, folder):
 
 def save_rar_pages(cbr_path, folder):
     """
-    .cbr files are RAR files, which Python can't open. bsdtar (built into macOS) can.
+    .cbr files are RAR files, which Python can't open. bsdtar can: it's built into macOS, and into Windows 10 and 11 as "System32\\tar.exe" (another "tar" on the PATH, like Git's, may be GNU tar, which can't open RAR).
     """
-    bsdtar_path = shutil.which("bsdtar") or "/usr/bin/bsdtar"
+    windows_tar_path = os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "System32", "tar.exe")
+    bsdtar_path = shutil.which("bsdtar") or (windows_tar_path if sys.platform == "win32" else "/usr/bin/bsdtar")
     if not os.path.exists(bsdtar_path):
-        raise RuntimeError(".cbr files need bsdtar, which wasn't found (it comes with macOS).")
+        raise RuntimeError(".cbr files need bsdtar, which wasn't found (it comes with macOS and Windows).")
 
-    extracted_folder = tempfile.mkdtemp(prefix="panelyze-cbr-")
+    working_folder = tempfile.mkdtemp(prefix="panelyze-cbr-")
+    extracted_folder = os.path.join(working_folder, "pages")
     try:
+        # Windows' tar.exe can't read Japanese (or other non-English) letters in its arguments, so it's given a copy with a plain name, in its own folder.
+        shutil.copyfile(cbr_path, os.path.join(working_folder, "comic.cbr"))
+        os.makedirs(extracted_folder)
         # bsdtar refuses paths with ".." or starting with "/", so nothing is written outside "extracted_folder".
         result = subprocess.run(
-            [bsdtar_path, "-xf", cbr_path, "-C", extracted_folder],
+            [bsdtar_path, "-xf", "comic.cbr", "-C", "pages"],
+            cwd=working_folder,
             capture_output=True,
             text=True,
+            errors="replace",
         )
         if result.returncode != 0:
             raise RuntimeError(f"Couldn't open {os.path.basename(cbr_path)}: {result.stderr.strip()}")
@@ -284,7 +307,7 @@ def save_rar_pages(cbr_path, folder):
 
         save_pages_in_order(entries, folder)
     finally:
-        shutil.rmtree(extracted_folder, ignore_errors=True)
+        shutil.rmtree(working_folder, ignore_errors=True)
 
 
 def save_pdf_pages(pdf_path, folder):
@@ -529,6 +552,8 @@ class ProcessManager:
         # Ensures that the subprocess writes output immediately to stdout/stderr without buffering so we data can be processed line-by-line in real-time programatically.
         # We need to take of the two running process with BOTH "PYTHONUNBUFFERED" (parent process - the running "download_from_mangadex.py" file) and bufsize=1 (subprocess) below.
         env["PYTHONUNBUFFERED"] = "1"
+        # The output is read as UTF-8 below. Without this, Python on Windows writes it in an older encoding, and Japanese titles come out as "呪術".
+        env["PYTHONIOENCODING"] = "utf-8"
 
         # Open a child "process" (it's a child because it's opened within the parent process, the process that executes the "download_from_mangadex.py" file)
         self.process = subprocess.Popen(
@@ -588,9 +613,28 @@ class ProcessManager:
             print("Process terminated by user.")
 
 
+def download_file(url, path):
+    """
+    Save "url" to "path". Uses certifi's list of certificates, like "requests" does: on Windows, Python's own check can fail for a site Windows hasn't fully trusted yet ("CERTIFICATE_VERIFY_FAILED").
+    """
+    import ssl
+    import urllib.request
+
+    import certifi
+
+    context = ssl.create_default_context(cafile=certifi.where())
+    # The timeout is for each read, not the whole download: a connection that stops answering fails after a minute instead of hanging forever.
+    with urllib.request.urlopen(url, context=context, timeout=60) as response, open(path, "wb") as file:
+        shutil.copyfileobj(response, file)
+
+
+# Where waifu2x is downloaded the first time it's needed, if it isn't installed (see "download_waifu2x" in waifu2x.py).
+DOWNLOADED_WAIFU2X_FOLDER = os.path.expanduser("~/Library/Application Support/Panelyze/waifu2x")
+
+
 def get_waifu2x_path():
     """
-    Where the "waifu2x-ncnn-vulkan" program is: inside the packaged app (bundled by "build_mac_app.sh"), or on the PATH when running from source. None if it can't be found.
+    Where the "waifu2x-ncnn-vulkan" program is: inside the packaged app (bundled by "build_mac_app.sh"), on the PATH, or downloaded by the app. None if it can't be found.
     """
     bundled_waifu2x_path = os.path.join(
         getattr(sys, "_MEIPASS", ""), "waifu2x", "waifu2x-ncnn-vulkan"
@@ -599,7 +643,13 @@ def get_waifu2x_path():
     if is_running_as_packaged_app() and os.path.exists(bundled_waifu2x_path):
         return bundled_waifu2x_path
 
-    return shutil.which("waifu2x-ncnn-vulkan")
+    waifu2x_on_path = shutil.which("waifu2x-ncnn-vulkan")
+    if waifu2x_on_path:
+        return waifu2x_on_path
+
+    program_name = "waifu2x-ncnn-vulkan.exe" if sys.platform == "win32" else "waifu2x-ncnn-vulkan"
+    downloaded_waifu2x_path = os.path.join(DOWNLOADED_WAIFU2X_FOLDER, program_name)
+    return downloaded_waifu2x_path if os.path.exists(downloaded_waifu2x_path) else None
 
 
 def is_running_as_packaged_app():

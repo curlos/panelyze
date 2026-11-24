@@ -1,6 +1,7 @@
 import os
 
 import flet as ft
+import pytest
 
 from default_settings import OUTPUT_SUBFOLDERS, PANELYZE_FOLDER
 from tests.fake_gui import fake_event
@@ -27,7 +28,7 @@ def test_every_tool_has_its_own_default_output_folder_in_documents():
 
     assert len(set(folders)) == len(folders)
     assert all(os.path.dirname(folder) == PANELYZE_FOLDER for folder in folders)
-    assert PANELYZE_FOLDER == os.path.expanduser("~/Documents/Panelyze")
+    assert PANELYZE_FOLDER == os.path.join(os.path.expanduser("~"), "Documents", "Panelyze")
 
 
 def test_the_job_tabs_start_with_their_default_output_folder(make_gui):
@@ -44,6 +45,23 @@ def test_the_job_tabs_start_with_their_default_output_folder(make_gui):
         assert gui.page.client_storage.get(OUTPUT_SETTINGS[view_name]) == ""
 
     assert gui.PipelineView.output_directory == default_folder("output_directory_pipeline")
+
+
+@pytest.mark.parametrize("view_name", ["MagiPanelByPanelView", "UpscaleImagesView", "ImagesToVideoView"])
+def test_the_clear_button_empties_the_input_and_goes_back_to_the_default_output_folder(make_gui, tmp_path, view_name):
+    gui = make_gui()
+    directories = get_directories(gui, view_name)
+    chapter = tmp_path / "Manga" / "Ch 1"
+    chapter.mkdir(parents=True)
+    (chapter / "1.png").write_bytes(b"")
+    directories.pick_input_files_result(fake_event(path=str(tmp_path / "Manga")))
+    directories.pick_output_files_result(fake_event(path=str(tmp_path / "out")))
+
+    directories.handle_clear_all_directories(fake_event())
+
+    assert not directories.input_directory
+    assert directories.pick_input_directory_column.visible and not directories.selected_input_directory_row.visible
+    assert directories.output_directory == default_folder(OUTPUT_SETTINGS[view_name])
 
 
 def test_a_picked_output_folder_is_remembered_and_can_go_back_to_the_default(make_gui, tmp_path):
@@ -256,7 +274,7 @@ def test_output_folders_can_not_be_picked_when_running_from_source(make_gui, mon
     from tests.fake_gui import get_all_controls
 
     def is_output_folder_button(control):
-        return getattr(control, "tooltip", None) in (
+        return getattr(getattr(control, "tooltip", None), "message", None) in (
             "Pick a different output folder",
             "Use the default output folder",
         ) or getattr(control, "text", None) == "Change Output Folder"

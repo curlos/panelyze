@@ -97,7 +97,7 @@ def test_a_narrow_window_shows_only_the_tab_icons(make_gui):
     tab_buttons = [tab.content for tab in gui.app_bar.content.controls[0].controls]
 
     assert all(isinstance(button, ft.IconButton) and button.icon for button in tab_buttons)
-    assert all(button.tooltip for button in tab_buttons)
+    assert all(button.tooltip.message for button in tab_buttons)
 
 
 def test_ctrl_or_cmd_and_a_number_opens_that_tab(make_gui):
@@ -128,18 +128,19 @@ def test_the_app_opens_on_the_tab_picked_in_settings(make_gui, monkeypatch):
         monkeypatch.setattr(fake_gui.FakePage, "__init__", init_with_start_tab)
         return make_gui()
 
-    assert make_gui().current_view == "Panel-By-Panel"
-    assert make_gui_with_start_tab("Download").current_view == "Download"
-    # Not a tab (e.g. a tab that was renamed): Panel-By-Panel.
-    assert make_gui_with_start_tab("Old Tab Name").current_view == "Panel-By-Panel"
+    assert make_gui().current_view == "Download"
+    assert make_gui_with_start_tab("Panel-By-Panel").current_view == "Panel-By-Panel"
+    # Not a tab (e.g. a tab that was renamed): the default, Download.
+    assert make_gui_with_start_tab("Old Tab Name").current_view == "Download"
     # Picked before the Download tab was renamed.
     assert make_gui_with_start_tab("MangaDex Downloader").current_view == "Download"
 
 
 def test_the_arrow_keys_move_between_the_tabs_while_a_tab_is_focused(make_gui, monkeypatch):
     focused = []
-    monkeypatch.setattr(ft.TextButton, "focus", lambda self: focused.append(self.tooltip))
-    monkeypatch.setattr(ft.IconButton, "focus", lambda self: focused.append(self.tooltip))
+    # A tab with its name shown has no tooltip; an icon-only one has the name in its tooltip.
+    monkeypatch.setattr(ft.TextButton, "focus", lambda self: focused.append(self.text))
+    monkeypatch.setattr(ft.IconButton, "focus", lambda self: focused.append(self.tooltip.message))
     gui = make_gui()
 
     def press(key):
@@ -147,9 +148,10 @@ def test_the_arrow_keys_move_between_the_tabs_while_a_tab_is_focused(make_gui, m
         return gui.current_view
 
     # Nothing happens while the focus is somewhere else (like in a text box).
-    assert press("Arrow Right") == "Panel-By-Panel"
+    assert press("Arrow Right") == "Download"
 
-    gui.focused_tab = "Panel-By-Panel"
+    gui.focused_tab = "Download"
+    assert press("Arrow Right") == "Panel-By-Panel"
     assert press("Arrow Right") == "Upscale Images"
     assert press("Home") == "Download"
     # Going around at the ends.

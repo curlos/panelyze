@@ -1,5 +1,6 @@
 import pytest
 import os
+import shutil
 import sys
 
 import utils
@@ -65,7 +66,7 @@ def test_output_dir_would_overwrite_input(tmp_path):
 def test_the_panels_folder_is_like_every_other_tab_s_and_grouped_panels_get_a_series_folder_of_their_own():
     from utils import get_panels_folder
 
-    assert get_panels_folder("/out", "One Piece/Ch 1") == os.path.join("/out", "One Piece", "Ch 1")
+    assert get_panels_folder("/out", os.path.join("One Piece", "Ch 1")) == os.path.join("/out", "One Piece", "Ch 1")
     assert get_panels_folder("/out", "One Piece/Ch 1", group_by_page=True) == os.path.join("/out", "One Piece (grouped by page)", "Ch 1")
     assert get_panels_folder("/out", "Ch 1/", group_by_page=True) == os.path.join("/out", "Ch 1 (grouped by page)")
 
@@ -102,7 +103,8 @@ def test_process_manager_reads_every_line_including_stderr():
 
     assert len(lines) == 501
     assert lines[0].strip() == "line 0"
-    assert "the error line\n" in lines
+    # Lines end with "\r\n" on Windows.
+    assert "the error line" in [line.rstrip("\r\n") for line in lines]
 
 
 def test_get_all_mangadex_languages_needs_no_process_or_internet(monkeypatch):
@@ -152,6 +154,21 @@ def test_capped_upscale_ratio(width, height, upscale_ratio, expected_ratio):
     assert utils.get_capped_upscale_ratio(width, height, upscale_ratio) == expected_ratio
 
 
+@pytest.mark.parametrize(
+    "width, height, upscale_ratio, expected_ratio",
+    [
+        (350, 429, 32, 8),  # 16x would be 6864px; 8x is 3432px, 1.12x short of 4K
+        (500, 1000, 32, 4),  # 4x is 4000px, only a bit past 4K; 2x (2000px) would be 1.9x short of 4K, too much
+        (1325, 2035, 32, 2),  # "Best" always does at least one pass
+        (600, 700, 2, 2),  # the chosen ratio is the limit, as before
+        (320, 160, 32, 8),  # 8x is 2560px, exactly 1.5x short of 4K: still allowed
+        (300, 200, 32, 16),  # 16x is 4800px; 8x (2400px) would be 1.6x short of 4K, too much
+    ],
+)
+def test_best_upscale_ratio_stops_short_of_4k_when_the_last_pass_would_go_far_past_it(width, height, upscale_ratio, expected_ratio):
+    assert utils.get_best_upscale_ratio(width, height, upscale_ratio) == expected_ratio
+
+
 def test_picked_images_are_copied_into_a_folder_named_after_them(tmp_path):
     chapter = tmp_path / "Ch 1"
     chapter.mkdir()
@@ -169,6 +186,26 @@ def test_picked_images_are_copied_into_a_folder_named_after_them(tmp_path):
     assert sorted(os.listdir(three_images_folder)) == ["page_5.png", "page_6.png", "page_7.png"]
 
 
+def test_a_picked_image_whose_name_ends_in_a_space_still_gets_a_working_folder(tmp_path):
+    # Windows drops a space at the end of a folder name, and then can't find the files inside it.
+    chapter = tmp_path / "Ch 1"
+    chapter.mkdir()
+    (chapter / "page .png").write_bytes(b"image")
+
+    folder = utils.copy_picked_images_to_folder([str(chapter / "page .png")])
+
+    assert os.path.basename(folder) == "Ch 1 - page"
+    assert os.listdir(folder) == ["page .png"]
+
+
+def test_process_manager_reads_japanese_output(monkeypatch):
+    # On Windows, a child Python writes in an older encoding unless it's told to use UTF-8. Some terminals already tell it, which would hide the bug.
+    monkeypatch.delenv("PYTHONIOENCODING", raising=False)
+    lines = ProcessManager().monitor_terminal_output([sys.executable, "-c", "print('呪術廻戦 ♥')"])
+
+    assert [line.rstrip("\r\n") for line in lines] == ["呪術廻戦 ♥"]
+
+
 def test_waifu2x_path_uses_the_bundled_copy_in_the_packaged_app(tmp_path, monkeypatch):
     bundled = tmp_path / "waifu2x" / "waifu2x-ncnn-vulkan"
     bundled.parent.mkdir()
@@ -181,6 +218,124 @@ def test_waifu2x_path_uses_the_bundled_copy_in_the_packaged_app(tmp_path, monkey
     monkeypatch.setattr(utils.sys, "_MEIPASS", str(tmp_path), raising=False)
 
     assert utils.get_waifu2x_path() == str(bundled)
+
+
+def fake_waifu2x_download(tmp_path, monkeypatch, fail=False, extra_files=None):
+    """
+    waifu2x isn't installed, and its "download" is a zip made here, laid out like the real one. Returns the list of downloaded links.
+    """
+    import waifu2x
+
+    program_name = "waifu2x-ncnn-vulkan.exe" if sys.platform == "win32" else "waifu2x-ncnn-vulkan"
+    zip_path = make_comic_file(
+        tmp_path / "release.zip",
+        {
+            f"waifu2x-ncnn-vulkan-20250915/{program_name}": b"program",
+            "waifu2x-ncnn-vulkan-20250915/models-cunet/a.bin": b"model",
+            **(extra_files or {}),
+        },
+    )
+    downloaded = []
+
+    def fake_download_file(url, path):
+        downloaded.append(url)
+        if fail:
+            raise OSError("No internet")
+        shutil.copyfile(zip_path, path)
+
+    folder = str(tmp_path / "Application Support" / "Panelyze" / "waifu2x")
+    monkeypatch.setattr(utils, "DOWNLOADED_WAIFU2X_FOLDER", folder)
+    monkeypatch.setattr(waifu2x, "DOWNLOADED_WAIFU2X_FOLDER", folder)
+    monkeypatch.setattr(utils.shutil, "which", lambda name: None)
+    monkeypatch.setattr(waifu2x, "download_file", fake_download_file)
+    return downloaded
+
+
+def test_waifu2x_is_downloaded_the_first_time_it_is_needed(tmp_path, monkeypatch):
+    import waifu2x
+
+    downloaded = fake_waifu2x_download(tmp_path, monkeypatch)
+    assert utils.get_waifu2x_path() is None
+
+    path = waifu2x.download_waifu2x(report=lambda message: None)
+
+    assert path == utils.get_waifu2x_path()
+    # Its models are next to it, where "upscale_with_waifu2x" looks for them.
+    assert os.path.exists(os.path.join(os.path.dirname(path), "models-cunet", "a.bin"))
+    if sys.platform != "win32":
+        assert os.access(path, os.X_OK)
+    # The second time, it's already there.
+    waifu2x.download_waifu2x(report=lambda message: None)
+    assert len(downloaded) == 1
+
+
+def test_a_waifu2x_zip_made_on_a_mac_with_extra_entries_still_works(tmp_path, monkeypatch):
+    import waifu2x
+
+    # A zip made on a Mac can have a "__MACOSX" folder, and a stray file next to the program's folder.
+    fake_waifu2x_download(
+        tmp_path, monkeypatch, extra_files={"__MACOSX/waifu2x-ncnn-vulkan-20250915/._a.bin": b"mac", "README.txt": b"read me"}
+    )
+
+    path = waifu2x.download_waifu2x(report=lambda message: None)
+
+    assert path == utils.get_waifu2x_path()
+
+
+def test_a_half_finished_waifu2x_folder_is_downloaded_again(tmp_path, monkeypatch):
+    import waifu2x
+
+    downloaded = fake_waifu2x_download(tmp_path, monkeypatch)
+    # Only the models made it, not the program.
+    os.makedirs(os.path.join(utils.DOWNLOADED_WAIFU2X_FOLDER, "models-cunet"))
+
+    path = waifu2x.download_waifu2x(report=lambda message: None)
+
+    assert os.path.exists(path)
+    assert len(downloaded) == 1
+
+
+def test_the_upscale_tab_downloads_waifu2x_and_then_upscales(make_gui, tmp_path, monkeypatch):
+    from gui_classes import UpscaleImagesView
+
+    import waifu2x
+
+    fake_waifu2x_download(tmp_path, monkeypatch)
+    # The real download (with the fake internet above), not the stand-in every other test uses.
+    monkeypatch.setattr(UpscaleImagesView, "download_waifu2x", waifu2x.download_waifu2x)
+    gui = make_gui()
+
+    gui.UpscaleImagesView.before_job()
+
+    assert utils.get_waifu2x_path()
+
+
+def test_download_file_saves_what_it_downloads(tmp_path):
+    (tmp_path / "source.zip").write_bytes(b"zip")
+
+    utils.download_file((tmp_path / "source.zip").as_uri(), str(tmp_path / "saved.zip"))
+
+    assert (tmp_path / "saved.zip").read_bytes() == b"zip"
+
+
+def test_the_waifu2x_download_is_the_one_for_this_computer(monkeypatch):
+    import waifu2x
+
+    for platform, system in (("win32", "windows"), ("darwin", "macos"), ("linux", "linux")):
+        monkeypatch.setattr(waifu2x.sys, "platform", platform)
+        assert waifu2x.get_waifu2x_zip_url().endswith(f"/20250915/waifu2x-ncnn-vulkan-20250915-{system}.zip")
+
+
+def test_a_failed_waifu2x_download_leaves_nothing_behind(tmp_path, monkeypatch):
+    import waifu2x
+
+    fake_waifu2x_download(tmp_path, monkeypatch, fail=True)
+
+    with pytest.raises(OSError, match="No internet"):
+        waifu2x.download_waifu2x(report=lambda message: None)
+
+    assert os.listdir(tmp_path / "Application Support" / "Panelyze") == []
+    assert utils.get_waifu2x_path() is None
 
 
 def test_mangadex_downloader_command_in_the_packaged_app(monkeypatch):
@@ -428,10 +583,34 @@ def test_a_cbr_gives_its_pages_in_order(tmp_path):
     delete_temporary_folder(folder)
 
 
+def test_a_cbr_with_a_japanese_name_gives_its_pages(tmp_path):
+    # Windows' tar.exe can't read Japanese letters in its arguments.
+    (tmp_path / "呪術廻戦").mkdir()
+    cbr_path = make_comic_file(tmp_path / "呪術廻戦" / "呪術廻戦 01.cbr", {"1.jpg": b"1"})
+
+    folder = utils.extract_comic_files_to_folder([cbr_path])
+
+    assert read_pages(folder) == [("001.jpg", b"1")]
+    delete_temporary_folder(folder)
+
+
+def test_a_comic_file_whose_name_ends_in_a_space_still_gives_its_pages(tmp_path):
+    # Windows drops a space at the end of a folder name, and then can't find the pages inside it.
+    cbz_path = make_comic_file(tmp_path / "Issue 1 .cbz", {"1.jpg": b"1"})
+
+    folder = utils.extract_comic_files_to_folder([cbz_path])
+
+    assert os.path.basename(folder) == "Issue 1"
+    assert read_pages(folder) == [("001.jpg", b"1")]
+    delete_temporary_folder(folder)
+
+
 def test_a_cbr_without_bsdtar_gives_a_clear_error(tmp_path, monkeypatch):
     cbr_path = make_comic_file(tmp_path / "Pirates.cbr", {"1.jpg": b"1"})
     monkeypatch.setattr(utils.shutil, "which", lambda name: None)
-    monkeypatch.setattr(utils.os.path, "exists", lambda path: False)
+    # Only bsdtar (or Windows' tar.exe) is missing; other files and folders are still there.
+    real_exists = os.path.exists
+    monkeypatch.setattr(utils.os.path, "exists", lambda path: "tar" not in os.path.basename(path) and real_exists(path))
 
     with pytest.raises(RuntimeError, match="need bsdtar"):
         utils.extract_comic_files_to_folder([cbr_path])

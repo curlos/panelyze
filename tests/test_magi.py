@@ -10,19 +10,143 @@ from tests.fake_pages import drawn_page
 from magi import Magi, get_dialogue_for_each_panel
 
 
-def test_magi_runs_on_the_mac_gpu_then_an_nvidia_gpu_then_the_cpu(monkeypatch):
+def test_magi_runs_on_the_mac_gpu_then_an_nvidia_or_amd_gpu_then_the_cpu(monkeypatch):
     def set_available(mps, cuda):
         monkeypatch.setattr(torch.backends.mps, "is_available", lambda: mps)
         monkeypatch.setattr(torch.cuda, "is_available", lambda: cuda)
 
+    set_gpus(monkeypatch, [(True, 40)])
     set_available(mps=True, cuda=True)
-    assert magi_module.get_device() == "mps"
+    assert get_device_now() == "mps"
 
     set_available(mps=False, cuda=True)
-    assert magi_module.get_device() == "cuda"
+    assert get_device_now() == "cuda:0"
 
     set_available(mps=False, cuda=False)
-    assert magi_module.get_device() == "cpu"
+    assert get_device_now() == "cpu"
+
+
+def get_device_now():
+    """
+    "get_device" with the fakes set up just before (it's only worked out once per run), forgotten afterwards so other tests don't get a fake device.
+    """
+    magi_module.find_device_choice.cache_clear()
+    device = magi_module.get_device()
+    magi_module.find_device_choice.cache_clear()
+    return device
+
+
+def set_gpus(monkeypatch, gpus):
+    """
+    Fake GPUs, each as (does PyTorch run on it, compute units, and optionally its name).
+    """
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: len(gpus))
+    monkeypatch.setattr(torch.cuda, "get_device_name", lambda index=0: (gpus[index] + (f"GPU {index}",))[2])
+    monkeypatch.setattr(magi_module, "gpu_works", lambda index: gpus[index][0])
+    monkeypatch.setattr(
+        torch.cuda, "get_device_properties", lambda index: SimpleNamespace(multi_processor_count=gpus[index][1])
+    )
+
+
+def test_the_most_powerful_gpu_that_works_is_used(monkeypatch):
+    monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+
+    # Like this PC: GPU 0 is the CPU's built-in graphics, which AMD's PyTorch can't run on, and GPU 1 is an RX 6700 XT.
+    set_gpus(monkeypatch, [(False, 1), (True, 20)])
+    assert get_device_now() == "cuda:1"
+
+    # Built-in graphics that's more powerful than the graphics card (like a Ryzen AI Max) is used.
+    set_gpus(monkeypatch, [(True, 40), (True, 20)])
+    assert get_device_now() == "cuda:0"
+
+    # No GPU works: the CPU.
+    set_gpus(monkeypatch, [(False, 1)])
+    assert get_device_now() == "cpu"
+
+
+def test_settings_and_the_log_say_which_gpu_is_used_and_which_is_skipped(monkeypatch, capsys):
+    monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+
+    def sentence(gpus):
+        set_gpus(monkeypatch, gpus)
+        magi_module.find_device_choice.cache_clear()
+        _, text, names = magi_module.get_device_choice()
+        # The names, for Settings to show in color.
+        assert all(name in text for name in names)
+        magi_module.find_device_choice.cache_clear()
+        return text
+
+    # Like this PC.
+    assert sentence([(False, 1, "AMD Radeon(TM) Graphics"), (True, 20, "AMD Radeon RX 6700 XT")]) == (
+        "The AI models run on the AMD Radeon RX 6700 XT. Not used: the AMD Radeon(TM) Graphics (PyTorch can't run on it)."
+    )
+    # Printed too, so it's in the log.
+    assert "The AI models run on the AMD Radeon RX 6700 XT." in capsys.readouterr().out
+    assert sentence([(True, 40, "NVIDIA GeForce RTX 4090"), (True, 20, "NVIDIA GeForce RTX 3060")]) == (
+        "The AI models run on the NVIDIA GeForce RTX 4090 (the most powerful of the 2 GPUs)."
+    )
+    assert sentence([(False, 1, "Intel(R) UHD Graphics"), (False, 1, "AMD Radeon(TM) Graphics"), (True, 20, "AMD Radeon RX 6700 XT")]) == (
+        "The AI models run on the AMD Radeon RX 6700 XT. Not used: the Intel(R) UHD Graphics, the AMD Radeon(TM) Graphics (PyTorch can't run on them)."
+    )
+    assert sentence([(False, 1, "AMD Radeon(TM) Graphics")]) == (
+        "The AI models run on the CPU, since there's no GPU they can run on (slower). Not used: the AMD Radeon(TM) Graphics (PyTorch can't run on it)."
+    )
+
+
+def test_device_names_come_from_the_computer(monkeypatch):
+    set_gpus(monkeypatch, [(True, 20, "AMD Radeon RX 6700 XT"), (True, 40, "NVIDIA GeForce RTX 4070")])
+    assert magi_module.get_device_name("cuda:1") == "NVIDIA GeForce RTX 4070"
+    assert magi_module.get_device_name(torch.device("cuda")) == "AMD Radeon RX 6700 XT"
+    assert magi_module.get_device_name("cpu") == "CPU"
+
+    # On a Mac, the chip's name from macOS ("Apple M1"), or "Mac GPU" if it can't say.
+    def fake_sysctl(command, **kwargs):
+        assert command == ["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"]
+        return SimpleNamespace(stdout="Apple M1\n")
+
+    magi_module.get_mac_chip_name.cache_clear()
+    monkeypatch.setattr(magi_module.subprocess, "run", fake_sysctl)
+    assert magi_module.get_device_name("mps") == "Apple M1"
+    magi_module.get_mac_chip_name.cache_clear()
+
+    # An Intel Mac: macOS names the Intel CPU, not the GPU.
+    monkeypatch.setattr(magi_module.subprocess, "run", lambda command, **kwargs: SimpleNamespace(stdout="Intel(R) Core(TM) i7-8559U CPU @ 2.70GHz"))
+    assert magi_module.get_device_name("mps") == "Mac GPU"
+    magi_module.get_mac_chip_name.cache_clear()
+
+    def no_sysctl(command, **kwargs):
+        raise FileNotFoundError("sysctl")
+
+    monkeypatch.setattr(magi_module.subprocess, "run", no_sysctl)
+    assert magi_module.get_device_name("mps") == "Mac GPU"
+    magi_module.get_mac_chip_name.cache_clear()
+
+
+def test_the_status_view_shows_where_magi_runs(monkeypatch):
+    from gui_classes import ProgressPanel
+
+    reported = []
+    monkeypatch.setattr(ProgressPanel, "report_progress", lambda **fields: reported.append(fields))
+    monkeypatch.setattr(magi_module, "get_device_name", lambda device: f"name of {torch.device(device).type}")
+
+    get_magi_with_model(FakeModel()).full_model
+
+    assert reported == [{"device": "name of mps"}]
+
+
+def test_a_gpu_works_only_if_pytorch_can_run_on_it(monkeypatch):
+    real_ones = torch.ones
+
+    monkeypatch.setattr(torch, "ones", lambda *args, **kwargs: real_ones(1))
+    assert magi_module.gpu_works(0)
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("invalid kernel file")
+
+    monkeypatch.setattr(torch, "ones", fail)
+    assert not magi_module.gpu_works(0)
 
 
 class FakeModel:
@@ -191,6 +315,21 @@ def test_panel_by_panel_saves_the_text_for_each_saved_panel_in_order(tmp_path, m
     assert json.loads((chapter / "panel-text.json").read_text()) == [["Right."], ["Left."], ["Page two."]]
 
 
+def test_panel_by_panel_that_reads_the_text_shows_the_text_stages_too(tmp_path, monkeypatch):
+    import gui_classes.ProgressPanel as progress_module
+
+    reported = []
+    monkeypatch.setattr(progress_module, "report_progress", lambda **fields: reported.append(fields))
+    magi = Magi()
+    monkeypatch.setattr(magi, "predict_panels", lambda chapter_pages, reading_direction: [{"panels": [LEFT_PANEL]}])
+    monkeypatch.setattr(magi, "get_per_page_results", lambda chapter_pages: [make_page_text(([10, 10, 40, 30], "Hi.", True))])
+
+    magi.get_panels_using_local_cpu([drawn_page()], "Series/Ch 1", str(tmp_path), read_text=True)
+
+    # The same names Images To Video shows, so a Pipeline's video step ticks them right away.
+    assert reported[0]["stages"] == ("Finding the panels", "Saving the panels", "Finding the text", "Reading the text")
+
+
 def test_panel_by_panel_does_not_read_the_text_unless_asked(tmp_path, monkeypatch):
     import numpy
 
@@ -216,7 +355,8 @@ def test_finding_and_reading_the_text_shows_its_progress(monkeypatch):
 
     get_magi_with_model(FakeModel()).get_per_page_results(["page 1", "page 2"])
 
-    assert reports == [
+    # Where Magi runs is also shown (see "test_the_status_view_shows_where_magi_runs").
+    assert [report for report in reports if "device" not in report] == [
         {"stage": "Finding the text", "pages_done": 0, "pages_total": 2, "unit": "images", "detail": "Finding the text"},
         {"pages_done": 1},
         {"pages_done": 2},

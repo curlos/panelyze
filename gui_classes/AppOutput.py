@@ -6,8 +6,11 @@ import time
 import flet as ft
 from gui_classes import Nord
 
-LOG_FILE_PATH = os.path.expanduser("~/Library/Logs/Panelyze/panelyze.log")
-MAX_LOG_FILE_SIZE = 10 * 1024 * 1024
+from default_settings import LOG_FOLDER
+
+LOG_FILE_PATH = os.path.join(LOG_FOLDER, "panelyze.log")
+# How many runs' logs are kept: "panelyze.log" (this run), then "panelyze.1.log" (the run before), ... "panelyze.9.log".
+LOG_FILES_KEPT = 10
 MAX_LINES_IN_APP = 2000
 UPDATE_INTERVAL_SECONDS = 0.2
 STREAM_COLORS = {"stdout": Nord.TEXT, "stderr": Nord.YELLOW}
@@ -218,16 +221,40 @@ def show_all_output_in_app(terminal_output_list_view, log_file_path=LOG_FILE_PAT
     return current_app_output
 
 
+def rotate_log_files(log_file_path, kept=LOG_FILES_KEPT):
+    """
+    On each start, "panelyze.log" becomes "panelyze.1.log", "panelyze.1.log" becomes "panelyze.2.log", and so on; the oldest is deleted. So "panelyze.log" is only this run (what "Open Current Log" opens), and the last runs are kept without one file growing forever.
+    """
+    if not os.path.exists(log_file_path):
+        return
+
+    base, extension = os.path.splitext(log_file_path)
+
+    def numbered(number):
+        return f"{base}.{number}{extension}"
+
+    # The current log is moved aside first: when another Panelyze still has it open (Windows can't move an open file), nothing else is touched and this run adds to it. A Mac can move an open file, so there the first Panelyze keeps writing to "panelyze.1.log".
+    set_aside = f"{log_file_path}.rotating"
+    try:
+        os.replace(log_file_path, set_aside)
+    except OSError:
+        return
+
+    try:
+        # Oldest first, so nothing is overwritten before it's moved; the oldest kept one is replaced.
+        for number in range(kept - 1, 1, -1):
+            if os.path.exists(numbered(number - 1)):
+                os.replace(numbered(number - 1), numbered(number))
+        os.replace(set_aside, numbered(1))
+    except OSError:
+        # An older log couldn't be moved: the current one goes back, and this run adds to it.
+        os.replace(set_aside, log_file_path)
+
+
 def open_log_file(log_file_path):
     try:
         os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
-
-        # Start over when the log gets big, so it can't fill up the disk.
-        if (
-            os.path.exists(log_file_path)
-            and os.path.getsize(log_file_path) > MAX_LOG_FILE_SIZE
-        ):
-            os.remove(log_file_path)
+        rotate_log_files(log_file_path)
 
         log_file = open(log_file_path, "a", encoding="utf-8")
         log_file.write(f"\n===== Panelyze started {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n")

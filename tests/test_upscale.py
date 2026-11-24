@@ -1,10 +1,18 @@
 import os
 from types import SimpleNamespace
 
+import pytest
 from PIL import Image
 
+import default_settings
 import gui_classes.UpscaleImagesView as upscale_module
 from utils import replace_extension
+
+
+@pytest.fixture(autouse=True)
+def png_by_default(monkeypatch):
+    # These tests were written for PNG output (the default is WebP, see "test_upscaled_images_are_webp_by_default_and_stop_at_4k" in test_gui.py).
+    monkeypatch.setitem(default_settings.DEFAULT_SETTINGS, "image_format", "png")
 
 
 def make_fake_waifu2x(monkeypatch, runs, fail_on=()):
@@ -31,7 +39,7 @@ def make_fake_waifu2x(monkeypatch, runs, fail_on=()):
 
 def run_upscale(gui, tmp_path, sizes):
     chapter = tmp_path / "panels" / "Ch 1"
-    chapter.mkdir(parents=True)
+    chapter.mkdir(parents=True, exist_ok=True)
     for number, size in enumerate(sizes, start=1):
         Image.new("RGB", size, "white").save(chapter / f"panel_{number}.png")
 
@@ -42,6 +50,234 @@ def run_upscale(gui, tmp_path, sizes):
         str(tmp_path / "upscaled"),
     )
     return tmp_path / "upscaled" / "panels" / "Ch 1"
+
+
+def test_custom_panel_height_resizes_every_image_to_that_height(make_gui, tmp_path, monkeypatch):
+    runs = []
+    make_fake_waifu2x(monkeypatch, runs)
+    gui = make_gui()
+    gui.page.client_storage.set("use_custom_panel_image_height", True)
+    gui.page.client_storage.set("custom_panel_image_height", "300")
+
+    # 2x: 200x160 and 120x160, then made 300 px tall, keeping their shape.
+    output = run_upscale(gui, tmp_path, [(100, 80), (60, 80)])
+
+    assert Image.open(output / "panel_1.png").size == (375, 300)
+    assert Image.open(output / "panel_2.png").size == (225, 300)
+
+
+def test_best_with_the_4k_limit_a_custom_height_and_a_max_width_all_apply_in_order(make_gui, tmp_path, monkeypatch):
+    import janai
+
+    runs, janai_ratios = [], []
+    make_fake_waifu2x(monkeypatch, runs)
+
+    def fake_janai(input_image, output_image, upscale_ratio):
+        janai_ratios.append(upscale_ratio)
+        with Image.open(input_image) as image:
+            image.resize((image.width * upscale_ratio, image.height * upscale_ratio)).save(output_image)
+
+    monkeypatch.setattr(janai, "upscale_image_with_janai", fake_janai)
+    gui = make_gui()
+    storage = gui.page.client_storage
+    storage.set("upscale_model", "best")
+    storage.set("upscale_ratio", 32)
+    storage.set("limit_upscale_to_4k", True)
+    storage.set("use_custom_panel_image_height", True)
+    storage.set("custom_panel_image_height", "1000")
+    storage.set("use_max_image_width", True)
+    storage.set("max_image_width", "600")
+
+    output = run_upscale(gui, tmp_path, [(350, 429)])
+
+    # "Best" 8x because of the 4K limit (2800x3432, left under 4K), then 1000 px tall (815x1000), then at most 600 px wide.
+    assert janai_ratios == [8]
+    assert Image.open(output / "panel_1.png").size == (600, 736)
+
+
+def test_a_folder_saved_as_png_because_of_webp_s_size_limit_still_gets_the_custom_height(make_gui, tmp_path, monkeypatch):
+    runs = []
+    make_fake_waifu2x(monkeypatch, runs)
+    gui = make_gui()
+    storage = gui.page.client_storage
+    storage.set("image_format", "webp")
+    storage.set("use_custom_panel_image_height", True)
+    storage.set("custom_panel_image_height", "300")
+
+    # A long webtoon strip, too tall for WebP: the folder is saved as PNG, then made 300 px tall.
+    output = run_upscale(gui, tmp_path, [(1000, 17000)])
+
+    assert sorted(os.listdir(output)) == ["panel_1.png"]
+    assert Image.open(output / "panel_1.png").size == (17, 300)
+
+
+@pytest.mark.parametrize("height", ["", "0", "abc"])
+def test_a_custom_height_or_max_width_that_isnt_a_number_above_0_resizes_nothing(make_gui, tmp_path, monkeypatch, height):
+    runs = []
+    make_fake_waifu2x(monkeypatch, runs)
+    gui = make_gui()
+    gui.page.client_storage.set("use_custom_panel_image_height", True)
+    gui.page.client_storage.set("custom_panel_image_height", height)
+    gui.page.client_storage.set("use_max_image_width", True)
+    gui.page.client_storage.set("max_image_width", height)
+
+    output = run_upscale(gui, tmp_path, [(100, 80)])
+
+    assert Image.open(output / "panel_1.png").size == (200, 160)
+
+
+def test_max_image_width_only_shrinks_images_that_are_wider(make_gui, tmp_path, monkeypatch):
+    runs = []
+    make_fake_waifu2x(monkeypatch, runs)
+    gui = make_gui()
+    gui.page.client_storage.set("use_max_image_width", True)
+    gui.page.client_storage.set("max_image_width", "150")
+
+    # 2x: 200x160 is wider than 150 (made 150x120); 100x160 isn't (kept).
+    output = run_upscale(gui, tmp_path, [(100, 80), (50, 80)])
+
+    assert Image.open(output / "panel_1.png").size == (150, 120)
+    assert Image.open(output / "panel_2.png").size == (100, 160)
+
+
+@pytest.mark.parametrize("noise_level", ["-1", "0", "3"])
+def test_the_noise_level_is_given_to_waifu2x(make_gui, tmp_path, monkeypatch, noise_level):
+    noise_levels = []
+    runs = []
+    make_fake_waifu2x(monkeypatch, runs)
+    fake_upscale = upscale_module.upscale_with_waifu2x
+
+    def record_noise_level(*args, noise_level, **kwargs):
+        noise_levels.append(noise_level)
+        return fake_upscale(*args, **kwargs)
+
+    monkeypatch.setattr(upscale_module, "upscale_with_waifu2x", record_noise_level)
+    gui = make_gui()
+    gui.page.client_storage.set("noise_level", noise_level)
+
+    run_upscale(gui, tmp_path, [(100, 80)])
+
+    assert noise_levels == [noise_level]
+
+
+def test_waifu2x_is_run_with_the_ratio_noise_level_format_and_model(monkeypatch, tmp_path):
+    import waifu2x
+
+    commands = []
+    monkeypatch.setattr(waifu2x, "get_waifu2x_path", lambda: str(tmp_path / "waifu2x-ncnn-vulkan.exe"))
+    monkeypatch.setattr(waifu2x.subprocess, "run", lambda command, check: commands.append(command))
+
+    waifu2x.upscale_with_waifu2x("in", "out", upscale_ratio=4, noise_level=2, image_format="webp", model="fast")
+
+    command = commands[0]
+    assert command[command.index("-s") + 1] == "4"
+    assert command[command.index("-n") + 1] == "2"
+    assert command[command.index("-f") + 1] == "webp"
+    assert command[command.index("-m") + 1].endswith(waifu2x.WAIFU2X_MODELS["fast"])
+
+
+def test_a_folder_with_an_image_too_big_for_webp_is_saved_as_png(make_gui, tmp_path, monkeypatch):
+    runs = []
+    make_fake_waifu2x(monkeypatch, runs)
+    gui = make_gui()
+    gui.page.client_storage.set("image_format", "webp")
+
+    # A long webtoon strip: already past 4K, so it's only cleaned up, but 17000 px is more than WebP allows (16383).
+    output = run_upscale(gui, tmp_path, [(100, 17000), (100, 80)])
+
+    assert sorted(os.listdir(output)) == ["panel_1.png", "panel_2.png"]
+
+
+def test_webp_images_left_from_an_earlier_run_are_removed_when_the_folder_is_saved_as_png(make_gui, tmp_path, monkeypatch):
+    runs = []
+    make_fake_waifu2x(monkeypatch, runs)
+    gui = make_gui()
+    gui.page.client_storage.set("image_format", "webp")
+    # An earlier run of this folder saved WebP images.
+    output = tmp_path / "upscaled" / "panels" / "Ch 1"
+    output.mkdir(parents=True)
+    (output / "panel_1.webp").write_bytes(b"old")
+
+    run_upscale(gui, tmp_path, [(100, 17000)])
+
+    assert sorted(os.listdir(output)) == ["panel_1.png"]
+
+
+def test_a_big_upscale_without_the_4k_limit_is_saved_as_png_when_too_big_for_webp(make_gui, tmp_path, monkeypatch):
+    runs = []
+    make_fake_waifu2x(monkeypatch, runs)
+    gui = make_gui()
+    gui.page.client_storage.set("image_format", "webp")
+    gui.page.client_storage.set("limit_upscale_to_4k", False)
+    # The dropdown saves the ratio as text.
+    gui.page.client_storage.set("upscale_ratio", "32")
+
+    # 640 px x 32 = 20480 px, more than WebP allows (16383).
+    output = run_upscale(gui, tmp_path, [(640, 10)])
+
+    assert runs[0]["ratio"] == 32
+    assert sorted(os.listdir(output)) == ["panel_1.png"]
+
+
+def test_images_finished_before_a_cancel_still_keep_the_4k_limit(make_gui, tmp_path, monkeypatch):
+    from utils import DownloadCancelled
+
+    gui = make_gui()
+    view = gui.UpscaleImagesView
+    gui.page.client_storage.set("upscale_ratio", 4)
+    gui.page.client_storage.set("limit_upscale_to_4k", True)
+
+    def fake_upscale(input_image, output_image, upscale_ratio, image_format, model, on_line, **kwargs):
+        # panel_1 is done (2x of 2100x3170 = 4200x6340, past 4K), panel_2 is cut off by the cancel, panel_3 never starts.
+        with Image.open(os.path.join(input_image, "panel_1.png")) as image:
+            image.resize((image.width * upscale_ratio, image.height * upscale_ratio)).save(os.path.join(output_image, "panel_1.png"))
+        with open(os.path.join(output_image, "panel_2.png"), "wb") as file:
+            file.write(b"\x89PNG\r\n\x1a\n half written")
+        view.cancel_event.set()
+
+    monkeypatch.setattr(upscale_module, "upscale_with_waifu2x", fake_upscale)
+    monkeypatch.setattr(upscale_module, "ProcessManager", lambda: SimpleNamespace())
+    errors = []
+    monkeypatch.setattr(gui.terminal_output, "update_terminal_with_error_message", errors.append)
+
+    # The text Panel-By-Panel read is only copied along when the whole folder is done.
+    from utils import PANEL_TEXT_FILE_NAME
+
+    (tmp_path / "panels" / "Ch 1").mkdir(parents=True)
+    (tmp_path / "panels" / "Ch 1" / PANEL_TEXT_FILE_NAME).write_text("[]")
+
+    with pytest.raises(DownloadCancelled):
+        run_upscale(gui, tmp_path, [(2100, 3170), (2100, 3170), (2100, 3170)])
+
+    output = tmp_path / "upscaled" / "panels" / "Ch 1"
+    assert sorted(os.listdir(output)) == ["panel_1.png"]
+    assert max(Image.open(output / "panel_1.png").size) == 3840
+    assert errors == []
+
+
+def test_images_finished_before_a_cancel_also_get_the_custom_height(make_gui, tmp_path, monkeypatch):
+    from utils import DownloadCancelled
+
+    gui = make_gui()
+    view = gui.UpscaleImagesView
+    storage = gui.page.client_storage
+    storage.set("upscale_ratio", 2)
+    storage.set("use_custom_panel_image_height", True)
+    storage.set("custom_panel_image_height", "500")
+
+    def fake_upscale(input_image, output_image, upscale_ratio, image_format, model, on_line, **kwargs):
+        # panel_1 is done, then the cancel.
+        with Image.open(os.path.join(input_image, "panel_1.png")) as image:
+            image.resize((image.width * upscale_ratio, image.height * upscale_ratio)).save(os.path.join(output_image, "panel_1.png"))
+        view.cancel_event.set()
+
+    monkeypatch.setattr(upscale_module, "upscale_with_waifu2x", fake_upscale)
+    monkeypatch.setattr(upscale_module, "ProcessManager", lambda: SimpleNamespace())
+
+    with pytest.raises(DownloadCancelled):
+        run_upscale(gui, tmp_path, [(300, 400), (300, 400)])
+
+    assert Image.open(tmp_path / "upscaled" / "panels" / "Ch 1" / "panel_1.png").size == (375, 500)
 
 
 def test_all_images_are_upscaled_in_one_run_with_the_fast_model(make_gui, tmp_path, monkeypatch):
@@ -176,3 +412,28 @@ def test_an_image_is_copied_when_a_hard_link_cant_be_made(tmp_path, monkeypatch)
     upscale_module.link_or_copy_file(str(source), str(tmp_path / "copy.png"))
 
     assert (tmp_path / "copy.png").read_bytes() == b"image"
+
+
+def test_best_stops_short_of_4k_without_stretching_when_the_last_pass_would_go_far_past_it(make_gui, tmp_path, monkeypatch):
+    import janai
+
+    runs, janai_runs = [], []
+    make_fake_waifu2x(monkeypatch, runs)
+
+    def fake_janai(input_image, output_image, upscale_ratio):
+        janai_runs.append((os.path.basename(input_image), upscale_ratio))
+        with Image.open(input_image) as image:
+            image.resize((image.width * upscale_ratio, image.height * upscale_ratio)).save(output_image)
+
+    monkeypatch.setattr(janai, "upscale_image_with_janai", fake_janai)
+    gui = make_gui()
+    gui.page.client_storage.set("upscale_model", "best")
+    gui.page.client_storage.set("upscale_ratio", 32)
+    gui.page.client_storage.set("limit_upscale_to_4k", True)
+
+    # A 350x429 panel (Absolute Batman): 16x would be 6864px, so "Best" does 8x and it stays at 3432px (not stretched to 4K). A 500x1000 panel: 4x would be 4000px, only a bit past 4K, so "Best" does all of it.
+    output = run_upscale(gui, tmp_path, [(350, 429), (500, 1000)])
+
+    assert janai_runs == [("panel_1.png", 8), ("panel_2.png", 4)]
+    assert Image.open(output / "panel_1.png").size == (2800, 3432)
+    assert Image.open(output / "panel_2.png").size == (1920, 3840)

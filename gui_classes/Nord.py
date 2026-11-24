@@ -1,3 +1,5 @@
+import re
+
 import flet as ft
 
 # The app's colors, from the Nord theme (like the Nord theme in VS Code): https://www.nordtheme.com/docs/colors-and-palettes
@@ -26,9 +28,30 @@ RED_TEXT = "#d4a2a9"
 RED_BUTTON = "#b25d66"
 YELLOW = "#ebcb8b"
 GREEN = "#a3be8c"
+PURPLE = "#b48ead"
+# Nord's purple is too dark to read as small text on the Status view's background (3.6 to 1), so names use a lighter purple (4.8 to 1 there, 5.9 to 1 on the page's background).
+PURPLE_TEXT = "#c7aac2"
 
 # Folder and file paths ("Save to: /Users/..."), everywhere in the app, so where things go stands out from the text around them.
 PATH = TEAL
+# The names of the computer's GPUs (or CPU) in Settings and the Status view, the one the AI models run on and the ones they don't, so they stand out like a path does.
+DEVICE = PURPLE_TEXT
+
+
+def get_highlighted_spans(text, parts, color):
+    """
+    "text" as spans for a "ft.Text", with each of "parts" in "color" (e.g. the GPUs' names in "The AI models run on the ... Not used: the ...").
+    """
+    parts = [part for part in parts if part]
+    if not parts:
+        return [ft.TextSpan(text)]
+    # Longest first, so a name that's part of a longer one doesn't split it.
+    pattern = "|".join(re.escape(part) for part in sorted(parts, key=len, reverse=True))
+    return [
+        ft.TextSpan(piece, style=ft.TextStyle(color=color) if piece in parts else None)
+        for piece in re.split(f"({pattern})", text)
+        if piece
+    ]
 
 # Buttons have square corners, like the panels in a manga page.
 SQUARE = ft.RoundedRectangleBorder(radius=0)
@@ -101,8 +124,21 @@ def get_theme():
             # Its own focus color, since the theme's is turned off above (for the dropdowns).
             overlay_color={ft.ControlState.FOCUSED: ft.Colors.with_opacity(0.24, ACCENT)},
         ),
-        tooltip_theme=ft.TooltipTheme(
-            decoration=ft.BoxDecoration(bgcolor=SURFACE_HIGH),
-            text_style=ft.TextStyle(color=TEXT_BRIGHT),
-        ),
+    )
+
+
+def tooltip(message):
+    """
+    A tooltip that looks like it's on top of the page: a box with a border and a shadow, just under what it's about. Use it for every tooltip. (The theme's plain lighter box was almost the page's color, so tooltips looked like text floating over the page.) Flutter's tooltips can't have an arrow pointing at the control.
+    """
+    return ft.Tooltip(
+        message=message,
+        bgcolor=SURFACE_HIGH,
+        border=ft.border.all(1, ACCENT),
+        border_radius=4,
+        padding=ft.padding.symmetric(horizontal=10, vertical=6),
+        shadow=[ft.BoxShadow(blur_radius=10, spread_radius=1, color=ft.Colors.with_opacity(0.6, ft.Colors.BLACK))],
+        text_style=ft.TextStyle(color=TEXT_BRIGHT, size=13),
+        prefer_below=True,
+        vertical_offset=18,
     )

@@ -17,6 +17,21 @@ BROWSER_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 }
 TIMEOUT_SECONDS = 30
+# The most that's downloaded for the page itself (its HTML, usually under 2 MB) and for each image, so a broken or hostile site can't fill the memory with one huge "page" or "image".
+MAX_PAGE_BYTES = 10 * 1024 * 1024
+MAX_IMAGE_BYTES = 50 * 1024 * 1024
+
+
+def read_at_most(response, max_bytes):
+    """
+    The bytes of a response opened with "stream=True", or None when it's bigger than "max_bytes" (it stops reading as soon as it is).
+    """
+    data = bytearray()
+    for chunk in response.iter_content(1024 * 1024):
+        data += chunk
+        if len(data) > max_bytes:
+            return None
+    return bytes(data)
 
 # The image types every tool can read, as the extension to save them with. Others (e.g. GIF) are saved as PNG.
 SAVED_IMAGE_EXTENSIONS = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
@@ -84,7 +99,8 @@ class PageImagesParser(HTMLParser):
 def get_safe_folder_name(name):
     name = re.sub(r'[\\/:*?"<>|]+', " ", name)
     name = re.sub(r"\s+", " ", name).strip(" .")
-    return name[:100] or "Downloaded pages"
+    # Strip again after cutting: Windows drops a space or dot at the end of a folder name, and then can't find the files inside it.
+    return name[:100].rstrip(" .") or "Downloaded pages"
 
 
 def get_min_image_side(storage):
@@ -111,11 +127,23 @@ def download_pages_from_url(url, cancel_event=None, min_side=0):
 
     print(f"Opening {url}")
     report_progress(detail="Opening the page...")
-    response = requests.get(url, headers=BROWSER_HEADERS, timeout=TIMEOUT_SECONDS)
-    response.raise_for_status()
+    with requests.get(url, headers=BROWSER_HEADERS, timeout=TIMEOUT_SECONDS, stream=True) as response:
+        response.raise_for_status()
+        page_bytes = read_at_most(response, MAX_PAGE_BYTES)
+        encoding = response.encoding
+    if page_bytes is None:
+        raise RuntimeError(
+            f"This page is bigger than {MAX_PAGE_BYTES // (1024 * 1024)} MB, so it wasn't read (a web page is usually under 2 MB)."
+        )
+
+    # Like "requests"' own ".text": the page's charset, or a guess when it gives none, and never an error for a misspelled one.
+    try:
+        page_text = str(page_bytes, encoding or requests.compat.chardet.detect(page_bytes)["encoding"] or "utf-8", errors="replace")
+    except (LookupError, TypeError):
+        page_text = str(page_bytes, "utf-8", errors="replace")
 
     parser = PageImagesParser()
-    parser.feed(response.text)
+    parser.feed(page_text)
 
     # Absolute URLs, without the same image twice.
     image_urls = list(dict.fromkeys(urljoin(url, image_url) for image_url in parser.image_urls))
@@ -187,14 +215,18 @@ def download_image(image_url, page_url):
 
     try:
         # Some sites only send their images to their own pages.
-        response = requests.get(
+        with requests.get(
             image_url,
             headers={**BROWSER_HEADERS, "Referer": page_url},
             timeout=TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
+            stream=True,
+        ) as response:
+            response.raise_for_status()
+            image_bytes = read_at_most(response, MAX_IMAGE_BYTES)
     except requests.RequestException as error:
         print(f"Skipped an image that couldn't be downloaded ({error}): {image_url}")
         return None
 
-    return response.content
+    if image_bytes is None:
+        print(f"Skipped an image bigger than {MAX_IMAGE_BYTES // (1024 * 1024)} MB: {image_url}")
+    return image_bytes

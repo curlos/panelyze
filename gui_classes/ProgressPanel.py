@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 import time
 
@@ -20,6 +21,8 @@ PROGRESS_FIELDS = (
     # A job made of stages (Images To Video: reading the text, the voice-over, writing the video): their names, and the one it's on (see "get_stages_text").
     "stages",
     "stage",
+    # Where the AI model of the job runs ("AMD Radeon RX 6700 XT", "Apple M1", "CPU"; see "magi.get_device_name").
+    "device",
     # When a Pipeline started (time.monotonic()), so its total time can be shown next to each step's. It's not cleared between steps.
     "total_started_at",
 )
@@ -52,10 +55,27 @@ def format_duration(seconds):
     return "".join(parts)
 
 
+# Sizes are shown the way the computer's own file manager shows them. Windows' File Explorer counts 1 KB as 1024 bytes and has its own rounding, so on Windows they're written by Windows itself (see "format_size_like_file_explorer").
+USE_FILE_EXPLORER_SIZES = sys.platform == "win32"
+
+
+def format_size_like_file_explorer(size):
+    """
+    A number of bytes exactly as File Explorer shows it ("67.1 MB", "5.17 KB", "512 bytes"), written by the Windows function it uses. Windows only.
+    """
+    import ctypes
+
+    text = ctypes.create_unicode_buffer(64)
+    ctypes.windll.shlwapi.StrFormatByteSizeW(ctypes.c_longlong(int(size)), text, len(text))
+    return text.value
+
+
 def format_size(size):
     """
-    A number of bytes the way Finder shows it (1 KB = 1000 bytes): "512 B", "5.3 KB", "412 MB", "1.2 GB".
+    A number of bytes the way the file manager shows it: on the Mac like Finder (1 KB = 1000 bytes), "512 B", "5.3 KB", "412 MB", "1.2 GB"; on Windows like File Explorer.
     """
+    if USE_FILE_EXPLORER_SIZES:
+        return format_size_like_file_explorer(size)
     for unit in ("B", "KB", "MB", "GB"):
         if size < 1000:
             break
@@ -152,6 +172,7 @@ class ProgressPanel(ft.Container):
         self.timer_text = ft.Text(color=MUTED_COLOR, size=13)
         self.status_text = ft.Text(color=Nord.TEXT)
         self.stages_text = ft.Text(color=MUTED_COLOR, size=12, visible=False)
+        self.device_text = ft.Text(color=MUTED_COLOR, size=12, visible=False)
         self.error_hint_text = ft.Text(ERROR_HINT, color=MUTED_COLOR, size=12, visible=False)
         self.progress_bar = ft.ProgressBar(
             color=Nord.BLUE, bgcolor=Nord.SURFACE_HIGH, visible=False
@@ -167,10 +188,13 @@ class ProgressPanel(ft.Container):
                 ),
                 self.stages_text,
                 self.status_text,
+                self.device_text,
                 self.error_hint_text,
                 self.progress_bar,
             ],
             spacing=8,
+            # When the terminal is dragged so small that the status doesn't fit, it scrolls (the scroll bar only shows then, like the Settings page's).
+            scroll=ft.ScrollMode.ALWAYS,
         )
         self.render()
 
@@ -184,6 +208,7 @@ class ProgressPanel(ft.Container):
         self.detail = None
         self.stages = ()
         self.stage = None
+        self.device = None
 
     def start(self, title):
         self.clear_progress()
@@ -336,6 +361,14 @@ class ProgressPanel(ft.Container):
         marks = ["✓" if index < current else "●" if index == current else "○" for index in range(len(self.stages))]
         return "   ".join(f"{mark} {name}" for mark, name in zip(marks, self.stages))
 
+    def get_device_text(self):
+        """
+        "Running on the AMD Radeon RX 6700 XT" while a job that uses an AI model runs ("Ran on ..." after it). Nothing for the other jobs.
+        """
+        if not self.device or self.state not in (RUNNING, FINISHED):
+            return ""
+        return f"{'Running' if self.state == RUNNING else 'Ran'} on the {self.device}"
+
     def get_status_text(self):
         parts = []
 
@@ -375,6 +408,9 @@ class ProgressPanel(ft.Container):
         self.status_text.value = self.get_status_text()
         self.stages_text.value = self.get_stages_text()
         self.stages_text.visible = bool(self.stages_text.value)
+        device_text = self.get_device_text()
+        self.device_text.spans = Nord.get_highlighted_spans(device_text, [self.device], Nord.DEVICE)
+        self.device_text.visible = bool(device_text)
         self.timer_text.value = self.get_timer_text()
         self.progress_bar.value = self.get_bar_value()
         self.progress_bar.visible = self.state in (RUNNING, FINISHED)

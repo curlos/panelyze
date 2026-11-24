@@ -33,6 +33,12 @@ BROWSER_PATHS = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    # Windows: Chrome, then Chrome installed for one user only (found inside the home folder, see "find_browser").
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    "AppData\\Local\\Google\\Chrome\\Application\\chrome.exe",
+    # Edge comes with Windows 10 and 11.
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
 ]
 
 
@@ -60,7 +66,7 @@ def parse_comix_url(url):
 def find_browser(browser_paths=BROWSER_PATHS):
     home = os.path.expanduser("~")
     for path in browser_paths:
-        # Apps can also be in the user's own Applications folder.
+        # Apps can also be in the user's own folder (~/Applications on a Mac, AppData on Windows).
         for candidate in (path, os.path.join(home, path.lstrip("/"))):
             if os.access(candidate, os.X_OK):
                 return candidate

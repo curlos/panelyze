@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from types import SimpleNamespace
 
@@ -69,6 +70,94 @@ def test_a_group_link_is_only_used_when_that_choice_is_picked():
 
     assert "--group" not in options
 
+
+@pytest.mark.parametrize(
+    "setting, option",
+    [
+        ("no_group_name", "--no-group-name"),
+        ("no_oneshot_chapters", "--no-oneshot-chapter"),
+        ("use_chapter_cover", "--use-chapter-cover"),
+        ("use_volume_cover", "--use-volume-cover"),
+        ("replace_existing_manga", "--replace"),
+    ],
+)
+def test_each_download_checkbox_gives_its_downloader_option(setting, option):
+    assert option in get_additional_terminal_options(get_storage(**{setting: True}))
+    assert option not in get_additional_terminal_options(get_storage(**{setting: False}))
+
+
+@pytest.mark.parametrize("use_range", [True, False])
+def test_the_chapter_and_page_ranges_are_only_used_when_turned_on(use_range):
+    options = get_additional_terminal_options(
+        get_storage(
+            use_start_and_end_chapters=use_range, start_chapter="3", end_chapter="5",
+            use_start_and_end_pages=use_range, start_page="2", end_page="10",
+        )
+    )
+
+    for option, value in (("--start-chapter", "3"), ("--end-chapter", "5"), ("--start-page", "2"), ("--end-page", "10")):
+        if use_range:
+            assert options[options.index(option) + 1] == value
+        else:
+            assert option not in options
+
+
+def test_the_picked_language_is_downloaded():
+    options = get_additional_terminal_options(get_storage(language={"name": "Spanish", "code": "es"}))
+
+    assert options[options.index("--language") + 1] == "es"
+
+
+def find_checkbox(root, label):
+    from gui_classes.WrappingCheckbox import WrappingCheckbox
+    from tests.fake_gui import get_all_controls
+
+    return next(
+        control
+        for control in get_all_controls(root)
+        if isinstance(control, WrappingCheckbox) and any(getattr(part, "value", None) == label for part in get_all_controls(control))
+    )
+
+
+@pytest.mark.parametrize(
+    "label, option",
+    [
+        ("No Group Name", "--no-group-name"),
+        ("No Oneshot Chapters", "--no-oneshot-chapter"),
+        ("Use Chapter Cover", "--use-chapter-cover"),
+        ("Use Volume Cover", "--use-volume-cover"),
+        ("Download again even if already downloaded", "--replace"),
+    ],
+)
+def test_ticking_a_download_checkbox_in_the_tab_adds_its_option(make_gui, label, option):
+    from tests.fake_gui import fake_event
+
+    gui = make_gui()
+    checkbox = find_checkbox(gui.MangaDexDownloaderView.settings, label)
+
+    checkbox.checkbox.on_change(fake_event(data="true"))
+    assert option in get_additional_terminal_options(gui.page.client_storage)
+
+    checkbox.checkbox.on_change(fake_event(data="false"))
+    assert option not in get_additional_terminal_options(gui.page.client_storage)
+
+
+def test_picking_a_language_in_the_tab_saves_its_code(make_gui):
+    from tests.fake_gui import fake_event
+
+    from utils import get_all_mangadex_languages
+
+    gui = make_gui()
+    # The name the downloader gives Spanish ("es"), as listed in the dropdown.
+    spanish = next(language["name"] for language in get_all_mangadex_languages()["mangadex_languages"] if language["code"] == "es")
+
+    gui.MangaDexDownloaderView.settings.language_dropdown.on_change(fake_event(data=spanish))
+
+    assert gui.page.client_storage.get("language")["code"] == "es"
+    options = get_additional_terminal_options(gui.page.client_storage)
+    assert options[options.index("--language") + 1] == "es"
+
+
 def test_each_manga_gets_its_own_folder_in_the_output_folder():
     assert get_download_folder("/Users/me/Panelyze/Downloads") == os.path.join(
         "/Users/me/Panelyze/Downloads", "{manga.title}"
@@ -86,6 +175,7 @@ def test_a_dash_with_no_title_after_it_is_dropped():
     assert get_tidy_chapter_folder_name("Vol. 1 Ch. 3") == "Vol. 1 Ch. 3"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows can't make a folder whose name ends with a space")
 def test_a_chapter_folder_without_a_title_keeps_the_downloader_s_name_but_the_result_line_drops_the_dash(tmp_path):
     from download_from_mangadex import get_download_summary
 

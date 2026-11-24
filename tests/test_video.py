@@ -79,6 +79,37 @@ def test_transcript_skips_blank_lines(tmp_path):
     ]
 
 
+def test_the_transcript_keeps_symbols_and_japanese(tmp_path):
+    # Windows' default encoding can't save "♥" or Japanese.
+    VideoCreatorFromImages.save_essential_text_to_transcript(None, [["I love you ♥", "呪術廻戦"]], str(tmp_path))
+
+    assert VideoCreatorFromImages({}).get_essential_text_from_transcript(str(tmp_path)) == [["I love you ♥", "呪術廻戦"]]
+
+
+def test_the_voice_over_audio_files_can_be_deleted_after_the_video_is_made(tmp_path):
+    import shutil
+
+    import numpy
+    from moviepy.audio.AudioClip import AudioArrayClip
+
+    # Windows can't delete a file that's still open, and each audio file stays open until its clip is closed.
+    Image.new("RGB", (100, 150), "white").save(tmp_path / "panel_1.png")
+    (tmp_path / "audio-files").mkdir()
+    # 10 seconds of silence: long enough that ffmpeg is still reading it (a very short file is read in one go and let go of).
+    AudioArrayClip(numpy.zeros((220500, 2)), fps=22050).write_audiofile(
+        str(tmp_path / "audio-files" / "panel_1.mp3"), logger=None
+    )
+    video_creator = VideoCreatorFromImages({"video_height": "360"})
+    video_creator.initialize_flet_client_storage_values({"video_height": "360"})
+
+    clips = video_creator.get_clips([str(tmp_path / "panel_1.png")], None, None, [1], str(tmp_path))
+    # Reading the audio, like writing the video does.
+    clips[0].audio.get_frame(0.1)
+    video_creator.close_audio_clips()
+
+    shutil.rmtree(tmp_path / "audio-files")
+
+
 def test_transcript_that_does_not_match_the_images_is_not_used(tmp_path, monkeypatch):
     # The transcript has 2 images worth of text but the chapter now has 3 images.
     write_transcript(tmp_path, "A\n------ new image ------\nB\n------ new image ------\n")
@@ -226,6 +257,26 @@ def test_one_voice_over_line_failing_is_skipped_but_several_in_a_row_stop_the_vi
         assert "No audio was received" in str(error)
 
 
+def test_a_failed_voice_over_file_that_cant_be_deleted_shows_the_real_error(tmp_path, monkeypatch):
+    import VideoCreatorFromImages as module
+
+    video_creator = VideoCreatorFromImages({})
+
+    def fake_generate_audio(text_list, output_file):
+        open(output_file, "wb").close()
+        raise RuntimeError("Azure Text-To-Speech failed: Authentication error (401).")
+
+    def locked(path):
+        # Windows, while Azure still has the file open.
+        raise PermissionError(32, "The process cannot access the file because it is being used by another process")
+
+    video_creator.tts.generate_audio = fake_generate_audio
+    monkeypatch.setattr(module.os, "remove", locked)
+
+    with pytest.raises(RuntimeError, match="Authentication error"):
+        video_creator.generate_voice_over(["Hello"], str(tmp_path / "a.mp3"))
+
+
 def make_voice_over_video_creator(tmp_path, monkeypatch, highlight=False, fail=lambda text_list: False):
     """
     A video creator whose voice-over "says" each line by writing a file, and whose audio length is the number of words.
@@ -338,10 +389,15 @@ def test_highlighting_still_reads_the_panels_because_it_needs_where_the_text_is(
 
 
 def test_writing_the_video_shows_how_many_frames_are_written(monkeypatch):
+    import itertools
+    from types import SimpleNamespace
+    import proglog.proglog
     import VideoCreatorFromImages as video_module
 
     reported = []
     monkeypatch.setattr(video_module, "report_progress", lambda **fields: reported.append(fields))
+    # MoviePy only reports a frame once the clock has moved, and Windows' clock ticks too slowly for this quick loop. Each frame takes a second here.
+    monkeypatch.setattr(proglog.proglog, "time", SimpleNamespace(time=itertools.count().__next__))
     logger = video_module.VideoWritingProgress()
 
     # What MoviePy does while it writes the frames.

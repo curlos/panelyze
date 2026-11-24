@@ -11,6 +11,7 @@ import pytest
 from PIL import Image
 
 from tests.fake_gui import fake_event
+from utils import get_waifu2x_path
 
 pytestmark = pytest.mark.e2e
 
@@ -34,9 +35,8 @@ def has_internet():
 
 
 needs_internet = pytest.mark.skipif(not has_internet(), reason="No internet connection")
-needs_waifu2x = pytest.mark.skipif(
-    not shutil.which("waifu2x-ncnn-vulkan"), reason="waifu2x-ncnn-vulkan isn't installed"
-)
+# On the PATH, or downloaded by the app before.
+needs_waifu2x = pytest.mark.skipif(not get_waifu2x_path(), reason="waifu2x-ncnn-vulkan isn't installed")
 
 
 @pytest.fixture
@@ -172,6 +172,8 @@ def test_images_to_video_makes_a_real_video(gui, tmp_path):
     storage = gui.page.client_storage
     storage.set("use_reading_speed_wpm", False)
     storage.set("use_image_displayed_duration", True)
+    # A fixed time per panel, so no voice (on by default).
+    storage.set("use_text_to_speech_azure", False)
     storage.set("image_displayed_duration", "1")
     storage.set("use_minimum_image_duration", False)
     storage.set("video_height", "360")
@@ -243,8 +245,102 @@ def test_mangadex_downloads_real_pages(tmp_path):
 
 
 @needs_internet
+def test_mangadex_downloads_a_range_of_chapters(tmp_path):
+    from default_settings import DEFAULT_SETTINGS
+    from download_from_mangadex import download_from_mangadex
+    from tests.fake_gui import FakeClientStorage
+
+    storage = FakeClientStorage()
+    storage.values.update(DEFAULT_SETTINGS)
+    # Dragon Ball (Official Colored), chapters 1 and 2, only their first 2 pages each.
+    storage.values.update(
+        use_start_and_end_chapters=True, start_chapter="1", end_chapter="2",
+        use_start_and_end_pages=True, start_page="1", end_page="2",
+    )
+
+    download_from_mangadex("https://mangadex.org/title/af0527c1-8734-4498-b128-7090340bc10d", str(tmp_path / "download"), None, storage)
+
+    series = tmp_path / "download" / "Dragon Ball (Official Colored)"
+    # A whole-series download also saves the series' cover next to the chapters.
+    assert (series / "cover.jpg").exists()
+    chapter_pages = [path for path in image_paths(series) if os.path.dirname(path) != str(series)]
+    assert sorted({os.path.basename(os.path.dirname(path)).split(" - ")[0] for path in chapter_pages}) == ["Vol. 1 Ch. 1", "Vol. 1 Ch. 2"]
+    assert len(chapter_pages) == 4
+
+
+@needs_waifu2x
+def test_a_real_fast_upscale_with_a_custom_height(gui, tmp_path):
+    # The noise level is set too (it reaching waifu2x's "-n" is checked in test_upscale.py).
+    chapter = tmp_path / "Test Manga" / "Ch 1"
+    chapter.mkdir(parents=True)
+    Image.effect_noise((300, 200), 40).convert("RGB").save(chapter / "panel_1.png")
+    storage = gui.page.client_storage
+    storage.set("upscale_model", "fast")
+    storage.set("upscale_ratio", 2)
+    storage.set("noise_level", 2)
+    storage.set("image_format", "webp")
+    storage.set("use_custom_panel_image_height", True)
+    storage.set("custom_panel_image_height", "300")
+
+    run_submit(gui.UpscaleImagesView, tmp_path / "Test Manga", tmp_path / "out")
+
+    # waifu2x makes it 600x400, then it's made 300 px tall.
+    assert Image.open(tmp_path / "out" / "Test Manga" / "Ch 1" / "panel_1.webp").size == (450, 300)
+
+
+def test_a_real_best_upscale_of_a_color_panel(gui, tmp_path):
+    # Uses the GPU, and downloads the color model (IllustrationJaNai) the first time ("Best" doesn't use waifu2x at 2x).
+    from janai import COLOR_MODEL_FILE, MODELS_FOLDER
+
+    if not os.path.exists(os.path.join(MODELS_FOLDER, COLOR_MODEL_FILE)) and not has_internet():
+        pytest.skip("The color model isn't downloaded yet and there's no internet connection")
+    chapter = tmp_path / "Test Manga" / "Ch 1"
+    chapter.mkdir(parents=True)
+    panel = Image.new("RGB", (160, 120), "white")
+    panel.paste((220, 40, 40), (20, 20, 80, 100))
+    panel.paste((40, 90, 220), (90, 30, 150, 90))
+    panel.save(chapter / "panel_1.png")
+    storage = gui.page.client_storage
+    storage.set("upscale_model", "best")
+    storage.set("upscale_ratio", 2)
+    storage.set("image_format", "webp")
+
+    run_submit(gui.UpscaleImagesView, tmp_path / "Test Manga", tmp_path / "out")
+
+    upscaled = Image.open(tmp_path / "out" / "Test Manga" / "Ch 1" / "panel_1.webp")
+    assert upscaled.size == (320, 240)
+    # Still in color (a black and white panel would go to MangaJaNai instead).
+    red, green, blue = upscaled.convert("RGB").getpixel((100, 120))
+    assert red > 150 and green < 100 and blue < 100
+
+
+@needs_internet
+def test_the_pipeline_downloads_from_comix_to_and_splits_the_panels(gui, tmp_path):
+    from download_from_comix import find_browser
+
+    try:
+        find_browser()
+    except RuntimeError:
+        pytest.skip("Google Chrome, Chromium or Microsoft Edge isn't installed")
+
+    pipeline = gui.PipelineView
+    for step, checkbox in pipeline.step_checkboxes.items():
+        checkbox.value = step in ("Download", "Panel-By-Panel")
+    # Slam Dunk ch. 1, the VIZ Media upload: 35 pages (about a minute to download).
+    pipeline.mangadex_url_text_field.value = "https://comix.to/title/w25zn-slam-dunk/9071380-chapter-1"
+    pipeline.output_directory = str(tmp_path / "out")
+
+    pipeline.handle_run_pipeline(fake_event())
+
+    terminal_lines = [control.value for control in gui.terminal_output.terminal_output_list_view.controls]
+    assert any("Pipeline finished" in line for line in terminal_lines), terminal_lines[-5:]
+    assert len(image_files(tmp_path / "out" / "1-download")) == 35
+    assert image_files(tmp_path / "out" / "2-panel-by-panel")
+
+
+@needs_internet
 def test_pipeline_runs_every_step_on_a_real_page(gui, tmp_path):
-    if not shutil.which("waifu2x-ncnn-vulkan"):
+    if not get_waifu2x_path():
         pytest.skip("waifu2x-ncnn-vulkan isn't installed")
 
     storage = gui.page.client_storage
@@ -254,6 +350,8 @@ def test_pipeline_runs_every_step_on_a_real_page(gui, tmp_path):
     storage.set("upscale_ratio", 2)
     storage.set("use_reading_speed_wpm", False)
     storage.set("use_image_displayed_duration", True)
+    # A fixed time per panel, so no voice (on by default).
+    storage.set("use_text_to_speech_azure", False)
     storage.set("image_displayed_duration", "1")
     storage.set("use_minimum_image_duration", False)
     storage.set("video_height", "360")

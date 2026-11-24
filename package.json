@@ -8,6 +8,11 @@
     "test": "venv/bin/python -m pytest",
     "test:all": "venv/bin/python -m pytest && venv/bin/python -m pytest -m e2e",
     "self-test": "venv/bin/python gui.py --self-test",
-    "build-mac-app": "./build_mac_app.sh"
+    "build-mac-app": "./build_mac_app.sh",
+    "run:windows": "venv\\Scripts\\python gui.py",
+    "dev:windows": "set PYTHONDONTWRITEBYTECODE=1&& venv\\Scripts\\flet run -r gui.py --ignore-dirs storage,venv,venv-py310-old,dist,build-assets,testing-output,test-chapter-cache,experiments,tests,.git,.vscode,.pytest_cache,node_modules",
+    "test:windows": "venv\\Scripts\\python -m pytest",
+    "test:all:windows": "venv\\Scripts\\python -m pytest && venv\\Scripts\\python -m pytest -m e2e",
+    "self-test:windows": "venv\\Scripts\\python gui.py --self-test"
   }
 }
