@@ -1,3 +1,4 @@
+import hashlib
 import json
 import proglog
 from difflib import SequenceMatcher
@@ -27,6 +28,10 @@ from utils import (
 
 # What Magi found in a folder of images is saved here, next to the transcript. Reading the text is the slowest part of making a video (minutes), so it's never done twice for the same images.
 MAGI_DATA_FILE_NAME = "magi-data.json"
+# What the saved transcript was made from (the same as the Magi results' signature, so it's not used for other images), and the text the app wrote in it (to tell a hand-edited one).
+TRANSCRIPT_INFO_FILE_NAME = "transcript-info.json"
+# A hand-edited transcript that had to be replaced (e.g. highlighting needs Magi's own text) is kept here.
+TRANSCRIPT_BACKUP_FILE_NAME = "transcript-backup.txt"
 # A text box this close (in pixels) to its image's edge is cut off: part of the panel next to it (see "is_cut_off").
 CUT_OFF_EDGE = 6
 # How alike a cut-off line and a whole one next door must be to be the same bubble (0 to 1).
@@ -93,7 +98,9 @@ def remove_lines_said_in_the_image_before(text_matrix):
     spoken = []
     previous_lines = set()
     for lines in text_matrix:
-        spoken.append([line for line in lines if not is_repeated_line(line, previous_lines)])
+        spoken.append(
+            [line for line in lines if not is_repeated_line(line, previous_lines)]
+        )
         previous_lines = {normalize_line(line) for line in lines}
     return spoken
 
@@ -126,21 +133,32 @@ def is_cut_off(box, image_size):
     Whether a text box touches the edge of its image: part of a bubble that belongs to the panel next to it. A panel's own text is never that close, since panels grow to fit their text with a margin ("TEXT_MARGIN" in "magi.py").
     """
     width, height = image_size
-    return box[0] <= CUT_OFF_EDGE or box[1] <= CUT_OFF_EDGE or box[2] >= width - CUT_OFF_EDGE or box[3] >= height - CUT_OFF_EDGE
+    return (
+        box[0] <= CUT_OFF_EDGE
+        or box[1] <= CUT_OFF_EDGE
+        or box[2] >= width - CUT_OFF_EDGE
+        or box[3] >= height - CUT_OFF_EDGE
+    )
 
 
 def get_whole_dialogue(image_data, image_size):
     # The image's dialogue lines that aren't cut off by its edge.
     return [
         normalize_line(text)
-        for text, box, is_dialogue in zip(image_data["ocr"], image_data["texts"], image_data["is_essential_text"])
+        for text, box, is_dialogue in zip(
+            image_data["ocr"], image_data["texts"], image_data["is_essential_text"]
+        )
         if is_dialogue and not is_cut_off(box, image_size)
     ]
 
 
 def is_whole_elsewhere(text, other_lines):
     # A cut-off copy is only read partly ("me to think it..." for "come to think of it..."), so it's compared loosely.
-    return any(SequenceMatcher(None, normalize_line(text), line).ratio() >= CUT_OFF_MIN_SIMILARITY for line in other_lines)
+    return any(
+        SequenceMatcher(None, normalize_line(text), line).ratio()
+        >= CUT_OFF_MIN_SIMILARITY
+        for line in other_lines
+    )
 
 
 def mark_repeated_lines_as_not_dialogue(magi_output_data, image_sizes=None):
@@ -159,12 +177,15 @@ def mark_repeated_lines_as_not_dialogue(magi_output_data, image_sizes=None):
             if image_sizes and len(image_data["texts"]) == len(texts):
                 for other_index in (image_index - 1, image_index + 1):
                     if 0 <= other_index < len(magi_output_data):
-                        whole_lines_next_door += get_whole_dialogue(magi_output_data[other_index], image_sizes[other_index])
+                        whole_lines_next_door += get_whole_dialogue(
+                            magi_output_data[other_index], image_sizes[other_index]
+                        )
             for index, text in enumerate(texts):
                 if not is_dialogue[index]:
                     continue
                 if (
-                    whole_lines_next_door
+                    image_sizes
+                    and whole_lines_next_door
                     and is_long_line(text)
                     and is_cut_off(image_data["texts"][index], image_sizes[image_index])
                     and is_whole_elsewhere(text, whole_lines_next_door)
@@ -183,6 +204,32 @@ def mark_repeated_lines_as_not_dialogue(magi_output_data, image_sizes=None):
     return marked
 
 
+def load_transcript_info(full_output_directory):
+    try:
+        with open(
+            os.path.join(full_output_directory, TRANSCRIPT_INFO_FILE_NAME),
+            encoding="utf-8",
+        ) as file:
+            info = json.load(file)
+    except (OSError, ValueError):
+        return {}
+    return info if isinstance(info, dict) else {}
+
+
+def update_transcript_info(full_output_directory, **fields):
+    info = {**load_transcript_info(full_output_directory), **fields}
+    with open(
+        os.path.join(full_output_directory, TRANSCRIPT_INFO_FILE_NAME),
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(info, file)
+
+
+def get_text_hash(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 class VideoWritingProgress(proglog.ProgressBarLogger):
     """
     Shows MoviePy's progress while it writes the video: "120 of 600 frames · Writing the video file".
@@ -192,7 +239,12 @@ class VideoWritingProgress(proglog.ProgressBarLogger):
         # "total" is sent first (it would show the bar full for a moment), then each frame's "index".
         if bar == "frame_index" and attr == "index":
             total = self.bars[bar].get("total")
-            report_progress(pages_done=value, pages_total=total, unit="frames", detail="Writing the video file")
+            report_progress(
+                pages_done=value,
+                pages_total=total,
+                unit="frames",
+                detail="Writing the video file",
+            )
 
 
 class VideoCreatorFromImages:
@@ -244,11 +296,15 @@ class VideoCreatorFromImages:
                 storage.get("reading_direction") or "auto"
             )
             self.image_displayed_duration = get_number_setting(
-                storage, "image_displayed_duration", DEFAULT_SETTINGS["image_displayed_duration"]
+                storage,
+                "image_displayed_duration",
+                DEFAULT_SETTINGS["image_displayed_duration"],
             )
             # An image shown for 0 seconds (or less) can't be in the video: with every image at 0, making the video failed.
             if self.image_displayed_duration <= 0:
-                self.image_displayed_duration = DEFAULT_SETTINGS["image_displayed_duration"]
+                self.image_displayed_duration = DEFAULT_SETTINGS[
+                    "image_displayed_duration"
+                ]
             self.use_reading_speed_wpm = self.flet_page_client_storage.get(
                 "use_reading_speed_wpm"
             )
@@ -263,14 +319,20 @@ class VideoCreatorFromImages:
                 "use_minimum_image_duration"
             )
             # Below 0 means no minimum.
-            self.minimum_image_duration = max(0, get_number_setting(storage, "minimum_image_duration", 0))
+            self.minimum_image_duration = max(
+                0, get_number_setting(storage, "minimum_image_duration", 0)
+            )
 
             self.use_text_to_speech_azure = self.flet_page_client_storage.get(
                 "use_text_to_speech_azure"
             )
             # A negative pause would cut the end of the voice off.
-            self.image_pre_tts_audio_delay = max(0, get_number_setting(storage, "image_pre_tts_audio_delay", 0))
-            self.image_post_tts_audio_delay = max(0, get_number_setting(storage, "image_post_tts_audio_delay", 0))
+            self.image_pre_tts_audio_delay = max(
+                0, get_number_setting(storage, "image_pre_tts_audio_delay", 0)
+            )
+            self.image_post_tts_audio_delay = max(
+                0, get_number_setting(storage, "image_post_tts_audio_delay", 0)
+            )
 
             self.highlight_text_boxes_in_images = self.flet_page_client_storage.get(
                 "highlight_text_boxes_in_images"
@@ -289,7 +351,7 @@ class VideoCreatorFromImages:
         self,
         image_folder,
         output_file,
-        full_output_directory=None,
+        full_output_directory,
     ):
         images_duration_based_on_wpm = []
         images_duration_based_on_tts = []
@@ -301,7 +363,11 @@ class VideoCreatorFromImages:
         images = list_images(image_folder)
 
         # Only the stages this video needs (the text is only read for a voice, a reading speed or highlighting).
-        text_is_needed = self.use_text_to_speech_azure or self.use_reading_speed_wpm or self.highlight_text_boxes_in_images
+        text_is_needed = (
+            self.use_text_to_speech_azure
+            or self.use_reading_speed_wpm
+            or self.highlight_text_boxes_in_images
+        )
         stages = [
             # When the text was already read (e.g. by Panel-By-Panel in a Pipeline), these two are ticked right away.
             *([FINDING_STAGE, READING_STAGE] if text_is_needed else []),
@@ -318,9 +384,17 @@ class VideoCreatorFromImages:
         # A bubble in two panels (repeated, or cut off by one panel's edge) is only read, highlighted and written in the transcript once.
         if magi_output_data and len(magi_output_data) == len(images):
             image_sizes = [get_image_size(image) for image in images]
-            magi_output_data = mark_repeated_lines_as_not_dialogue(magi_output_data, image_sizes)
-            essential_text_in_images_matrix = self.speech_text_parser.get_essential_text_list_from_magi_data(magi_output_data)
-            self.save_essential_text_to_transcript(essential_text_in_images_matrix, full_output_directory)
+            magi_output_data = mark_repeated_lines_as_not_dialogue(
+                magi_output_data, image_sizes
+            )
+            essential_text_in_images_matrix = (
+                self.speech_text_parser.get_essential_text_list_from_magi_data(
+                    magi_output_data
+                )
+            )
+            self.save_essential_text_to_transcript(
+                essential_text_in_images_matrix, full_output_directory
+            )
 
         if images_with_highlighted_text_boxes_folder and os.path.exists(
             images_with_highlighted_text_boxes_folder
@@ -373,12 +447,9 @@ class VideoCreatorFromImages:
         output_directory = os.path.dirname(output_file)
         os.makedirs(output_directory, exist_ok=True)
 
-        fps = 1
+        # Panels don't move, so few frames are needed. 5 a second (not 1), so a panel shown for less than a second (e.g. a short line at a fast reading speed) still gets a frame.
+        fps = 5
 
-        if self.highlight_text_boxes_in_images or self.use_text_to_speech_azure:
-            fps = 5
-
-        # "fps" is set to 1 as the images being saved are typically going to be Manga Panels and will have no smooth transitions between panels so no need to create extra frames for nothing. Just show the same frame for the specified duration.
         video_extension = os.path.splitext(output_file)[1].lstrip(".").lower()
         codecs = VIDEO_CODECS_BY_EXTENSION.get(
             video_extension, VIDEO_CODECS_BY_EXTENSION["mp4"]
@@ -399,14 +470,17 @@ class VideoCreatorFromImages:
             video = concatenate_videoclips(clips, method="chain")
 
             report_progress(
-                stage=WRITING_STAGE, pages_done=None, pages_total=None, detail="Writing the video file..."
+                stage=WRITING_STAGE,
+                pages_done=None,
+                pages_total=None,
+                detail="Writing the video file...",
             )
             video.write_videofile(
                 output_file,
                 fps=fps,
                 temp_audiofile_path=os.path.dirname(output_file),
                 # Hundreds of frames a second would mean as many updates of the window.
-                logger=VideoWritingProgress(min_time_interval=0.25),
+                logger=VideoWritingProgress(min_time_interval=0.25),  # pyright: ignore[reportArgumentType]
                 **codecs,
             )
         finally:
@@ -464,11 +538,17 @@ class VideoCreatorFromImages:
             elif self.highlight_text_boxes_in_images:
                 for line_number, text_str in enumerate(panel_text_arr, start=1):
                     voice_overs.append(
-                        ([text_str], f"{full_audio_files_output_directory}/{base_name}-{line_number}.mp3")
+                        (
+                            [text_str],
+                            f"{full_audio_files_output_directory}/{base_name}-{line_number}.mp3",
+                        )
                     )
             else:
                 voice_overs.append(
-                    (panel_text_arr, f"{full_audio_files_output_directory}/{base_name}.mp3")
+                    (
+                        panel_text_arr,
+                        f"{full_audio_files_output_directory}/{base_name}.mp3",
+                    )
                 )
 
         voice_overs_to_make = [voice_over for voice_over in voice_overs if voice_over]
@@ -581,7 +661,7 @@ class VideoCreatorFromImages:
         image_clip = image_clip.resized(scale)
 
         return CompositeVideoClip(
-            [image_clip.with_position("center")],
+            [image_clip.with_position("center")],  # pyright: ignore[reportAttributeAccessIssue]
             size=(video_width, video_height),
             bg_color=(0, 0, 0),
         )
@@ -606,10 +686,19 @@ class VideoCreatorFromImages:
 
         # Only reuse a saved transcript if it still matches the images. If the number of images changed, the text would end up on the wrong images (or crash).
         # When highlighting text boxes, each line of text has to match one of Magi's text boxes exactly, so a hand-edited transcript can't be used there either.
+        # A transcript without "TRANSCRIPT_INFO_FILE_NAME" (made by an older version, or by hand) is still used if the number of images matches.
+        transcript_signature = load_transcript_info(full_output_directory).get(
+            "signature"
+        )
         transcript_does_not_match_images = (
             essential_text_from_transcript is not None
-            and image_count is not None
-            and len(essential_text_from_transcript) != image_count
+            and (
+                (
+                    image_count is not None
+                    and len(essential_text_from_transcript) != image_count
+                )
+                or transcript_signature not in (None, magi_data_signature)
+            )
         )
 
         if transcript_does_not_match_images or (
@@ -617,7 +706,7 @@ class VideoCreatorFromImages:
         ):
             if transcript_does_not_match_images:
                 print(
-                    "The saved transcript doesn't match the number of images. Reading the text with Magi instead."
+                    "The saved transcript doesn't match the images or the reading direction. Reading the text again instead."
                 )
 
             essential_text_from_transcript = None
@@ -670,9 +759,12 @@ class VideoCreatorFromImages:
                 full_output_directory, magi_data_signature, magi_output_data
             )
 
-        self.save_essential_text_to_transcript(
-            essential_text_in_images_matrix, full_output_directory
-        )
+        # A transcript that was used as it is stays untouched (with any hand edits).
+        if not essential_text_from_transcript:
+            self.save_essential_text_to_transcript(
+                essential_text_in_images_matrix, full_output_directory
+            )
+        update_transcript_info(full_output_directory, signature=magi_data_signature)
 
         return (essential_text_in_images_matrix, magi_output_data)
 
@@ -681,24 +773,32 @@ class VideoCreatorFromImages:
         The dialogue on each image that Panel-By-Panel read on the pages ("PANEL_TEXT_FILE_NAME"), or None if there isn't any or it doesn't match these images.
         """
         try:
-            with open(os.path.join(image_folder, PANEL_TEXT_FILE_NAME), encoding="utf-8") as file:
+            with open(
+                os.path.join(image_folder, PANEL_TEXT_FILE_NAME), encoding="utf-8"
+            ) as file:
                 panel_text = json.load(file)
         except (OSError, ValueError):
             return None
 
         # E.g. an image failed to upscale, so the lines would end up on the wrong images.
         if not isinstance(panel_text, list) or len(panel_text) != image_count:
-            print("The text Panel-By-Panel read doesn't match these images. Reading the text with Magi instead.")
+            print(
+                "The text Panel-By-Panel read doesn't match these images. Reading the text with Magi instead."
+            )
             return None
 
-        print("Using the text Panel-By-Panel read on the pages (no need to run Magi again).")
+        print(
+            "Using the text Panel-By-Panel read on the pages (no need to run Magi again)."
+        )
         return panel_text
 
     def get_magi_data_signature(self, image_folder):
         """
         What the saved Magi results were made from. If the images or the reading direction change, they can't be used. That includes the direction saved next to the images, which "Automatic" uses.
         """
-        saved_reading_direction_file = os.path.join(image_folder, READING_DIRECTION_FILE_NAME)
+        saved_reading_direction_file = os.path.join(
+            image_folder, READING_DIRECTION_FILE_NAME
+        )
         saved_reading_direction = None
         if os.path.isfile(saved_reading_direction_file):
             with open(saved_reading_direction_file, encoding="utf-8") as file:
@@ -720,7 +820,8 @@ class VideoCreatorFromImages:
         """
         try:
             with open(
-                os.path.join(full_output_directory, MAGI_DATA_FILE_NAME), encoding="utf-8"
+                os.path.join(full_output_directory, MAGI_DATA_FILE_NAME),
+                encoding="utf-8",
             ) as file:
                 saved = json.load(file)
         except (OSError, ValueError):
@@ -729,7 +830,9 @@ class VideoCreatorFromImages:
         if not isinstance(saved, dict) or saved.get("signature") != signature:
             return None
 
-        print("Using the results Magi saved for these images (no need to run it again).")
+        print(
+            "Using the results Magi saved for these images (no need to run it again)."
+        )
         return saved.get("magi_data")
 
     def save_magi_data(self, full_output_directory, signature, magi_data):
@@ -749,7 +852,9 @@ class VideoCreatorFromImages:
             # Replaced in one step, so a half-written file can never be left behind.
             os.replace(temporary_file_path, file_path)
         except Exception as error:
-            print(f"Couldn't save Magi's results ({error}). It will be run again next time.")
+            print(
+                f"Couldn't save Magi's results ({error}). It will be run again next time."
+            )
 
     def generate_voice_over(self, text_list, output_file):
         """
@@ -772,14 +877,16 @@ class VideoCreatorFromImages:
             if too_many_failures:
                 raise
 
-            print(f"WARNING: Couldn't make the voice-over for {text_list}: {error}. It's skipped.")
+            print(
+                f"WARNING: Couldn't make the voice-over for {text_list}: {error}. It's skipped."
+            )
 
             # A failed attempt can leave a partial file behind. If it can't be deleted (on Windows, while something still has it open), the video stops with the real error, not Windows' "file in use" one: the partial file would otherwise be used as this line's voice-over.
             if os.path.exists(output_file):
                 try:
                     os.remove(output_file)
                 except OSError:
-                    raise error
+                    raise error from None
 
     def save_essential_text_to_transcript(
         self, essential_text_in_images_matrix, full_output_directory
@@ -787,15 +894,36 @@ class VideoCreatorFromImages:
         # Ensure the directory exists
         os.makedirs(full_output_directory, exist_ok=True)
 
-        # Save each sentence on a new line with a separator between arrays. A bubble that's in two overlapping panels is only written once, like the voice only says it once.
-        # UTF-8, or Windows can't save text like "♥" or Japanese.
-        with open(f"{full_output_directory}/transcript.txt", "w", encoding="utf-8") as file:
-            for image_text_arr in remove_lines_said_in_the_image_before(essential_text_in_images_matrix):
-                if image_text_arr:  # Non-empty array
-                    for sentence in image_text_arr:
-                        file.write(sentence + "\n")
-                # Add the separator for the next array
-                file.write("------ new image ------\n")
+        # Each sentence on a new line with a separator between arrays. A bubble that's in two overlapping panels is only written once, like the voice only says it once.
+        text = "".join(
+            "".join(sentence + "\n" for sentence in image_text_arr)
+            + "------ new image ------\n"
+            for image_text_arr in remove_lines_said_in_the_image_before(
+                essential_text_in_images_matrix
+            )
+        )
+
+        transcript_path = os.path.join(full_output_directory, "transcript.txt")
+        if os.path.exists(transcript_path):
+            with open(transcript_path, encoding="utf-8") as file:
+                old_text = file.read()
+            # Not the text the app wrote last time, so it was edited by hand: kept, so the edits aren't lost.
+            if old_text != text and get_text_hash(old_text) != load_transcript_info(
+                full_output_directory
+            ).get("transcript_hash"):
+                shutil.copyfile(
+                    transcript_path,
+                    os.path.join(full_output_directory, TRANSCRIPT_BACKUP_FILE_NAME),
+                )
+                print(
+                    f"The old transcript (maybe edited by hand) was saved as {TRANSCRIPT_BACKUP_FILE_NAME} before being replaced."
+                )
+
+        with open(transcript_path, "w", encoding="utf-8") as file:
+            file.write(text)
+        update_transcript_info(
+            full_output_directory, transcript_hash=get_text_hash(text)
+        )
 
         print("Transcript saved with separators.")
 

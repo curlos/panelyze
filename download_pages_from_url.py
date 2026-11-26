@@ -33,6 +33,7 @@ def read_at_most(response, max_bytes):
             return None
     return bytes(data)
 
+
 # The image types every tool can read, as the extension to save them with. Others (e.g. GIF) are saved as PNG.
 SAVED_IMAGE_EXTENSIONS = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
 
@@ -127,7 +128,9 @@ def download_pages_from_url(url, cancel_event=None, min_side=0):
 
     print(f"Opening {url}")
     report_progress(detail="Opening the page...")
-    with requests.get(url, headers=BROWSER_HEADERS, timeout=TIMEOUT_SECONDS, stream=True) as response:
+    with requests.get(
+        url, headers=BROWSER_HEADERS, timeout=TIMEOUT_SECONDS, stream=True
+    ) as response:
         response.raise_for_status()
         page_bytes = read_at_most(response, MAX_PAGE_BYTES)
         encoding = response.encoding
@@ -138,7 +141,13 @@ def download_pages_from_url(url, cancel_event=None, min_side=0):
 
     # Like "requests"' own ".text": the page's charset, or a guess when it gives none, and never an error for a misspelled one.
     try:
-        page_text = str(page_bytes, encoding or requests.compat.chardet.detect(page_bytes)["encoding"] or "utf-8", errors="replace")
+        page_text = str(
+            page_bytes,
+            encoding
+            or requests.compat.chardet.detect(page_bytes)["encoding"]  # pyright: ignore[reportAttributeAccessIssue]
+            or "utf-8",
+            errors="replace",
+        )
     except (LookupError, TypeError):
         page_text = str(page_bytes, "utf-8", errors="replace")
 
@@ -146,8 +155,17 @@ def download_pages_from_url(url, cancel_event=None, min_side=0):
     parser.feed(page_text)
 
     # Absolute URLs, without the same image twice.
-    image_urls = list(dict.fromkeys(urljoin(url, image_url) for image_url in parser.image_urls))
-    print(f"Found {len(image_urls)} image(s) on the page." + (f" Keeping the ones with a shorter side of at least {min_side} px." if min_side else ""))
+    image_urls = list(
+        dict.fromkeys(urljoin(url, image_url) for image_url in parser.image_urls)
+    )
+    print(
+        f"Found {len(image_urls)} image(s) on the page."
+        + (
+            f" Keeping the ones with a shorter side of at least {min_side} px."
+            if min_side
+            else ""
+        )
+    )
 
     folder_name = get_safe_folder_name(parser.title or urlparse(url).netloc)
     pages_folder = os.path.join(tempfile.mkdtemp(prefix="panelyze-"), folder_name)
@@ -161,7 +179,10 @@ def download_pages_from_url(url, cancel_event=None, min_side=0):
 
             # With a minimum size, some images are left out once they're looked at, so it counts the images checked and says how many were kept.
             report_progress(
-                chapter=1, chapters=1, pages_done=position - 1, pages_total=len(image_urls),
+                chapter=1,
+                chapters=1,
+                pages_done=position - 1,
+                pages_total=len(image_urls),
                 unit="images checked" if min_side else "images",
                 detail=f"{page_number} kept so far" if min_side else None,
             )
@@ -174,8 +195,10 @@ def download_pages_from_url(url, cancel_event=None, min_side=0):
                     if min(image.size) < min_side:
                         continue
 
-                    extension = SAVED_IMAGE_EXTENSIONS.get(image.format)
-                    page_path = os.path.join(pages_folder, f"{page_number + 1:03d}{extension or '.png'}")
+                    extension = SAVED_IMAGE_EXTENSIONS.get(image.format or "")
+                    page_path = os.path.join(
+                        pages_folder, f"{page_number + 1:03d}{extension or '.png'}"
+                    )
                     if extension:
                         with open(page_path, "wb") as page_file:
                             page_file.write(image_bytes)
@@ -183,7 +206,9 @@ def download_pages_from_url(url, cancel_event=None, min_side=0):
                         image.convert("RGB").save(page_path)
             except Exception as error:
                 # Not an image Pillow can read (e.g. an SVG icon), or one too big to open safely. The next image is saved under the same number.
-                print(f"Skipped an image that couldn't be opened ({error}): {image_url}")
+                print(
+                    f"Skipped an image that couldn't be opened ({error}): {image_url}"
+                )
                 continue
 
             page_number += 1
@@ -199,7 +224,7 @@ def download_pages_from_url(url, cancel_event=None, min_side=0):
         shutil.rmtree(os.path.dirname(pages_folder), ignore_errors=True)
         if image_urls and min_side:
             raise RuntimeError(
-                f"None of the {len(image_urls)} images on this page have a shorter side of at least {min_side} px. Turn off \"Only keep bigger images\" to save all of them."
+                f'None of the {len(image_urls)} images on this page have a shorter side of at least {min_side} px. Turn off "Only keep bigger images" to save all of them.'
             )
         raise RuntimeError(
             "No images found on this page. Pages that load their images with JavaScript or need a login aren't supported."
@@ -228,5 +253,7 @@ def download_image(image_url, page_url):
         return None
 
     if image_bytes is None:
-        print(f"Skipped an image bigger than {MAX_IMAGE_BYTES // (1024 * 1024)} MB: {image_url}")
+        print(
+            f"Skipped an image bigger than {MAX_IMAGE_BYTES // (1024 * 1024)} MB: {image_url}"
+        )
     return image_bytes

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 import flet as ft
 
-from tests.fake_gui import fake_event, get_all_controls
+from tests.fake_gui import fake_event, get_all_controls, get_shown_text
 
 TABS = [
     "Download",
@@ -22,13 +22,19 @@ def test_a_new_video_is_timed_by_the_voice_and_only_its_settings_show(make_gui):
     controls = list(get_all_controls(gui.ImagesToVideoView))
 
     # The three ways to time a panel are one choice: only the voice is picked.
-    radio_group = next(control for control in controls if isinstance(control, ft.RadioGroup))
+    radio_group = next(
+        control for control in controls if isinstance(control, ft.RadioGroup)
+    )
     assert radio_group.value == "use_text_to_speech_azure"
     from gui_classes.SettingsImagesToVideo import SettingsImagesToVideo
 
-    settings = next(control for control in controls if isinstance(control, SettingsImagesToVideo))
+    settings = next(
+        control for control in controls if isinstance(control, SettingsImagesToVideo)
+    )
     for setting_key, choice in settings.radio_group_dict.items():
-        assert choice["toggle_elem"].visible == (setting_key == "use_text_to_speech_azure"), setting_key
+        assert choice["toggle_elem"].visible == (
+            setting_key == "use_text_to_speech_azure"
+        ), setting_key
 
 
 def test_the_download_tab_links_each_site_so_a_link_can_be_found_there(make_gui):
@@ -47,17 +53,37 @@ def test_the_download_tab_links_each_site_so_a_link_can_be_found_there(make_gui)
         "Internet Archive": "https://archive.org/details/comics",
     }
     # "Any web page" is any site, so it isn't a link.
-    assert any(isinstance(control, ft.Text) and control.value == "Any web page" for control in get_all_controls(gui.MangaDexDownloaderView))
+    assert any(
+        isinstance(control, ft.Text) and control.value == "Any web page"
+        for control in get_all_controls(gui.MangaDexDownloaderView)
+    )
 
 
 def test_every_tooltip_is_a_box_on_top_of_the_page(make_gui):
     gui = make_gui()
-    views = [gui.app_bar, gui.terminal_output, gui.MangaDexDownloaderView, gui.MagiPanelByPanelView, gui.UpscaleImagesView, gui.ImagesToVideoView, gui.PipelineView, gui.AppSettingsView]
-    tooltips = [control.tooltip for view in views for control in get_all_controls(view) if getattr(control, "tooltip", None)]
+    views = [
+        gui.app_bar,
+        gui.terminal_output,
+        gui.MangaDexDownloaderView,
+        gui.MagiPanelByPanelView,
+        gui.UpscaleImagesView,
+        gui.ImagesToVideoView,
+        gui.PipelineView,
+        gui.AppSettingsView,
+    ]
+    tooltips = [
+        control.tooltip
+        for view in views
+        for control in get_all_controls(view)
+        if getattr(control, "tooltip", None)
+    ]
 
     # Not plain text floating over the page (see "Nord.tooltip").
     assert len(tooltips) > 10
-    assert all(isinstance(tooltip, ft.Tooltip) and tooltip.bgcolor and tooltip.border for tooltip in tooltips)
+    assert all(
+        isinstance(tooltip, ft.Tooltip) and tooltip.bgcolor and tooltip.border
+        for tooltip in tooltips
+    )
 
 
 def test_app_opens_on_download(make_gui):
@@ -111,9 +137,14 @@ def test_the_settings_page_shows_which_gpu_the_ai_models_use(make_gui):
     spans = gui.AppSettingsView.device_text.spans
     # "Checking..." is gone (Flet would show it in front of the spans).
     assert not gui.AppSettingsView.device_text.value
-    assert "".join(span.text for span in spans) == "The AI models run on the Test GPU. Not used: the Old GPU (PyTorch can't run on it)."
+    assert (
+        "".join(span.text for span in spans)
+        == "The AI models run on the Test GPU. Not used: the Old GPU (PyTorch can't run on it)."
+    )
     # Every GPU's name stands out, used or not.
-    assert [span.text for span in spans if span.style and span.style.color == Nord.DEVICE] == ["Test GPU", "Old GPU"]
+    assert [
+        span.text for span in spans if span.style and span.style.color == Nord.DEVICE
+    ] == ["Test GPU", "Old GPU"]
 
 
 def test_reset_all_settings_restores_defaults(make_gui):
@@ -142,10 +173,18 @@ def test_reset_all_settings_puts_every_setting_back_and_the_tabs_show_it(make_gu
     for setting_key, default_value in DEFAULT_SETTINGS.items():
         assert storage.get(setting_key) == default_value, setting_key
     # The tabs are made again, so they show the defaults too (this one is on by default).
-    assert find_checkbox(gui.MagiPanelByPanelView, "Split very tall panels for phones (never through text)").value is True
+    assert (
+        find_checkbox(
+            gui.MagiPanelByPanelView,
+            "Split very tall panels for phones (never through text)",
+        ).value
+        is True
+    )
 
 
-def test_reset_keeps_the_settings_page_shows_its_defaults_and_a_message_for_a_few_seconds(make_gui, monkeypatch, tmp_path):
+def test_reset_keeps_the_settings_page_shows_its_defaults_and_a_message_for_a_few_seconds(
+    make_gui, monkeypatch, tmp_path
+):
     from gui_classes import AppSettingsView
 
     monkeypatch.setattr(AppSettingsView, "RESET_MESSAGE_SECONDS", 0.01)
@@ -164,17 +203,27 @@ def test_reset_keeps_the_settings_page_shows_its_defaults_and_a_message_for_a_fe
     gui.reset_settings_to_default()
 
     # The same page (so it stays scrolled where it was), showing the defaults.
-    assert gui.AppSettingsView is settings_page and gui.view_slot.content is settings_page
+    assert (
+        gui.AppSettingsView is settings_page and gui.view_slot.content is settings_page
+    )
     assert settings_page.start_tab_dropdown.value == "Download"
     assert settings_page.cbz_dropdown.value == "no"
     # The description under the .cbz choice goes with it ("No" has none).
     assert settings_page.cbz_dropdown.helper_text == ""
     assert settings_page.panelyze_folder_text.value != str(tmp_path)
     # A normal window: the message is next to the button.
-    beside, above = settings_page.reset_message_beside, settings_page.reset_message_above
+    beside, above = (
+        settings_page.reset_message_beside,
+        settings_page.reset_message_above,
+    )
     button_row = next(
-        control for control in get_all_controls(settings_page)
-        if isinstance(control, ft.Row) and any(getattr(button, "text", "") == "Reset All Settings" for button in control.controls)
+        control
+        for control in get_all_controls(settings_page)
+        if isinstance(control, ft.Row)
+        and any(
+            getattr(button, "text", "") == "Reset All Settings"
+            for button in control.controls
+        )
     )
     assert beside in button_row.controls and beside.visible and not above.visible
 
@@ -182,10 +231,17 @@ def test_reset_keeps_the_settings_page_shows_its_defaults_and_a_message_for_a_fe
     first_timer = settings_page.hide_reset_message_timer
     gui.is_narrow = True
     gui.reset_settings_to_default()
-    section_controls = next(control for control in get_all_controls(settings_page) if isinstance(control, ft.Column) and button_row in control.controls).controls
+    section_controls = next(
+        control
+        for control in get_all_controls(settings_page)
+        if isinstance(control, ft.Column) and button_row in control.controls
+    ).controls
     assert section_controls.index(above) == section_controls.index(button_row) - 1
     assert above.visible and not beside.visible
-    assert settings_page.hide_reset_message_timer is not first_timer and first_timer.finished.is_set()
+    assert (
+        settings_page.hide_reset_message_timer is not first_timer
+        and first_timer.finished.is_set()
+    )
 
     settings_page.hide_reset_message_timer.join(timeout=5)
     assert not above.visible and not beside.visible
@@ -217,18 +273,22 @@ def test_only_one_job_runs_at_a_time(make_gui):
     gui = make_gui()
     gui.is_job_running = True
     terminal_lines = gui.terminal_output.terminal_output_list_view.controls
+    directories = gui.UpscaleImagesView.pick_input_output_directories_container
+    submitted = []
+    directories.on_submit = lambda *args: submitted.append(args)
 
-    gui.UpscaleImagesView.pick_input_output_directories_container.handle_submit(
-        fake_event()
-    )
+    directories.handle_submit(fake_event())
 
     assert "Another job is still running" in terminal_lines[-1].value
+    assert submitted == []
 
 
 def test_video_shape_dropdown_saves_the_setting(make_gui):
     gui = make_gui()
     settings = gui.ImagesToVideoView.pick_input_output_directories_container
-    dropdown = find_control(settings, lambda c: getattr(c, "label", None) == "Video Shape")
+    dropdown = find_control(
+        settings, lambda c: getattr(c, "label", None) == "Video Shape"
+    )
 
     dropdown.on_change(fake_event(data="9:16"))
 
@@ -281,8 +341,12 @@ def test_voice_list_loads_in_the_background(make_gui):
         gui.ImagesToVideoView, lambda c: hasattr(c, "voice_names_dropdown")
     )
 
-    for _ in range(50):
-        voice_names = [option.key for option in tts_section.voice_names_dropdown.options]
+    voice_names = []
+    # Up to 10 s, for a slow Mac (e.g. GitHub's).
+    for _ in range(200):
+        voice_names = [
+            option.key for option in tts_section.voice_names_dropdown.options
+        ]
         if "en-US-GuyNeural" in voice_names:
             break
         time.sleep(0.05)
@@ -308,7 +372,10 @@ def test_picked_images_are_processed_like_a_folder_then_cleaned_up(make_gui, tmp
         seen_during_job["images"] = sorted(os.listdir(input_directory))
 
     directories.on_submit = fake_job
-    picked = [SimpleNamespace(path=str(chapter / "page_1.png")), SimpleNamespace(path=str(chapter / "page_3.png"))]
+    picked = [
+        SimpleNamespace(path=str(chapter / "page_1.png")),
+        SimpleNamespace(path=str(chapter / "page_3.png")),
+    ]
     directories.pick_input_images_result(fake_event(files=picked))
     directories.output_directory = str(tmp_path / "out")
 
@@ -322,7 +389,6 @@ def test_picked_images_are_processed_like_a_folder_then_cleaned_up(make_gui, tmp
     assert directories.input_directory == str(chapter)
 
 
-
 def test_picked_comic_files_are_processed_like_a_folder_in_each_tab(make_gui, tmp_path):
     import zipfile
     from types import SimpleNamespace
@@ -334,21 +400,27 @@ def test_picked_comic_files_are_processed_like_a_folder_in_each_tab(make_gui, tm
     gui = make_gui()
     directories = gui.UpscaleImagesView.pick_input_output_directories_container
     seen_during_job = []
-    directories.on_submit = lambda input_directory, output_directory: seen_during_job.append(
-        (input_directory, sorted(os.listdir(input_directory)))
+    directories.on_submit = lambda input_directory, output_directory: (
+        seen_during_job.append((input_directory, sorted(os.listdir(input_directory))))
     )
     directories.output_directory = str(tmp_path / "out")
 
-    directories.pick_input_comic_files_result(fake_event(files=[SimpleNamespace(path=str(cbz_path))]))
+    directories.pick_input_comic_files_result(
+        fake_event(files=[SimpleNamespace(path=str(cbz_path))])
+    )
     assert directories.input_directory_row_text.value == "Invincible 001.cbz"
     directories.handle_submit(fake_event())
 
-    assert [(os.path.basename(folder), pages) for folder, pages in seen_during_job] == [("Invincible 001", ["001.png"])]
+    assert [(os.path.basename(folder), pages) for folder, pages in seen_during_job] == [
+        ("Invincible 001", ["001.png"])
+    ]
     # The temporary folder is deleted afterwards.
     assert not os.path.exists(seen_during_job[0][0])
 
 
-def test_a_comic_file_that_can_not_be_opened_shows_an_error_in_the_tab(make_gui, tmp_path, monkeypatch):
+def test_a_comic_file_that_can_not_be_opened_shows_an_error_in_the_tab(
+    make_gui, tmp_path, monkeypatch
+):
     from types import SimpleNamespace
 
     broken_cbz = tmp_path / "Broken.cbz"
@@ -356,9 +428,13 @@ def test_a_comic_file_that_can_not_be_opened_shows_an_error_in_the_tab(make_gui,
     gui = make_gui()
     directories = gui.UpscaleImagesView.pick_input_output_directories_container
     errors = []
-    monkeypatch.setattr(gui.terminal_output, "update_terminal_with_error_message", errors.append)
+    monkeypatch.setattr(
+        gui.terminal_output, "update_terminal_with_error_message", errors.append
+    )
     directories.output_directory = str(tmp_path / "out")
-    directories.pick_input_comic_files_result(fake_event(files=[SimpleNamespace(path=str(broken_cbz))]))
+    directories.pick_input_comic_files_result(
+        fake_event(files=[SimpleNamespace(path=str(broken_cbz))])
+    )
 
     directories.handle_submit(fake_event())
 
@@ -370,7 +446,8 @@ def test_reading_direction_dropdown_saves_the_setting(make_gui):
     gui = make_gui()
     assert gui.page.client_storage.get("reading_direction") == "auto"
     dropdown = find_control(
-        gui.MagiPanelByPanelView, lambda c: getattr(c, "label", None) == "Reading Direction"
+        gui.MagiPanelByPanelView,
+        lambda c: getattr(c, "label", None) == "Reading Direction",
     )
 
     dropdown.on_change(fake_event(data="ltr"))
@@ -378,7 +455,9 @@ def test_reading_direction_dropdown_saves_the_setting(make_gui):
     assert gui.page.client_storage.get("reading_direction") == "ltr"
 
 
-def test_a_failed_job_shows_a_short_error_and_does_not_crash(make_gui, tmp_path, monkeypatch):
+def test_a_failed_job_shows_a_short_error_and_does_not_crash(
+    make_gui, tmp_path, monkeypatch
+):
     from gui_classes import UpscaleImagesView
 
     def no_internet():
@@ -390,11 +469,19 @@ def test_a_failed_job_shows_a_short_error_and_does_not_crash(make_gui, tmp_path,
     (chapter / "page_1.png").write_bytes(b"")
     gui = make_gui()
 
-    finished = gui.UpscaleImagesView.start_job(str(tmp_path / "Manga"), str(tmp_path / "out"))
+    finished = gui.UpscaleImagesView.start_job(
+        str(tmp_path / "Manga"), str(tmp_path / "out")
+    )
 
-    terminal_lines = [c.value for c in gui.terminal_output.terminal_output_list_view.controls]
+    terminal_lines = [
+        get_shown_text(c)
+        for c in gui.terminal_output.terminal_output_list_view.controls
+    ]
     assert finished is False
-    assert any('"waifu2x-ncnn-vulkan" couldn\'t be downloaded (No internet)' in line for line in terminal_lines)
+    assert any(
+        '"waifu2x-ncnn-vulkan" couldn\'t be downloaded (No internet)' in line
+        for line in terminal_lines
+    )
 
 
 def test_every_setting_starts_at_its_default(make_gui):
@@ -414,13 +501,17 @@ def test_upscaled_images_are_webp_by_default_and_stop_at_4k(make_gui):
     assert storage.get("limit_upscale_to_4k") is True
 
 
-def test_open_log_file_opens_the_log_or_says_there_is_none_yet(make_gui, tmp_path, monkeypatch):
+def test_open_log_file_opens_the_log_or_says_there_is_none_yet(
+    make_gui, tmp_path, monkeypatch
+):
     from gui_classes import AppSettingsView
 
     gui = make_gui()
     opened, errors = [], []
     monkeypatch.setattr(AppSettingsView, "open_directory", opened.append)
-    monkeypatch.setattr(gui.terminal_output, "update_terminal_with_error_message", errors.append)
+    monkeypatch.setattr(
+        gui.terminal_output, "update_terminal_with_error_message", errors.append
+    )
     log_file = tmp_path / "panelyze.log"
     monkeypatch.setattr(AppSettingsView, "LOG_FILE_PATH", str(log_file))
 
@@ -432,7 +523,9 @@ def test_open_log_file_opens_the_log_or_says_there_is_none_yet(make_gui, tmp_pat
     assert opened == [str(log_file)]
 
 
-def test_open_logs_folder_opens_the_folder_with_the_past_runs(make_gui, tmp_path, monkeypatch):
+def test_open_logs_folder_opens_the_folder_with_the_past_runs(
+    make_gui, tmp_path, monkeypatch
+):
     from gui_classes import AppSettingsView
 
     gui = make_gui()
@@ -441,10 +534,12 @@ def test_open_logs_folder_opens_the_folder_with_the_past_runs(make_gui, tmp_path
     monkeypatch.setattr(AppSettingsView, "LOG_FOLDER", str(tmp_path))
 
     button = next(
-        control for control in get_all_controls(gui.AppSettingsView)
+        control
+        for control in get_all_controls(gui.AppSettingsView)
         if isinstance(control, ft.ElevatedButton) and control.text == "Open Logs Folder"
     )
-    button.on_click(None)
+    assert button.on_click is not None
+    button.on_click(fake_event())
 
     assert opened == [str(tmp_path)]
 
@@ -453,7 +548,8 @@ def test_report_a_problem_opens_the_github_issues(make_gui):
     gui = make_gui()
 
     button = next(
-        control for control in get_all_controls(gui.AppSettingsView)
+        control
+        for control in get_all_controls(gui.AppSettingsView)
         if isinstance(control, ft.ElevatedButton) and control.text == "Report a Problem"
     )
 
@@ -464,8 +560,15 @@ def test_about_shows_the_version_and_links_to_the_repo(make_gui):
     gui = make_gui()
     controls = list(get_all_controls(gui.AppSettingsView))
 
-    assert any(isinstance(control, ft.Text) and control.value == "Panelyze 1.0.0" for control in controls)
-    button = next(control for control in controls if isinstance(control, ft.ElevatedButton) and control.text == "View on GitHub")
+    assert any(
+        isinstance(control, ft.Text) and control.value == "Panelyze 1.0.0"
+        for control in controls
+    )
+    button = next(
+        control
+        for control in controls
+        if isinstance(control, ft.ElevatedButton) and control.text == "View on GitHub"
+    )
     assert button.url == "https://github.com/curlos/panelyze"
 
 
@@ -475,7 +578,9 @@ def test_logs_are_kept_where_the_system_keeps_app_logs():
     if sys.platform == "win32":
         expected_folder = os.path.join(os.environ["LOCALAPPDATA"], "Panelyze", "Logs")
     else:
-        expected_folder = os.path.expanduser(os.path.join("~", "Library", "Logs", "Panelyze"))
+        expected_folder = os.path.expanduser(
+            os.path.join("~", "Library", "Logs", "Panelyze")
+        )
     assert os.path.dirname(LOG_FILE_PATH) == expected_folder
 
 
@@ -499,7 +604,8 @@ def test_reset_keeps_the_azure_key(make_gui):
 def test_number_boxes_only_save_valid_numbers(make_gui):
     gui = make_gui()
     duration_box = find_control(
-        gui.ImagesToVideoView, lambda c: getattr(c, "label", "") and "Minimum Image Duration" in c.label
+        gui.ImagesToVideoView,
+        lambda c: getattr(c, "label", "") and "Minimum Image Duration" in c.label,
     )
 
     duration_box.on_change(fake_event(data="abc", control=duration_box))
@@ -517,7 +623,14 @@ def test_the_video_resolution_is_picked_from_a_list_from_360p_to_4k(make_gui):
         gui.ImagesToVideoView, lambda c: getattr(c, "label", "") == "Video Resolution"
     )
 
-    assert [option.key for option in dropdown.options] == ["360", "480", "720", "1080", "1440", "2160"]
+    assert [option.key for option in dropdown.options] == [
+        "360",
+        "480",
+        "720",
+        "1080",
+        "1440",
+        "2160",
+    ]
     assert dropdown.value == "1080"
 
     dropdown.on_change(fake_event(data="2160"))
@@ -572,7 +685,12 @@ def test_a_picked_input_shows_what_was_found_in_it(make_gui, tmp_path):
     assert not directories.pick_input_directory_column.visible
 
     directories.pick_input_images_result(
-        fake_event(files=[SimpleNamespace(path=str(series / "Ch 1" / f"{number}.png")) for number in range(3)])
+        fake_event(
+            files=[
+                SimpleNamespace(path=str(series / "Ch 1" / f"{number}.png"))
+                for number in range(3)
+            ]
+        )
     )
     assert directories.input_summary_text.value == "3 images"
 
@@ -585,8 +703,14 @@ def test_each_job_tab_has_a_button_that_says_what_it_does(make_gui):
     gui = make_gui()
 
     buttons = {
-        view_name: getattr(gui, view_name).pick_input_output_directories_container.submit_button.text
-        for view_name in ["MagiPanelByPanelView", "UpscaleImagesView", "ImagesToVideoView"]
+        view_name: getattr(
+            gui, view_name
+        ).pick_input_output_directories_container.submit_button.text
+        for view_name in [
+            "MagiPanelByPanelView",
+            "UpscaleImagesView",
+            "ImagesToVideoView",
+        ]
     }
 
     assert buttons == {
@@ -617,8 +741,10 @@ def test_a_job_tab_can_not_be_changed_while_its_job_runs(make_gui, tmp_path):
     (tmp_path / "Ch 1" / "1.png").write_bytes(b"image")
     directories.set_input_directory(str(tmp_path / "Ch 1"))
     locked_during_the_job = []
-    directories.on_submit = lambda input_directory, output_directory: locked_during_the_job.append(
-        [control.disabled for control in get_locked_controls(directories)]
+    directories.on_submit = lambda input_directory, output_directory: (
+        locked_during_the_job.append(
+            [control.disabled for control in get_locked_controls(directories)]
+        )
     )
     assert not any(control.disabled for control in get_locked_controls(directories))
 
@@ -647,11 +773,18 @@ def test_a_job_tab_is_unlocked_again_when_its_job_fails(make_gui, tmp_path):
 
 
 def get_download_tab_controls(tab):
-    return [tab.mangadex_url_text_field, tab.output_row, tab.settings, tab.download_button]
+    return [
+        tab.mangadex_url_text_field,
+        tab.output_row,
+        tab.settings,
+        tab.download_button,
+    ]
 
 
 @pytest.mark.parametrize("outcome", ["finishes", "fails"])
-def test_the_download_tab_can_not_be_changed_while_it_downloads_but_can_be_cancelled(make_gui, tmp_path, monkeypatch, outcome):
+def test_the_download_tab_can_not_be_changed_while_it_downloads_but_can_be_cancelled(
+    make_gui, tmp_path, monkeypatch, outcome
+):
     from gui_classes import MangaDexDownloaderView
 
     gui = make_gui()
@@ -661,7 +794,11 @@ def test_the_download_tab_can_not_be_changed_while_it_downloads_but_can_be_cance
 
     def download(*arguments):
         seen.append(
-            ([control.disabled for control in get_download_tab_controls(tab)], tab.cancel_button.disabled, tab.cancel_button.visible)
+            (
+                [control.disabled for control in get_download_tab_controls(tab)],
+                tab.cancel_button.disabled,
+                tab.cancel_button.visible,
+            )
         )
         if outcome == "fails":
             raise RuntimeError("It broke.")
@@ -677,14 +814,22 @@ def test_the_download_tab_can_not_be_changed_while_it_downloads_but_can_be_cance
     assert not any(control.disabled for control in get_download_tab_controls(tab))
 
 
-def test_a_pipeline_locks_itself_and_no_other_tab_can_be_opened_while_it_runs(make_gui, monkeypatch):
+def test_a_pipeline_locks_itself_and_no_other_tab_can_be_opened_while_it_runs(
+    make_gui, monkeypatch
+):
     gui = make_gui()
     gui.app_bar.change_view("Pipeline")
     pipeline = gui.PipelineView
     pipeline.step_checkboxes["Panel-By-Panel"].value = True
     pipeline.input_directory = os.path.abspath(os.sep)
     pipeline.output_directory = os.path.abspath(os.sep)
-    other_tabs = ["Download", "Panel-By-Panel", "Upscale Images", "Images To Video", "Settings"]
+    other_tabs = [
+        "Download",
+        "Panel-By-Panel",
+        "Upscale Images",
+        "Images To Video",
+        "Settings",
+    ]
 
     def get_pipeline_state():
         return [
@@ -701,14 +846,22 @@ def test_a_pipeline_locks_itself_and_no_other_tab_can_be_opened_while_it_runs(ma
     def run_pipeline_that_fails(selected_steps, input_directory):
         # Trying to open another tab does nothing: a click, a shortcut, or the arrow keys on a focused tab.
         gui.app_bar.change_view("Download")
-        gui.handle_keyboard_shortcut(SimpleNamespace(key="1", ctrl=True, meta=True, alt=False, shift=False))
+        gui.handle_keyboard_shortcut(
+            SimpleNamespace(key="1", ctrl=True, meta=True, alt=False, shift=False)
+        )
         gui.focused_tab = "Pipeline"
-        gui.handle_keyboard_shortcut(SimpleNamespace(key="Arrow Right", ctrl=False, meta=False, alt=False, shift=False))
+        gui.handle_keyboard_shortcut(
+            SimpleNamespace(
+                key="Arrow Right", ctrl=False, meta=False, alt=False, shift=False
+            )
+        )
         seen.append((get_pipeline_state(), gui.current_view, gui.is_job_running))
         raise RuntimeError("It broke.")
 
     monkeypatch.setattr(pipeline, "run_pipeline", run_pipeline_that_fails)
-    monkeypatch.setattr(pipeline, "get_error_before_running", lambda selected_steps: None)
+    monkeypatch.setattr(
+        pipeline, "get_error_before_running", lambda selected_steps: None
+    )
 
     pipeline.handle_run_pipeline(fake_event())
 
@@ -723,7 +876,9 @@ def test_a_pipeline_locks_itself_and_no_other_tab_can_be_opened_while_it_runs(ma
     assert gui.current_view == "Download"
 
 
-def test_a_job_can_be_cancelled_and_stops_before_the_next_chapter(make_gui, tmp_path, monkeypatch):
+def test_a_job_can_be_cancelled_and_stops_before_the_next_chapter(
+    make_gui, tmp_path, monkeypatch
+):
     from PIL import Image
 
     gui = make_gui()
@@ -739,7 +894,9 @@ def test_a_job_can_be_cancelled_and_stops_before_the_next_chapter(make_gui, tmp_
 
     def process_image_folder(image_folder, images, input_directory, output_directory):
         processed.append(os.path.basename(image_folder))
-        shown_while_running.append((directories.cancel_button.visible, directories.clear_button.visible))
+        shown_while_running.append(
+            (directories.cancel_button.visible, directories.clear_button.visible)
+        )
         directories.cancel_button.on_click(fake_event())
 
     monkeypatch.setattr(tab, "process_image_folder", process_image_folder)
@@ -750,7 +907,10 @@ def test_a_job_can_be_cancelled_and_stops_before_the_next_chapter(make_gui, tmp_
     assert directories.clear_button.visible is True
     assert directories.cancel_button.visible is False
     # Ready for the next job.
-    assert (directories.cancel_button.disabled, directories.cancel_button.text) == (False, "Cancel")
+    assert (directories.cancel_button.disabled, directories.cancel_button.text) == (
+        False,
+        "Cancel",
+    )
     # Cleared, so a Pipeline that runs this tab later isn't stopped by it.
     assert not tab.cancel_event.is_set()
     assert gui.terminal_output.progress_panel.state == "cancelled"
@@ -769,7 +929,9 @@ def test_cancelling_an_upscale_stops_waifu2x_at_once(make_gui):
     assert tab.cancel_event.is_set()
 
 
-def test_the_error_of_a_failed_job_stays_in_the_status_view(make_gui, tmp_path, monkeypatch):
+def test_the_error_of_a_failed_job_stays_in_the_status_view(
+    make_gui, tmp_path, monkeypatch
+):
     from PIL import Image
 
     gui = make_gui()
@@ -793,7 +955,9 @@ def test_the_error_of_a_failed_job_stays_in_the_status_view(make_gui, tmp_path, 
     assert panel.timer_text.value.startswith("Took ")
 
 
-def test_clicking_cancel_says_right_away_when_the_job_will_stop_and_can_not_be_clicked_twice(make_gui, monkeypatch):
+def test_clicking_cancel_says_right_away_when_the_job_will_stop_and_can_not_be_clicked_twice(
+    make_gui, monkeypatch
+):
     gui = make_gui()
     tab = gui.UpscaleImagesView
     directories = tab.pick_input_output_directories_container
@@ -819,10 +983,15 @@ def test_upscale_says_waifu2x_is_stopped_at_once(make_gui):
 
     tab.pick_input_output_directories_container.cancel_button.on_click(fake_event())
 
-    assert gui.terminal_output.progress_panel.title == "Stopping waifu2x, then resizing the images that finished..."
+    assert (
+        gui.terminal_output.progress_panel.title
+        == "Stopping waifu2x, then resizing the images that finished..."
+    )
 
 
-def test_while_a_job_runs_every_other_tab_is_faded_and_says_what_it_waits_for(make_gui, tmp_path, monkeypatch):
+def test_while_a_job_runs_every_other_tab_is_faded_and_says_what_it_waits_for(
+    make_gui, tmp_path, monkeypatch
+):
     from PIL import Image
 
     gui = make_gui()
@@ -833,7 +1002,13 @@ def test_while_a_job_runs_every_other_tab_is_faded_and_says_what_it_waits_for(ma
     Image.new("RGB", (10, 10)).save(tmp_path / "in" / "1.png")
     directories.set_input_directory(str(tmp_path / "in"))
     directories.output_directory = str(tmp_path / "out")
-    other_tabs = ["Download", "Panel-By-Panel", "Images To Video", "Pipeline", "Settings"]
+    other_tabs = [
+        "Download",
+        "Panel-By-Panel",
+        "Images To Video",
+        "Pipeline",
+        "Settings",
+    ]
 
     def get_tab_state(tab_name):
         button = gui.app_bar.buttons[tab_name]
@@ -845,13 +1020,18 @@ def test_while_a_job_runs_every_other_tab_is_faded_and_says_what_it_waits_for(ma
     monkeypatch.setattr(
         tab,
         "process_image_folder",
-        lambda *args: seen.extend(get_tab_state(name) for name in other_tabs + ["Upscale Images"]) or button_opacity.append(directories.submit_button.opacity),
+        lambda *args: (
+            seen.extend(get_tab_state(name) for name in other_tabs + ["Upscale Images"])
+            or button_opacity.append(directories.submit_button.opacity)
+        ),
     )
 
     directories.handle_submit(fake_event())
 
     # A tab that shows its name has no tooltip, unless it says why it can't be opened.
-    assert seen == [(0.5, 'Wait for "Upscale" to finish (only one job runs at a time)')] * 5 + [(1, None)]
+    assert seen == [
+        (0.5, 'Wait for "Upscale" to finish (only one job runs at a time)')
+    ] * 5 + [(1, None)]
     # Its own main button is faded too, and back to normal afterwards.
     assert button_opacity == [0.5] and directories.submit_button.opacity == 1
     assert get_tab_state("Download") == (1, None)
@@ -861,8 +1041,7 @@ def test_two_clicks_at_once_start_only_one_job(make_gui):
     import threading
 
     gui = make_gui()
-    errors = []
-    gui.terminal_output.update_terminal_with_error_message = errors.append
+    terminal_lines = gui.terminal_output.terminal_output_list_view.controls
     started = []
     ready = threading.Barrier(8)
 
@@ -878,4 +1057,53 @@ def test_two_clicks_at_once_start_only_one_job(make_gui):
         thread.join()
 
     assert started.count(True) == 1
-    assert errors == ["ERROR: Another job is still running. Please wait for it to finish."] * 7
+    errors = [line.value for line in terminal_lines if "Another job" in str(line.value)]
+    assert (
+        errors
+        == ["ERROR: Another job is still running. Please wait for it to finish."] * 7
+    )
+
+
+def test_a_refused_second_job_leaves_the_running_job_as_it_is(make_gui):
+    gui = make_gui()
+    panel = gui.terminal_output.progress_panel
+    assert gui.try_to_start_job("Upscale Images")
+    panel.start("Upscaling images...")
+    terminal_lines = gui.terminal_output.terminal_output_list_view.controls
+
+    # E.g. a double-click on Download while the first click's job is starting.
+    assert not gui.try_to_start_job("Download")
+
+    assert "Another job is still running" in terminal_lines[-1].value
+    # The Status view still shows the job that's running, with its timer.
+    assert panel.state == "running" and panel.ended_at is None
+
+
+@pytest.mark.parametrize("output", ["parent", "same", "inside"])
+def test_a_job_is_refused_when_its_output_could_overwrite_the_input(
+    make_gui, tmp_path, monkeypatch, output
+):
+    gui = make_gui()
+    view = gui.UpscaleImagesView
+    chapter = tmp_path / "One Piece" / "Ch 1"
+    chapter.mkdir(parents=True)
+    (chapter / "panel_1.png").write_bytes(b"original")
+    output_directory = {
+        "parent": tmp_path / "One Piece",
+        "same": chapter,
+        "inside": chapter / "out",
+    }[output]
+    processed = []
+    monkeypatch.setattr(
+        view, "process_image_folder", lambda *args: processed.append(args)
+    )
+
+    assert view.start_job(str(chapter), str(output_directory)) is False
+
+    assert processed == []
+    assert (chapter / "panel_1.png").read_bytes() == b"original"
+    terminal_lines = gui.terminal_output.terminal_output_list_view.controls
+    assert (
+        "can't be inside the input directory or be its parent"
+        in terminal_lines[-1].value
+    )

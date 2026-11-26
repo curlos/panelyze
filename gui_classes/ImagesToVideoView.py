@@ -25,7 +25,9 @@ class ImagesToVideoView(JobView):
 
     def get_folder_to_open(self, input_directory, output_directory):
         # One chapter (its images are right in the input folder) is saved as "<output>/Ch 1.mp4". The "Ch 1" folder next to it only has its transcript and audio.
-        if os.path.isdir(input_directory) and any(is_image_file(name) for name in os.listdir(input_directory)):
+        if os.path.isdir(input_directory) and any(
+            is_image_file(name) for name in os.listdir(input_directory)
+        ):
             return output_directory
         return super().get_folder_to_open(input_directory, output_directory)
 
@@ -35,15 +37,15 @@ class ImagesToVideoView(JobView):
             self.parent_gui.page.client_storage
         )
 
-    def process_image_folder(self, image_folder, images, input_directory, output_directory):
+    def process_image_folder(
+        self, image_folder, images, input_directory, output_directory
+    ):
         # Highlighted images made by an earlier video run aren't panels.
         if os.path.basename(image_folder) == "images-with-highlighted-text-boxes":
             return
 
         # For example, "One Piece/Chapter 1". Keeps videos from different series (that both have a "Chapter 1") from overwriting each other.
-        relative_output_path = get_relative_output_path(
-            image_folder, input_directory
-        )
+        relative_output_path = get_relative_output_path(image_folder, input_directory)
         video_extension = self.parent_gui.page.client_storage.get("video_extension")
 
         # Fall back to mp4 for anything unsupported (e.g. "webm" or "avi" saved by an older version of the app).

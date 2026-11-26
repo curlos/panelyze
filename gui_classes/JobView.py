@@ -5,7 +5,13 @@ from gui_classes import Nord
 from gui_classes.AppOutput import write_to_log_file_only
 from gui_classes.ProgressPanel import report_output_folder, report_progress
 from gui_classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
-from utils import DownloadCancelled, get_image_folders, get_input_and_output_error, get_last_directory, open_directory
+from utils import (
+    DownloadCancelled,
+    get_image_folders,
+    get_input_and_output_error,
+    get_last_directory,
+    open_directory,
+)
 
 
 class JobView(ft.Container):
@@ -44,7 +50,9 @@ class JobView(ft.Container):
         # Clicking Cancel sets this, and the job stops at its next check ("raise_if_cancelled"). A tab with something running that can be stopped right away overrides "cancel_job".
         self.cancel_event = self.pick_input_output_directories_container.cancel_event
         self.pick_input_output_directories_container.on_cancel = self.cancel_job
-        self.pick_input_output_directories_container.get_cancel_message = self.get_cancel_message
+        self.pick_input_output_directories_container.get_cancel_message = (
+            self.get_cancel_message
+        )
 
     def get_cancel_message(self):
         return self.cancel_message
@@ -62,7 +70,7 @@ class JobView(ft.Container):
         self.pick_input_output_directories_container.set_locked(locked)
 
     def set_narrow(self, is_narrow):
-        self.pick_input_output_directories_container.responsive_columns.set_narrow(is_narrow)
+        self.pick_input_output_directories_container.set_narrow(is_narrow)
 
     def handle_submit(self, input_directory, output_directory):
         if not self.start_job(input_directory, output_directory):
@@ -80,7 +88,9 @@ class JobView(ft.Container):
         folder = os.path.join(output_directory, get_last_directory(input_directory))
         return folder if os.path.isdir(folder) else output_directory
 
-    def get_next_tab_input_directory(self, input_directory, output_directory):
+    def get_next_tab_input_directory(
+        self, input_directory, output_directory
+    ) -> str | None:
         """
         Where this tab saved its results, which is what the next tab should work on. None if there's nothing to pass on.
         """
@@ -90,7 +100,11 @@ class JobView(ft.Container):
         next_input_directory = self.get_next_tab_input_directory(
             input_directory, output_directory
         )
-        if not (self.next_view_name and next_input_directory and os.path.isdir(next_input_directory)):
+        if not (
+            self.next_view_name
+            and next_input_directory
+            and os.path.isdir(next_input_directory)
+        ):
             return
 
         next_directories = getattr(
@@ -98,10 +112,15 @@ class JobView(ft.Container):
         ).pick_input_output_directories_container
 
         # A folder the user picked in that tab themselves is never replaced.
-        if next_directories.input_directory and not next_directories.input_was_filled_in_by_app:
+        if (
+            next_directories.input_directory
+            and not next_directories.input_was_filled_in_by_app
+        ):
             return
 
-        next_directories.set_input_directory(next_input_directory, filled_in_by_app=True)
+        next_directories.set_input_directory(
+            next_input_directory, filled_in_by_app=True
+        )
 
     def start_job(self, input_directory, output_directory):
         """
@@ -121,7 +140,9 @@ class JobView(ft.Container):
             self.before_job()
             image_folders = list(get_image_folders(input_directory))
 
-            for chapter_number, (image_folder, images) in enumerate(image_folders, start=1):
+            for chapter_number, (image_folder, images) in enumerate(
+                image_folders, start=1
+            ):
                 self.raise_if_cancelled()
                 report_progress(
                     chapter=chapter_number,
@@ -135,7 +156,9 @@ class JobView(ft.Container):
                     image_folder, images, input_directory, output_directory
                 )
         except DownloadCancelled as cancelled:
-            terminal_output.hide_loading_text(str(cancelled), success=False, cancelled=True)
+            terminal_output.hide_loading_text(
+                str(cancelled), success=False, cancelled=True
+            )
             return False
         except Exception as error:
             # The full details go in the log file. The app shows a short message.
@@ -159,5 +182,7 @@ class JobView(ft.Container):
         Anything to check or set up once before the image folders are processed. Raise an error to stop the job.
         """
 
-    def process_image_folder(self, image_folder, images, input_directory, output_directory):
+    def process_image_folder(
+        self, image_folder, images, input_directory, output_directory
+    ):
         raise NotImplementedError

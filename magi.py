@@ -2,6 +2,7 @@ import functools
 import os
 import subprocess
 import threading
+from typing import cast
 
 # Anything the Mac GPU can't do runs on the CPU instead of failing. It has to be set before "torch" is imported.
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
@@ -28,10 +29,18 @@ from janai import get_page_height_info
 
 # The exact version of Magi v2 on Hugging Face. Its code is copied into "magi_model/" at this version, and the full weights are downloaded at this version, so future changes to it can't silently change or break the output.
 MAGI_MODEL_REVISION = "fbc890fec52977142e8ee00bfe26e9458b65517c"
-MAGI_MODEL_DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "magi_model")
+# Where the Magi model comes from, shown when it's downloaded (and when that fails).
+MAGI_MODEL_PAGE_URL = "https://huggingface.co/ragavsachdeva/magiv2"
+MAGI_MODEL_DIRECTORY = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "magi_model"
+)
 # Only the parts of Magi that find panels (87 MB instead of 2 GB). Built from the full model by "build_panels_model_file".
 PANELS_MODEL_FILE = os.path.join(MAGI_MODEL_DIRECTORY, "panels_fp16.safetensors")
-PANELS_MODEL_PARTS = ("detection_transformer.", "bbox_predictor.", "class_labels_classifier.")
+PANELS_MODEL_PARTS = (
+    "detection_transformer.",
+    "bbox_predictor.",
+    "class_labels_classifier.",
+)
 # How sure Magi has to be that something is a panel (the same value Magi uses itself).
 PANEL_DETECTION_THRESHOLD = 0.2
 # How sure Magi has to be that something is text or a character before a panel grows to fit it.
@@ -109,7 +118,11 @@ def find_device_choice():
         # A PC can show more than one GPU, like a graphics card and the CPU's built-in graphics. Use the most powerful one that works: AMD's PyTorch only runs on the chips it was installed for. Compute units say which is most powerful (memory doesn't: built-in graphics reports a share of the computer's memory).
         gpus = range(torch.cuda.device_count())
         working_gpus = [index for index in gpus if gpu_works(index)]
-        skipped_gpus = [torch.cuda.get_device_name(index) for index in gpus if index not in working_gpus]
+        skipped_gpus = [
+            torch.cuda.get_device_name(index)
+            for index in gpus
+            if index not in working_gpus
+        ]
         if working_gpus:
             device = f"cuda:{max(working_gpus, key=lambda index: torch.cuda.get_device_properties(index).multi_processor_count)}"
 
@@ -148,7 +161,10 @@ def get_mac_chip_name():
     """
     try:
         chip_name = subprocess.run(
-            ["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True, check=True
+            ["/usr/sbin/sysctl", "-n", "machdep.cpu.brand_string"],
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
     except (OSError, subprocess.CalledProcessError):
         return "Mac GPU"
@@ -185,7 +201,9 @@ READING_TEXT_STAGE = "Reading the text"
 def load_magi_config(config_file_name):
     from magi_model.configuration_magiv2 import Magiv2Config
 
-    return Magiv2Config.from_json_file(os.path.join(MAGI_MODEL_DIRECTORY, config_file_name))
+    return Magiv2Config.from_json_file(
+        os.path.join(MAGI_MODEL_DIRECTORY, config_file_name)
+    )
 
 
 def load_full_magi_model():
@@ -194,11 +212,17 @@ def load_full_magi_model():
     """
     from magi_model.modelling_magiv2 import Magiv2Model
 
-    return Magiv2Model.from_pretrained(
-        "ragavsachdeva/magiv2",
-        revision=MAGI_MODEL_REVISION,
-        config=load_magi_config("full_config.json"),
-    ).eval()
+    try:
+        model = Magiv2Model.from_pretrained(
+            "ragavsachdeva/magiv2",
+            revision=MAGI_MODEL_REVISION,
+            config=load_magi_config("full_config.json"),
+        )
+    except OSError as error:
+        raise OSError(
+            f"Couldn't download the Magi AI model (check your internet connection): {error}. It comes from {MAGI_MODEL_PAGE_URL}"
+        ) from error
+    return model.eval()
 
 
 def build_panels_model_file():
@@ -207,7 +231,9 @@ def build_panels_model_file():
     """
     from safetensors.torch import save_file
 
-    print("Building the small panels-only Magi model (one time only)...")
+    print(
+        f"Building the small panels-only Magi model (one time only, from the full model at {MAGI_MODEL_PAGE_URL})."
+    )
     full_model = load_full_magi_model()
     panels_model_weights = {
         name: (weights.half() if weights.is_floating_point() else weights).contiguous()
@@ -227,10 +253,14 @@ def load_panels_magi_model():
         build_panels_model_file()
 
     model = Magiv2Model(load_magi_config("panels_config.json"))
-    weights = {name: weights.float() for name, weights in load_file(PANELS_MODEL_FILE).items()}
+    weights = {
+        name: weights.float() for name, weights in load_file(PANELS_MODEL_FILE).items()
+    }
     # "strict=False" because the small model leaves out the parts Panel-By-Panel doesn't use (text reading, characters, etc.). But every panel-finding part must be there, or the panels would be garbage.
     missing_weights = model.load_state_dict(weights, strict=False).missing_keys
-    missing_panel_weights = [name for name in missing_weights if name.startswith(PANELS_MODEL_PARTS)]
+    missing_panel_weights = [
+        name for name in missing_weights if name.startswith(PANELS_MODEL_PARTS)
+    ]
     if missing_panel_weights:
         raise RuntimeError(
             f"The panels model file is incomplete ({len(missing_panel_weights)} parts missing). Delete {PANELS_MODEL_FILE} and try again to rebuild it."
@@ -243,9 +273,7 @@ def get_mirrored_boxes(boxes, page_width):
     """
     Flip boxes ([x1, y1, x2, y2]) horizontally, as if the page were seen in a mirror.
     """
-    return [
-        [page_width - x2, y1, page_width - x1, y2] for x1, y1, x2, y2 in boxes
-    ]
+    return [[page_width - x2, y1, page_width - x1, y2] for x1, y1, x2, y2 in boxes]
 
 
 def reorder_page_result_left_to_right(page_result, page_width):
@@ -317,12 +345,20 @@ def get_panel_reading_order(panels, reading_direction):
 
     if reading_direction == "ltr" and panels:
         # Mirrored, like "reorder_page_result_left_to_right". Any width works, since only the order matters.
-        return list(sort_panels(get_mirrored_boxes(panels, max(panel[2] for panel in panels))))
+        return list(
+            sort_panels(get_mirrored_boxes(panels, max(panel[2] for panel in panels)))
+        )
 
     return list(range(len(panels)))
 
 
-def get_grown_panels(panels, texts, characters, character_growth_limit=PANEL_GROWTH_LIMIT, reading_direction="rtl"):
+def get_grown_panels(
+    panels,
+    texts,
+    characters,
+    character_growth_limit: float | None = PANEL_GROWTH_LIMIT,
+    reading_direction="rtl",
+):
     """
     Magi's panel boxes follow the panel borders, so speech bubbles and characters drawn over a border get cut. Each panel grows to fit the text and characters that are its own (they overlap it the most) but stick out of it.
     It doesn't grow when that would take more than "PANEL_GROWTH_LIMIT" of another panel, so a crop never pulls in the next panel and its dialogue. This also skips Japanese captions in the page margin, which Magi finds as text too.
@@ -331,7 +367,10 @@ def get_grown_panels(panels, texts, characters, character_growth_limit=PANEL_GRO
     """
     grown_panels = [list(panel) for panel in panels]
     position_in_reading_order = {
-        index: position for position, index in enumerate(get_panel_reading_order(panels, reading_direction))
+        index: position
+        for position, index in enumerate(
+            get_panel_reading_order(panels, reading_direction)
+        )
     }
 
     def get_share_taken_of_another_panel(index, grown_panel):
@@ -340,7 +379,11 @@ def get_grown_panels(panels, texts, characters, character_growth_limit=PANEL_GRO
         """
         return max(
             (
-                (get_overlap_area(grown_panel, other) - get_overlap_area(grown_panels[index], other)) / get_box_area(other)
+                (
+                    get_overlap_area(grown_panel, other)
+                    - get_overlap_area(grown_panels[index], other)
+                )
+                / get_box_area(other)
                 for other_index, other in enumerate(panels)
                 if other_index != index and get_box_area(other) > 0
             ),
@@ -352,7 +395,12 @@ def get_grown_panels(panels, texts, characters, character_growth_limit=PANEL_GRO
         box_area = get_box_area(box)
 
         # Not in any panel, mostly outside of them, or already all inside one.
-        if not overlaps or max(overlaps) == 0 or max(overlaps) < min_share * box_area or max(overlaps) >= 0.999 * box_area:
+        if (
+            not overlaps
+            or max(overlaps) == 0
+            or max(overlaps) < min_share * box_area
+            or max(overlaps) >= 0.999 * box_area
+        ):
             return
 
         # The panels it's in, in reading order.
@@ -374,14 +422,21 @@ def get_grown_panels(panels, texts, characters, character_growth_limit=PANEL_GRO
             ]
             for index in indices
         }
-        share_taken = {index: get_share_taken_of_another_panel(index, grown[index]) for index in indices}
+        share_taken = {
+            index: get_share_taken_of_another_panel(index, grown[index])
+            for index in indices
+        }
 
         if limit is None or share_taken[indices[0]] <= limit:
             grown_panels[indices[0]] = grown[indices[0]]
             return
 
         # A bubble split between two panels that its own panel can't fit within the limit: the first of the two in reading order shows it anyway, so the reader sees the whole line the first time they reach it. Text mostly outside the panels (like a caption in the page margin), or running across 3 or more panels (like a chapter title down the side of the page), isn't dialogue the reader needs.
-        if always_show_whole and len(panels_it_is_in) == 2 and sum(overlaps) >= SPLIT_TEXT_MIN_INSIDE * box_area:
+        if (
+            always_show_whole
+            and len(panels_it_is_in) == 2
+            and sum(overlaps) >= SPLIT_TEXT_MIN_INSIDE * box_area
+        ):
             grown_panels[panels_it_is_in[0]] = grown[panels_it_is_in[0]]
             return
 
@@ -420,7 +475,9 @@ def get_dialogue_for_each_panel(page_result, panel_boxes):
         page_result["texts"], page_result["ocr"], page_result["is_essential_text"]
     ):
         if is_dialogue:
-            dialogue_for_each_panel[get_panel_index_of_text(text_box, panel_boxes)].append(text)
+            dialogue_for_each_panel[
+                get_panel_index_of_text(text_box, panel_boxes)
+            ].append(text)
 
     return dialogue_for_each_panel
 
@@ -446,7 +503,11 @@ def get_four_koma_panel_order(panels):
     4-koma pages are strips of panels stacked top to bottom, read one strip (column) at a time from the right.
     """
     columns = get_four_koma_columns(panels)
-    return [index for column in columns for index in sorted(column, key=lambda index: panels[index][1])]
+    return [
+        index
+        for column in columns
+        for index in sorted(column, key=lambda index: panels[index][1])
+    ]
 
 
 def get_four_koma_columns(panels):
@@ -455,12 +516,16 @@ def get_four_koma_columns(panels):
     """
     columns = []
 
-    for index in sorted(range(len(panels)), key=lambda index: -(panels[index][0] + panels[index][2])):
+    for index in sorted(
+        range(len(panels)), key=lambda index: -(panels[index][0] + panels[index][2])
+    ):
         panel = panels[index]
         for column in columns:
             first_panel = panels[column[0]]
             shared_width = min(panel[2], first_panel[2]) - max(panel[0], first_panel[0])
-            if shared_width > 0.5 * min(panel[2] - panel[0], first_panel[2] - first_panel[0]):
+            if shared_width > 0.5 * min(
+                panel[2] - panel[0], first_panel[2] - first_panel[0]
+            ):
                 column.append(index)
                 break
         else:
@@ -491,7 +556,9 @@ def looks_like_four_koma(per_page_panels):
     """
     Whether most of the chapter's pages (not counting pages of one strip, see "looks_like_four_koma_page") look like 4-koma pages.
     """
-    answers = [looks_like_four_koma_page(panels) for panels in per_page_panels if panels]
+    answers = [
+        looks_like_four_koma_page(panels) for panels in per_page_panels if panels
+    ]
     answers = [answer for answer in answers if answer is not None]
     return bool(answers) and sum(answers) > len(answers) / 2
 
@@ -503,7 +570,11 @@ def get_saved_reading_direction(reading_direction, chapter_directory):
     if reading_direction and reading_direction != "auto":
         return reading_direction
 
-    path = os.path.join(chapter_directory, READING_DIRECTION_FILE_NAME) if chapter_directory else ""
+    path = (
+        os.path.join(chapter_directory, READING_DIRECTION_FILE_NAME)
+        if chapter_directory
+        else ""
+    )
     if path and os.path.isfile(path):
         with open(path, encoding="utf-8") as file:
             saved_direction = file.read().strip()
@@ -518,8 +589,12 @@ def get_reading_direction_from_panels(per_page_results, nothing_saved=True):
     """
     For "auto" in manga order (saved by the download, or nothing saved): 4-koma if the pages look like 4-koma strips, otherwise manga order. MangaDex doesn't tag every 4-koma, so a saved "rtl" is checked too.
     """
-    if looks_like_four_koma([page_result.get("panels") or [] for page_result in per_page_results]):
-        print("These pages look like 4-koma strips, so they're read as 4-koma (right strip first).")
+    if looks_like_four_koma(
+        [page_result.get("panels") or [] for page_result in per_page_results]
+    ):
+        print(
+            "These pages look like 4-koma strips, so they're read as 4-koma (right strip first)."
+        )
         return "4koma"
 
     if nothing_saved:
@@ -535,7 +610,9 @@ def get_automatic_reading_direction(reading_direction, chapter_directory):
     "(reading_direction, is_automatic, nothing_saved)" for a chapter: the direction to find the panels with ("auto" becomes manga order until "get_reading_direction_from_panels" decides), whether it was "Automatic", and whether the download saved nothing.
     """
     is_automatic = reading_direction in (None, "", "auto")
-    reading_direction = get_saved_reading_direction(reading_direction, chapter_directory)
+    reading_direction = get_saved_reading_direction(
+        reading_direction, chapter_directory
+    )
     nothing_saved = reading_direction == "auto"
     return ("rtl" if nothing_saved else reading_direction), is_automatic, nothing_saved
 
@@ -555,11 +632,15 @@ def reorder_page_result_four_koma(page_result):
     texts = list(page_result.get("texts") or [])
 
     if texts:
-        position_of_panel = {panel_index: position for position, panel_index in enumerate(panel_order)}
+        position_of_panel = {
+            panel_index: position for position, panel_index in enumerate(panel_order)
+        }
         # "sorted" keeps Magi's own order for text in the same panel.
         text_order = sorted(
             range(len(texts)),
-            key=lambda index: position_of_panel[get_panel_index_of_text(texts[index], panels)],
+            key=lambda index: position_of_panel[
+                get_panel_index_of_text(texts[index], panels)
+            ],
         )
         # The text, what it says and whether it's dialogue all have to stay together.
         for key in ("texts", "ocr", "is_essential_text"):
@@ -579,7 +660,11 @@ def join_webtoon_strip(chapter_pages):
     parts = [
         page
         if page.shape[1] == width
-        else numpy.array(Image.fromarray(page).resize((width, round(page.shape[0] * width / page.shape[1]))))
+        else numpy.array(
+            Image.fromarray(page).resize(
+                (width, round(page.shape[0] * width / page.shape[1]))
+            )
+        )
         for page in chapter_pages
     ]
     return numpy.concatenate(parts)
@@ -596,7 +681,10 @@ def get_webtoon_safety_net(strip, panels):
     scale = WEBTOON_DETAIL_SCALE
     height, width = strip.shape[:2]
     gray = numpy.asarray(
-        Image.fromarray(strip).convert("L").resize((max(1, width // scale), max(1, height // scale))), dtype=int
+        Image.fromarray(strip)
+        .convert("L")
+        .resize((max(1, width // scale), max(1, height // scale))),
+        dtype=int,
     )
     # Thickened a little, so a line of text is one block.
     detail = ndimage.binary_dilation(get_detail(gray), iterations=2)
@@ -606,11 +694,15 @@ def get_webtoon_safety_net(strip, panels):
     covered = numpy.zeros(detail.shape, bool)
     for panel in panels:
         x0, y0, x1, y1 = [int(value) // scale for value in panel]
-        covered[max(0, y0 - border) : y1 + 1 + border, max(0, x0 - border) : x1 + 1 + border] = True
+        covered[
+            max(0, y0 - border) : y1 + 1 + border, max(0, x0 - border) : x1 + 1 + border
+        ] = True
     missed = detail & ~covered
 
     # Missed detail within about 40 px of itself is one blob.
-    blobs, _ = ndimage.label(ndimage.binary_dilation(missed, structure=numpy.ones((11, 11), bool)))
+    blobs, _ = ndimage.label(
+        ndimage.binary_dilation(missed, structure=numpy.ones((11, 11), bool))
+    )  # pyright: ignore[reportGeneralTypeIssues]
     panels = [list(panel) for panel in panels]
     new_panels = []
 
@@ -626,16 +718,30 @@ def get_webtoon_safety_net(strip, panels):
         touching = [
             panel
             for panel in panels
-            if panel[1] - 40 <= box[3] and box[1] <= panel[3] + 40 and panel[0] - 40 <= box[2] and box[0] <= panel[2] + 40
+            if panel[1] - 40 <= box[3]
+            and box[1] <= panel[3] + 40
+            and panel[0] - 40 <= box[2]
+            and box[0] <= panel[2] + 40
         ]
         if touching:
-            panel = min(touching, key=lambda panel: max(0, panel[1] - box[3], box[1] - panel[3]))
+            panel = min(
+                touching, key=lambda panel: max(0, panel[1] - box[3], box[1] - panel[3])
+            )
             if get_box_area(box) <= get_box_area(panel):
-                panel[:] = [min(panel[0], box[0]), min(panel[1], box[1]), max(panel[2], box[2]), max(panel[3], box[3])]
+                panel[:] = [
+                    min(panel[0], box[0]),
+                    min(panel[1], box[1]),
+                    max(panel[2], box[2]),
+                    max(panel[3], box[3]),
+                ]
                 continue
 
         # Too small to be a panel on its own: a watermark, an icon, a stray mark. (Small art touching a panel, like one letter of a title, was added to it above.)
-        if blob.sum() < 150 or box[3] - box[1] < 60 or (box[2] - box[0] < 160 and box[3] - box[1] < 160):
+        if (
+            blob.sum() < 150
+            or box[3] - box[1] < 60
+            or (box[2] - box[0] < 160 and box[3] - box[1] < 160)
+        ):
             continue
 
         new_panels.append(box)
@@ -647,7 +753,11 @@ def looks_like_webtoon(chapter_pages):
     """
     Whether most of the chapter's images are far taller than a page (see "WEBTOON_IMAGE_HEIGHT_RATIO"), like a webtoon's. A manga page is about 1.4 times taller than wide; webtoon images are 3 to 25 times.
     """
-    tall_images = [page for page in chapter_pages if page.shape[0] > WEBTOON_IMAGE_HEIGHT_RATIO * page.shape[1]]
+    tall_images = [
+        page
+        for page in chapter_pages
+        if page.shape[0] > WEBTOON_IMAGE_HEIGHT_RATIO * page.shape[1]
+    ]
     return len(tall_images) > len(chapter_pages) / 2
 
 
@@ -676,7 +786,9 @@ def split_tall_panel(panel, page, texts):
     # Never through text (with a little room for the bubble's outline).
     for text in texts:
         if text[0] < x1 and text[2] > x0:
-            detail[max(0, int(text[1]) - 12 - y0) : max(0, int(text[3]) + 12 - y0)] = numpy.inf
+            detail[max(0, int(text[1]) - 12 - y0) : max(0, int(text[3]) + 12 - y0)] = (
+                numpy.inf
+            )
 
     pieces = int(numpy.ceil(height / screen_height))
     cuts = [0]
@@ -710,7 +822,9 @@ def remove_junk_panels(per_page_results, chapter_pages):
     """
     junk, faint_images = set(), []
 
-    for page_number, (page, page_result) in enumerate(zip(chapter_pages, per_page_results)):
+    for page_number, (page, page_result) in enumerate(
+        zip(chapter_pages, per_page_results)
+    ):
         for panel_number, panel in enumerate(page_result["panels"]):
             crop_box = get_panel_crop_box(panel, page)
             if crop_box is None:
@@ -720,17 +834,30 @@ def remove_junk_panels(per_page_results, chapter_pages):
             gray = Image.fromarray(page[y0:y1, x0:x1]).convert("L")
             small = numpy.asarray(gray.resize((64, 64)), dtype=float)
 
-            if numpy.percentile(small, 99) - numpy.percentile(small, 1) < BLANK_PANEL_SPREAD:
+            if (
+                numpy.percentile(small, 99) - numpy.percentile(small, 1)
+                < BLANK_PANEL_SPREAD
+            ):
                 junk.add((page_number, panel_number))
             elif (small < 200).mean() < 0.02:
                 # Faint: compared without the white around it, so copies boxed a little differently still match.
                 ys, xs = numpy.nonzero(numpy.asarray(gray) < 245)
                 if len(xs):
-                    thumbnail = gray.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)).resize((24, 24))
-                    faint_images.append(((page_number, panel_number), numpy.asarray(thumbnail, dtype=float)))
+                    thumbnail = gray.crop(
+                        (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)
+                    ).resize((24, 24))
+                    faint_images.append(
+                        (
+                            (page_number, panel_number),
+                            numpy.asarray(thumbnail, dtype=float),
+                        )
+                    )
 
     for key, thumbnail in faint_images:
-        copies = sum(numpy.abs(thumbnail - other).mean() < WATERMARK_MAX_DIFFERENCE for _, other in faint_images)
+        copies = sum(
+            numpy.abs(thumbnail - other).mean() < WATERMARK_MAX_DIFFERENCE
+            for _, other in faint_images
+        )
         # "copies" includes the image itself.
         if copies >= 3:
             junk.add(key)
@@ -739,7 +866,14 @@ def remove_junk_panels(per_page_results, chapter_pages):
         print(f"Left out {len(junk)} blank or watermark panel(s).")
 
     return [
-        {**page_result, "panels": [panel for panel_number, panel in enumerate(page_result["panels"]) if (page_number, panel_number) not in junk]}
+        {
+            **page_result,
+            "panels": [
+                panel
+                for panel_number, panel in enumerate(page_result["panels"])
+                if (page_number, panel_number) not in junk
+            ],
+        }
         for page_number, page_result in enumerate(per_page_results)
     ]
 
@@ -756,12 +890,20 @@ def remove_repeated_webtoon_panels(strip, panels, texts):
     for panel in panels:
         others = [other for other in kept if other is not panel]
         crop_box = get_panel_crop_box(panel, strip)
-        if crop_box is None or not others or crop_box[2] - crop_box[0] > REPEATED_PANEL_MAX_WIDTH * strip.shape[1]:
+        if (
+            crop_box is None
+            or not others
+            or crop_box[2] - crop_box[0] > REPEATED_PANEL_MAX_WIDTH * strip.shape[1]
+        ):
             continue
 
         touching_texts = [text for text in texts if get_overlap_area(text, panel) > 0]
         if not all(
-            any(get_overlap_area(text, other) >= 0.95 * get_box_area(text) for other in others) for text in touching_texts
+            any(
+                get_overlap_area(text, other) >= 0.95 * get_box_area(text)
+                for other in others
+            )
+            for text in touching_texts
         ):
             continue
 
@@ -770,11 +912,16 @@ def remove_repeated_webtoon_panels(strip, panels, texts):
         inside_others = numpy.zeros(own_detail.shape, bool)
         for other in others:
             ox0, oy0, ox1, oy1 = [int(value) for value in other]
-            inside_others[max(0, oy0 - y0) : max(0, oy1 - y0), max(0, ox0 - x0) : max(0, ox1 - x0)] = True
+            inside_others[
+                max(0, oy0 - y0) : max(0, oy1 - y0), max(0, ox0 - x0) : max(0, ox1 - x0)
+            ] = True
 
         # It needs proof that it's shown elsewhere: its text is in another panel, or most of it is. Soft art like falling petals has little detail, but that alone doesn't mean another panel shows it.
         is_shown_elsewhere = touching_texts or inside_others.mean() >= 0.8
-        if is_shown_elsewhere and (own_detail & ~inside_others).mean() < REPEATED_PANEL_MAX_NEW_DETAIL:
+        if (
+            is_shown_elsewhere
+            and (own_detail & ~inside_others).mean() < REPEATED_PANEL_MAX_NEW_DETAIL
+        ):
             kept.remove(panel)
 
     return kept
@@ -782,7 +929,10 @@ def remove_repeated_webtoon_panels(strip, panels, texts):
 
 def apply_reading_direction(per_page_results, chapter_pages, reading_direction):
     if reading_direction == "4koma":
-        return [reorder_page_result_four_koma(page_result) for page_result in per_page_results]
+        return [
+            reorder_page_result_four_koma(page_result)
+            for page_result in per_page_results
+        ]
 
     if reading_direction != "ltr":
         return per_page_results
@@ -807,15 +957,17 @@ class Magi:
     @property
     def panels_model(self):
         if self._panels_model is None:
-            self._panels_model = load_panels_magi_model().to(get_device())
+            self._panels_model = load_panels_magi_model().to(get_device())  # pyright: ignore[reportArgumentType]
         report_device(self._panels_model)
         return self._panels_model
 
     @property
     def full_model(self):
         if self._full_model is None:
-            print("Loading the full Magi AI Model to read the text (the first time, this downloads about 2 GB)...")
-            self._full_model = load_full_magi_model().to(get_device())
+            print(
+                f"Loading the full Magi AI Model to read the text (the first time, this downloads about 2 GB from {MAGI_MODEL_PAGE_URL})."
+            )
+            self._full_model = load_full_magi_model().to(get_device())  # pyright: ignore[reportArgumentType]
         report_device(self._full_model)
         return self._full_model
 
@@ -837,7 +989,8 @@ class Magi:
     def predict_panels(self, chapter_pages, reading_direction="rtl"):
         if reading_direction == "webtoon":
             return self.run_with_cpu_fallback(
-                "_panels_model", lambda: [self.find_webtoon_panels(strip) for strip in chapter_pages]
+                "_panels_model",
+                lambda: [self.find_webtoon_panels(strip) for strip in chapter_pages],
             )
 
         return self.run_with_cpu_fallback(
@@ -855,17 +1008,26 @@ class Magi:
         whole_panels, cut_off_panels, texts = [], [], []
 
         # Webtoons are read left to right, like comics.
-        for top, window, result in zip(window_tops, windows, self.find_panels(windows, "ltr")):
+        for top, window, result in zip(
+            window_tops, windows, self.find_panels(windows, "ltr")
+        ):
             # Text seen in two windows is listed twice, which is fine: it's only used to not split a panel through text.
-            texts += [[text[0], text[1] + top, text[2], text[3] + top] for text in result.get("texts", [])]
+            texts += [
+                [text[0], text[1] + top, text[2], text[3] + top]
+                for text in result.get("texts", [])
+            ]
             for panel in result["panels"]:
                 is_cut_off = (panel[1] < 4 and top > 0) or (
                     panel[3] > window.shape[0] - 4 and top + window.shape[0] < height
                 )
-                (cut_off_panels if is_cut_off else whole_panels).append([panel[0], panel[1] + top, panel[2], panel[3] + top])
+                (cut_off_panels if is_cut_off else whole_panels).append(
+                    [panel[0], panel[1] + top, panel[2], panel[3] + top]
+                )
 
         def is_same_panel(panel, other):
-            return get_overlap_area(panel, other) > 0.6 * min(get_box_area(panel), get_box_area(other))
+            return get_overlap_area(panel, other) > 0.6 * min(
+                get_box_area(panel), get_box_area(other)
+            )
 
         panels = []
         for panel in sorted(whole_panels, key=lambda panel: -get_box_area(panel)):
@@ -879,13 +1041,24 @@ class Magi:
                 continue
             for tall_panel in tall_panels:
                 if get_overlap_area(piece, tall_panel) > 0:
-                    tall_panel[:] = [min(tall_panel[0], piece[0]), min(tall_panel[1], piece[1]), max(tall_panel[2], piece[2]), max(tall_panel[3], piece[3])]
+                    tall_panel[:] = [
+                        min(tall_panel[0], piece[0]),
+                        min(tall_panel[1], piece[1]),
+                        max(tall_panel[2], piece[2]),
+                        max(tall_panel[3], piece[3]),
+                    ]
                     break
             else:
                 tall_panels.append(list(piece))
-        panels += [panel for panel in tall_panels if not any(is_same_panel(panel, kept) for kept in panels)]
+        panels += [
+            panel
+            for panel in tall_panels
+            if not any(is_same_panel(panel, kept) for kept in panels)
+        ]
 
-        panels = remove_repeated_webtoon_panels(strip, get_webtoon_safety_net(strip, panels), texts)
+        panels = remove_repeated_webtoon_panels(
+            strip, get_webtoon_safety_net(strip, panels), texts
+        )
         panels = sorted(panels, key=lambda panel: (panel[1], panel[0]))
         return {"panels": panels, "texts": texts}
 
@@ -910,8 +1083,10 @@ class Magi:
                 inputs = model.move_to_device(
                     model.processor.preprocess_inputs_for_detection(pages)
                 )
-                detection_output = model._get_detection_transformer_output(**inputs)
-                scores, boxes = model._get_predicted_bboxes_and_classes(detection_output)
+                detection_output = model._get_detection_transformer_output(**inputs)  # pyright: ignore[reportCallIssue]
+                scores, boxes = model._get_predicted_bboxes_and_classes(
+                    detection_output
+                )
                 # The rest is done on the CPU, with the page sizes.
                 scores, boxes = scores.cpu(), boxes.cpu()
 
@@ -919,22 +1094,31 @@ class Magi:
             batch_scores, batch_labels = scores.max(-1)
             batch_scores = batch_scores.sigmoid()
             batch_labels = batch_labels.long()
-            boxes = center_to_corners_format(boxes)
+            boxes = cast(torch.Tensor, center_to_corners_format(boxes))
             page_heights, page_widths = torch.tensor(
                 [page.shape[:2] for page in pages]
             ).unbind(1)
-            boxes = boxes * torch.stack(
-                [page_widths, page_heights, page_widths, page_heights], dim=1
-            )[:, None, :]
+            boxes = (
+                boxes
+                * torch.stack(
+                    [page_widths, page_heights, page_widths, page_heights], dim=1
+                )[:, None, :]
+            )
             panel_indices = model.processor._get_indices_of_panels_to_keep(
                 batch_scores, batch_labels, boxes, PANEL_DETECTION_THRESHOLD
             )
             # The same pass also finds the text and characters, so the panels can grow to fit them at no extra cost.
             text_indices = model.processor._get_indices_of_texts_to_keep(
-                batch_scores, batch_labels, boxes, TEXT_AND_CHARACTER_DETECTION_THRESHOLD
+                batch_scores,
+                batch_labels,
+                boxes,
+                TEXT_AND_CHARACTER_DETECTION_THRESHOLD,
             )
             character_indices = model.processor._get_indices_of_characters_to_keep(
-                batch_scores, batch_labels, boxes, TEXT_AND_CHARACTER_DETECTION_THRESHOLD
+                batch_scores,
+                batch_labels,
+                boxes,
+                TEXT_AND_CHARACTER_DETECTION_THRESHOLD,
             )
 
             for page_number in range(len(pages)):
@@ -1010,7 +1194,11 @@ class Magi:
         with torch.no_grad():
             # "stage" moves Images To Video's stages line on (see "VideoCreatorFromImages.create_video_from_images").
             report_progress(
-                stage=FINDING_TEXT_STAGE, pages_done=0, pages_total=len(chapter_pages), unit="images", detail="Finding the text"
+                stage=FINDING_TEXT_STAGE,
+                pages_done=0,
+                pages_total=len(chapter_pages),
+                unit="images",
+                detail="Finding the text",
             )
             for batch_start in tqdm(range(0, len(chapter_pages), FIND_TEXT_BATCH_SIZE)):
                 per_page_results += model.predict_detections_and_associations(
@@ -1021,7 +1209,9 @@ class Magi:
             dialogue_boxes = [
                 [
                     box
-                    for box, is_dialogue in zip(result["texts"], result["is_essential_text"])
+                    for box, is_dialogue in zip(
+                        result["texts"], result["is_essential_text"]
+                    )
                     if is_dialogue
                 ]
                 for result in per_page_results
@@ -1039,7 +1229,9 @@ class Magi:
 
         return per_page_results
 
-    def read_text_in_parts(self, chapter_pages, boxes_on_each_page, report_progress, tqdm):
+    def read_text_in_parts(
+        self, chapter_pages, boxes_on_each_page, report_progress, tqdm
+    ):
         """
         Read the text in "boxes_on_each_page" exactly "READ_TEXT_BATCH_SIZE" lines at a time (a page's lines can be split between two parts), so the progress can show how many lines have been read. Bigger parts would be slower: lines read together all wait for the longest one.
         """
@@ -1051,7 +1243,13 @@ class Magi:
         ]
         text_on_each_page = [[] for _ in chapter_pages]
         # Each is one text box (a speech bubble or a caption), not a line of words.
-        report_progress(stage=READING_TEXT_STAGE, pages_done=0, pages_total=len(lines), unit="text boxes", detail="Reading the text")
+        report_progress(
+            stage=READING_TEXT_STAGE,
+            pages_done=0,
+            pages_total=len(lines),
+            unit="text boxes",
+            detail="Reading the text",
+        )
 
         with tqdm(total=len(lines)) as progress_bar:
             for part_start in range(0, len(lines), READ_TEXT_BATCH_SIZE):
@@ -1060,7 +1258,11 @@ class Magi:
                 part_text = self.full_model.predict_ocr(
                     [chapter_pages[page_index] for page_index in page_indexes],
                     [
-                        [box for line_page_index, box in part if line_page_index == page_index]
+                        [
+                            box
+                            for line_page_index, box in part
+                            if line_page_index == page_index
+                        ]
                         for page_index in page_indexes
                     ],
                     batch_size=READ_TEXT_BATCH_SIZE,
@@ -1104,7 +1306,9 @@ class Magi:
             # Convert the cropped NumPy array to a PIL Image
             pil_image = Image.fromarray(cropped_image)
             # The page's height goes in the panel's file, because the "Best" upscaler (MangaJaNai) picks its model by the page's height.
-            pil_image.save(output_path, pnginfo=get_page_height_info(image_as_np_array.shape[0]))
+            pil_image.save(
+                output_path, pnginfo=get_page_height_info(image_as_np_array.shape[0])
+            )
             print(f"Saved: {output_path}")
 
     def get_data_from_images(self, input_directory, reading_direction="rtl"):
@@ -1116,11 +1320,13 @@ class Magi:
         )
         per_page_results = self.get_per_page_results(chapter_pages_image_numpy_array)
 
-        reading_direction, is_automatic, nothing_saved = get_automatic_reading_direction(
-            reading_direction, input_directory
+        reading_direction, is_automatic, nothing_saved = (
+            get_automatic_reading_direction(reading_direction, input_directory)
         )
         if is_automatic and reading_direction == "rtl":
-            reading_direction = get_reading_direction_from_panels(per_page_results, nothing_saved)
+            reading_direction = get_reading_direction_from_panels(
+                per_page_results, nothing_saved
+            )
 
         return apply_reading_direction(
             per_page_results, chapter_pages_image_numpy_array, reading_direction
@@ -1174,31 +1380,56 @@ class Magi:
         group_by_page=False,
         read_text=False,
     ):
-        reading_direction, is_automatic, nothing_saved = get_automatic_reading_direction(
-            reading_direction, chapter_input_directory
+        panels_output_dir = get_panels_folder(
+            output_directory, series_and_chapter_name_directory, group_by_page
+        )
+        # E.g. Magi re-run on its own earlier output: the new panels would replace the images being split.
+        if chapter_input_directory and paths_overlap(
+            panels_output_dir, chapter_input_directory
+        ):
+            raise RuntimeError(
+                f"The panels would be saved over the images being split ({chapter_input_directory}). Please pick a different output folder."
+            )
+
+        reading_direction, is_automatic, nothing_saved = (
+            get_automatic_reading_direction(reading_direction, chapter_input_directory)
         )
 
-        if reading_direction != "webtoon" and looks_like_webtoon(chapter_pages_image_numpy_array):
-            print("These images are much taller than pages, so they're split as a webtoon (vertical scroll).")
+        if reading_direction != "webtoon" and looks_like_webtoon(
+            chapter_pages_image_numpy_array
+        ):
+            print(
+                "These images are much taller than pages, so they're split as a webtoon (vertical scroll)."
+            )
             reading_direction = "webtoon"
 
         if reading_direction == "webtoon":
-            chapter_pages_image_numpy_array = [join_webtoon_strip(chapter_pages_image_numpy_array)]
+            chapter_pages_image_numpy_array = [
+                join_webtoon_strip(chapter_pages_image_numpy_array)
+            ]
 
         from gui_classes.ProgressPanel import report_progress
 
         # The stages shown in the Status view, like Images To Video's. The text is only read here for a Pipeline that also makes a video (see "save_panel_text").
         reads_text = read_text and not group_by_page and reading_direction != "webtoon"
         report_progress(
-            stages=(FINDING_PANELS_STAGE, SAVING_PANELS_STAGE, *((FINDING_TEXT_STAGE, READING_TEXT_STAGE) if reads_text else ())),
+            stages=(
+                FINDING_PANELS_STAGE,
+                SAVING_PANELS_STAGE,
+                *((FINDING_TEXT_STAGE, READING_TEXT_STAGE) if reads_text else ()),
+            ),
             stage=FINDING_PANELS_STAGE,
             # Each chapter starts counting pages again (the text stages of the chapter before count text boxes).
             unit="pages",
         )
-        per_page_predictions = self.predict_panels(chapter_pages_image_numpy_array, reading_direction)
+        per_page_predictions = self.predict_panels(
+            chapter_pages_image_numpy_array, reading_direction
+        )
         # The 4-koma check needs the panels, so with "Automatic" they're found in manga order first.
         if is_automatic and reading_direction == "rtl":
-            reading_direction = get_reading_direction_from_panels(per_page_predictions, nothing_saved)
+            reading_direction = get_reading_direction_from_panels(
+                per_page_predictions, nothing_saved
+            )
 
         per_page_results = apply_reading_direction(
             per_page_predictions,
@@ -1213,27 +1444,34 @@ class Magi:
                     "panels": [
                         piece
                         for panel in page_result["panels"]
-                        for piece in split_tall_panel(panel, page, page_result.get("texts") or [])
+                        for piece in split_tall_panel(
+                            panel, page, page_result.get("texts") or []
+                        )
                     ],
                 }
-                for page, page_result in zip(chapter_pages_image_numpy_array, per_page_results)
+                for page, page_result in zip(
+                    chapter_pages_image_numpy_array, per_page_results
+                )
             ]
 
-        per_page_results = remove_junk_panels(per_page_results, chapter_pages_image_numpy_array)
+        per_page_results = remove_junk_panels(
+            per_page_results, chapter_pages_image_numpy_array
+        )
 
-        panels_output_dir = get_panels_folder(output_directory, series_and_chapter_name_directory, group_by_page)
-
-        # Remove this chapter's panels from any previous run first. Otherwise, if this run finds fewer panels or pages, the old leftover panels would get mixed in with the new ones.
-        # Never in a folder that holds the images being processed (e.g. when re-running Magi on its own previous output).
-        if not (chapter_input_directory and paths_overlap(panels_output_dir, chapter_input_directory)):
-            remove_old_panels(panels_output_dir)
+        # Remove this chapter's panels from any previous run first. Otherwise, if this run finds fewer panels or pages, the old leftover panels would get mixed in with the new ones. (It's never the folder being split: see the check at the top.)
+        remove_old_panels(panels_output_dir)
 
         # Only the chosen version is saved. Not grouped panels are first saved page by page in a temporary folder, so they can be numbered in reading order across the whole chapter.
         pages_dir = (
             panels_output_dir if group_by_page else tempfile.mkdtemp(prefix="panelyze-")
         )
 
-        report_progress(stage=SAVING_PANELS_STAGE, pages_done=0, pages_total=len(per_page_results), detail=None)
+        report_progress(
+            stage=SAVING_PANELS_STAGE,
+            pages_done=0,
+            pages_total=len(per_page_results),
+            detail=None,
+        )
         try:
             for i, (image_as_np_array, page_result_predictions) in enumerate(
                 zip(chapter_pages_image_numpy_array, per_page_results)
@@ -1251,7 +1489,11 @@ class Magi:
             # A direction saved by the MangaDex download goes along with the panels, so Images To Video (on "Automatic") reads their text in the same order.
             if is_automatic and not nothing_saved:
                 os.makedirs(panels_output_dir, exist_ok=True)
-                with open(os.path.join(panels_output_dir, READING_DIRECTION_FILE_NAME), "w", encoding="utf-8") as file:
+                with open(
+                    os.path.join(panels_output_dir, READING_DIRECTION_FILE_NAME),
+                    "w",
+                    encoding="utf-8",
+                ) as file:
                     file.write(reading_direction)
         finally:
             if not group_by_page:
@@ -1268,27 +1510,37 @@ class Magi:
 
         return per_page_results
 
-    def save_panel_text(self, chapter_pages, per_page_panels, panels_output_dir, reading_direction):
+    def save_panel_text(
+        self, chapter_pages, per_page_panels, panels_output_dir, reading_direction
+    ):
         """
         Read the dialogue on whole pages and save it as one list of lines for each saved panel, in "PANEL_TEXT_FILE_NAME" next to the panels. Reading whole pages is much faster than reading every panel on its own: Magi looks at each image at the same size, so one page costs about as much as one panel, and a page has several panels.
         """
         from gui_classes.ProgressPanel import report_progress
 
         print("Reading the text on the pages for Images To Video...")
-        report_progress(pages_done=None, pages_total=None, detail="Reading the text on the pages...")
+        report_progress(
+            pages_done=None, pages_total=None, detail="Reading the text on the pages..."
+        )
         per_page_text = apply_reading_direction(
             self.get_per_page_results(chapter_pages), chapter_pages, reading_direction
         )
 
         panel_text = []
-        for page, page_panels, page_text in zip(chapter_pages, per_page_panels, per_page_text):
+        for page, page_panels, page_text in zip(
+            chapter_pages, per_page_panels, per_page_text
+        ):
             # The same panels "save_cropped_panels" saves, in the same order, so line "n" belongs to "panel_n".
             panel_boxes = [
                 crop_box
-                for crop_box in (get_panel_crop_box(bbox, page) for bbox in page_panels["panels"])
+                for crop_box in (
+                    get_panel_crop_box(bbox, page) for bbox in page_panels["panels"]
+                )
                 if crop_box is not None
             ]
             panel_text += get_dialogue_for_each_panel(page_text, panel_boxes)
 
-        with open(os.path.join(panels_output_dir, PANEL_TEXT_FILE_NAME), "w", encoding="utf-8") as file:
+        with open(
+            os.path.join(panels_output_dir, PANEL_TEXT_FILE_NAME), "w", encoding="utf-8"
+        ) as file:
             json.dump(panel_text, file, ensure_ascii=False, indent=1)

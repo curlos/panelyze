@@ -25,8 +25,17 @@ def get_source_name(source, url):
     if not url:
         return ft.Text(source, weight=ft.FontWeight.BOLD, color=Nord.TEXT, width=120)
     # Underlined and light blue, like a link on a web page (Nord's darker blue is hard to read on the background).
-    link_style = ft.TextStyle(weight=ft.FontWeight.BOLD, color=Nord.ACCENT, decoration=ft.TextDecoration.UNDERLINE)
-    return ft.Text(spans=[ft.TextSpan(source, style=link_style, url=url)], width=120, tooltip=Nord.tooltip(url))
+    link_style = ft.TextStyle(
+        weight=ft.FontWeight.BOLD,
+        color=Nord.ACCENT,
+        decoration=ft.TextDecoration.UNDERLINE,
+    )
+    return ft.Text(
+        spans=[ft.TextSpan(source, style=link_style, url=url)],
+        width=120,
+        tooltip=Nord.tooltip(url),
+    )
+
 
 # The sidebar's title for each source (see "get_downloader" for the sources).
 SOURCE_TITLES = {
@@ -66,7 +75,11 @@ class SettingsMangaDexDownloader(SettingsBase):
                 )
                 for source, what, url in SOURCES
             ]
-            + [get_help_text("Click a site's name to open it and find something to paste. Settings for that site show up here once you paste a link.")],
+            + [
+                get_help_text(
+                    "Click a site's name to open it and find something to paste. Settings for that site show up here once you paste a link."
+                )
+            ],
             spacing=6,
         )
 
@@ -75,8 +88,7 @@ class SettingsMangaDexDownloader(SettingsBase):
             border_radius=0,
             label="Language",
             options=[
-                ft.dropdown.Option(language["name"])
-                for language in mangadex_languages
+                ft.dropdown.Option(language["name"]) for language in mangadex_languages
             ],
             value=default_language["name"],
             text_style=ft.TextStyle(
@@ -94,7 +106,11 @@ class SettingsMangaDexDownloader(SettingsBase):
 
         # The chapter range is used by MangaDex and comix.to.
         self.start_and_end_chapter_row = self.get_start_and_end_row(
-            "Start Chapter", "start_chapter", "End Chapter", "end_chapter", "use_start_and_end_chapters"
+            "Start Chapter",
+            "start_chapter",
+            "End Chapter",
+            "end_chapter",
+            "use_start_and_end_chapters",
         )
         self.chapter_range = ft.Column(
             controls=[
@@ -132,8 +148,14 @@ class SettingsMangaDexDownloader(SettingsBase):
                     content=ft.Column(
                         controls=[
                             ft.Radio(value="newest", label="The newest"),
-                            ft.Radio(value="first", label="The first (often the original group)"),
-                            ft.Radio(value="group", label="This group's (or the newest if it skipped one):"),
+                            ft.Radio(
+                                value="first",
+                                label="The first (often the original group)",
+                            ),
+                            ft.Radio(
+                                value="group",
+                                label="This group's (or the newest if it skipped one):",
+                            ),
                         ],
                         spacing=0,
                     ),
@@ -144,7 +166,11 @@ class SettingsMangaDexDownloader(SettingsBase):
         )
 
         self.start_and_end_page_row = self.get_start_and_end_row(
-            "Start Page", "start_page", "End Page", "end_page", "use_start_and_end_pages"
+            "Start Page",
+            "start_page",
+            "End Page",
+            "end_page",
+            "use_start_and_end_pages",
         )
         # Options that are rarely changed are folded away.
         self.more_options = ft.ExpansionTile(
@@ -162,7 +188,9 @@ class SettingsMangaDexDownloader(SettingsBase):
                     ),
                 ),
                 self.start_and_end_page_row,
-                self.get_checkbox("Include Chapter Title in Folder Names", "use_chapter_title"),
+                self.get_checkbox(
+                    "Include Chapter Title in Folder Names", "use_chapter_title"
+                ),
                 self.get_checkbox("No Group Name", "no_group_name"),
                 self.get_checkbox("No Oneshot Chapters", "no_oneshot_chapters"),
                 self.get_checkbox("Use Chapter Cover", "use_chapter_cover"),
@@ -171,8 +199,12 @@ class SettingsMangaDexDownloader(SettingsBase):
         )
 
         # Every image on the page is saved, unless the user only wants the bigger ones (to leave out icons, avatars and ads).
-        self.web_page_min_size_textfield = self.get_number_textfield("Shorter side at least (px)", "web_page_min_size")
-        self.web_page_min_size_textfield.visible = bool(self.page.client_storage.get("use_web_page_min_size"))
+        self.web_page_min_size_textfield = self.get_number_textfield(
+            "Shorter side at least (px)", "web_page_min_size"
+        )
+        self.web_page_min_size_textfield.visible = bool(
+            self.page.client_storage.get("use_web_page_min_size")
+        )
         self.web_page_options = ft.Column(
             controls=[
                 WrappingCheckbox(
@@ -193,23 +225,47 @@ class SettingsMangaDexDownloader(SettingsBase):
         )
 
         # Something that's already downloaded (and still has all its pages) isn't downloaded again. This downloads it again. One checkbox for every site, so it always shows the setting as it is.
-        self.replace_checkbox = self.get_checkbox("Download again even if already downloaded", "replace_existing_manga")
+        self.replace_checkbox = self.get_checkbox(
+            "Download again even if already downloaded", "replace_existing_manga"
+        )
 
         # Which controls each site shows ("None" is before a link is pasted).
         self.controls_for_source = {
             None: [self.sources_list],
-            "MangaDex": [self.language_dropdown, self.chapter_range, self.which_upload, self.replace_checkbox, self.more_options],
+            "MangaDex": [
+                self.language_dropdown,
+                self.chapter_range,
+                self.which_upload,
+                self.replace_checkbox,
+                self.more_options,
+            ],
             "comix.to": [self.chapter_range, self.comix_help, self.replace_checkbox],
-            "the web page": [self.web_page_help, self.web_page_options, self.replace_checkbox],
+            "the web page": [
+                self.web_page_help,
+                self.web_page_options,
+                self.replace_checkbox,
+            ],
             "the Internet Archive": [self.internet_archive_help, self.replace_checkbox],
         }
         # The order of everything in the sidebar. (A control that isn't in this list can't be shown.)
         controls_in_order = [
-            self.sources_list, self.language_dropdown, self.chapter_range, self.comix_help, self.web_page_help,
-            self.web_page_options, self.internet_archive_help, self.which_upload, self.replace_checkbox, self.more_options,
+            self.sources_list,
+            self.language_dropdown,
+            self.chapter_range,
+            self.comix_help,
+            self.web_page_help,
+            self.web_page_options,
+            self.internet_archive_help,
+            self.which_upload,
+            self.replace_checkbox,
+            self.more_options,
         ]
         all_controls = sorted(
-            {control for controls in self.controls_for_source.values() for control in controls},
+            {
+                control
+                for controls in self.controls_for_source.values()
+                for control in controls
+            },
             key=controls_in_order.index,
         )
 
@@ -221,7 +277,9 @@ class SettingsMangaDexDownloader(SettingsBase):
         """
         Show only the settings of "source" (as returned by "get_downloader", or None before a link is pasted).
         """
-        shown_controls = self.controls_for_source.get(source, self.controls_for_source[None])
+        shown_controls = self.controls_for_source.get(
+            source, self.controls_for_source[None]
+        )
         self.title_text.value = SOURCE_TITLES.get(source, "Paste a link from").upper()
 
         for control in self.inner_content[1:]:
@@ -230,18 +288,20 @@ class SettingsMangaDexDownloader(SettingsBase):
     def get_checkbox(self, label, setting_key):
         return WrappingCheckbox(
             label=label,
-            value=self.page.client_storage.get(setting_key),
+            value=bool(self.client_storage.get(setting_key)),
             on_change=lambda e: self.change_setting(setting_key, e.data),
         )
 
-    def get_start_and_end_row(self, start_label, start_key, end_label, end_key, use_key):
+    def get_start_and_end_row(
+        self, start_label, start_key, end_label, end_key, use_key
+    ):
         start_textfield = self.get_number_textfield(start_label, start_key)
         end_textfield = self.get_number_textfield(end_label, end_key)
         start_textfield.expand = True
         end_textfield.expand = True
         return ft.Row(
             controls=[start_textfield, end_textfield],
-            visible=bool(self.page.client_storage.get(use_key)),
+            visible=bool(self.client_storage.get(use_key)),
         )
 
     def handle_upload_choice_change(self, e):
@@ -253,4 +313,4 @@ class SettingsMangaDexDownloader(SettingsBase):
         self, chosen_language_name, mangadex_languages_by_name
     ):
         language_obj = mangadex_languages_by_name[chosen_language_name]
-        self.page.client_storage.set("language", language_obj)
+        self.client_storage.set("language", language_obj)

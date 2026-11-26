@@ -53,6 +53,7 @@ def get_highlighted_spans(text, parts, color):
         if piece
     ]
 
+
 # Buttons have square corners, like the panels in a manga page.
 SQUARE = ft.RoundedRectangleBorder(radius=0)
 
@@ -85,7 +86,9 @@ def button_style(kind="secondary"):
         color=color,
         shape=SQUARE,
         side=get_focus_border(),
-        text_style=ft.TextStyle(weight=ft.FontWeight.BOLD) if kind == "danger" else None,
+        text_style=ft.TextStyle(weight=ft.FontWeight.BOLD)
+        if kind == "danger"
+        else None,
     )
 
 
@@ -122,7 +125,9 @@ def get_theme():
         checkbox_theme=ft.CheckboxTheme(
             shape=SQUARE,
             # Its own focus color, since the theme's is turned off above (for the dropdowns).
-            overlay_color={ft.ControlState.FOCUSED: ft.Colors.with_opacity(0.24, ACCENT)},
+            overlay_color={
+                ft.ControlState.FOCUSED: ft.Colors.with_opacity(0.24, ACCENT)
+            },
         ),
     )
 
@@ -137,7 +142,13 @@ def tooltip(message):
         border=ft.border.all(1, ACCENT),
         border_radius=4,
         padding=ft.padding.symmetric(horizontal=10, vertical=6),
-        shadow=[ft.BoxShadow(blur_radius=10, spread_radius=1, color=ft.Colors.with_opacity(0.6, ft.Colors.BLACK))],
+        shadow=[
+            ft.BoxShadow(
+                blur_radius=10,
+                spread_radius=1,
+                color=ft.Colors.with_opacity(0.6, ft.Colors.BLACK),
+            )
+        ],
         text_style=ft.TextStyle(color=TEXT_BRIGHT, size=13),
         prefer_below=True,
         vertical_offset=18,

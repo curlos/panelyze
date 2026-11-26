@@ -1,0 +1,30 @@
+# The fast tests on every push to main, including the type check (Pyright) and the lint check (Ruff). On a Mac like the app's (GitHub's macos-15 runner, Apple Silicon). Free for a public repo.
+# Also started by hand: "gh workflow run tests.yml", or Actions → Tests → Run workflow.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          # Reuses the downloaded packages (torch is big) until requirements.txt changes.
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m venv venv
+          venv/bin/python -m pip install -r requirements.txt
+
+      # Pyright runs with Node's "npx", which the runner already has.
+      - name: Fast tests
+        run: venv/bin/python -m pytest -q

@@ -56,7 +56,7 @@ class UpscaleImagesView(JobView):
         except Exception as error:
             raise RuntimeError(
                 f'"waifu2x-ncnn-vulkan" couldn\'t be downloaded ({error}). Download it from https://github.com/nihui/waifu2x-ncnn-vulkan/releases and add its folder to your PATH.'
-            )
+            ) from error
 
     def get_cancel_message(self):
         # MangaJaNai runs inside the app, so it can only stop between images. waifu2x is a program of its own and is stopped at once.
@@ -70,7 +70,9 @@ class UpscaleImagesView(JobView):
         if self.process_manager:
             self.process_manager.cancel_process()
 
-    def process_image_folder(self, image_folder, images, input_directory, output_directory):
+    def process_image_folder(
+        self, image_folder, images, input_directory, output_directory
+    ):
         series_and_chapter_name_directory = get_relative_output_path(
             image_folder, input_directory
         )
@@ -115,7 +117,9 @@ class UpscaleImagesView(JobView):
         )
         os.makedirs(full_image_output_directory, exist_ok=True)
 
-        upscale_model = self.parent_gui.page.client_storage.get("upscale_model") or "fast"
+        upscale_model = (
+            self.parent_gui.page.client_storage.get("upscale_model") or "fast"
+        )
 
         # How much to upscale each image. The 4K limit can make it less for big images.
         image_upscale_ratios = {}
@@ -130,7 +134,9 @@ class UpscaleImagesView(JobView):
                         image.width, image.height, upscale_ratio
                     )
                     if upscale_model == "best":
-                        best_upscale_ratio = get_best_upscale_ratio(image.width, image.height, upscale_ratio)
+                        best_upscale_ratio = get_best_upscale_ratio(
+                            image.width, image.height, upscale_ratio
+                        )
                         if best_upscale_ratio != image_upscale_ratio:
                             print(
                                 f'Upscaling {file_name} {best_upscale_ratio}x with "Best", so it stays a bit under 4K ({image_upscale_ratio}x would go far past 4K and take about 4x longer).'
@@ -139,7 +145,10 @@ class UpscaleImagesView(JobView):
                             image_upscale_ratio = best_upscale_ratio
                 if image_upscale_ratio == 1:
                     print(f"{file_name} is already 4K or bigger, so it's not upscaled.")
-                elif image_upscale_ratio != upscale_ratio and file_name not in images_left_under_4k:
+                elif (
+                    image_upscale_ratio != upscale_ratio
+                    and file_name not in images_left_under_4k
+                ):
                     print(
                         f"Upscaling {file_name} {image_upscale_ratio}x instead of {upscale_ratio}x so it doesn't go past 4K."
                     )
@@ -150,7 +159,9 @@ class UpscaleImagesView(JobView):
             for file_name, image_upscale_ratio in image_upscale_ratios.items():
                 with Image.open(f"{image_folder}/{file_name}") as image:
                     if max(image.size) * image_upscale_ratio > WEBP_MAX_SIDE:
-                        print(f"{file_name} would be bigger than WebP allows ({WEBP_MAX_SIDE} px), so this folder is saved as PNG.")
+                        print(
+                            f"{file_name} would be bigger than WebP allows ({WEBP_MAX_SIDE} px), so this folder is saved as PNG."
+                        )
                         image_format = "png"
                         break
 
@@ -206,7 +217,8 @@ class UpscaleImagesView(JobView):
                 pil_image = Image.open(output_image)
                 if max(pil_image.size) > MAX_UPSCALED_IMAGE_SIDE:
                     pil_image.thumbnail(
-                        (MAX_UPSCALED_IMAGE_SIDE, MAX_UPSCALED_IMAGE_SIDE), Image.LANCZOS
+                        (MAX_UPSCALED_IMAGE_SIDE, MAX_UPSCALED_IMAGE_SIDE),
+                        Image.Resampling.LANCZOS,
                     )
                     pil_image.save(output_image)
 
@@ -220,7 +232,7 @@ class UpscaleImagesView(JobView):
 
                 # Resize the image
                 pil_image = pil_image.resize(
-                    (new_width, custom_panel_image_height), Image.LANCZOS
+                    (new_width, custom_panel_image_height), Image.Resampling.LANCZOS
                 )
 
                 pil_image.save(output_image)
@@ -233,7 +245,7 @@ class UpscaleImagesView(JobView):
                 if original_width > max_image_width:
                     new_height = int(original_height * max_image_width / original_width)
                     pil_image = pil_image.resize(
-                        (max_image_width, new_height), Image.LANCZOS
+                        (max_image_width, new_height), Image.Resampling.LANCZOS
                     )
                     pil_image.save(output_image)
 
@@ -243,7 +255,9 @@ class UpscaleImagesView(JobView):
         # The text Panel-By-Panel read for these images, and their reading direction, go along with them, so Images To Video can still use them. An old one from an earlier run is removed so it can't be used for different images.
         for file_name in (PANEL_TEXT_FILE_NAME, READING_DIRECTION_FILE_NAME):
             input_file = os.path.join(image_folder, file_name)
-            output_file = os.path.join(output_directory, series_and_chapter_name_directory, file_name)
+            output_file = os.path.join(
+                output_directory, series_and_chapter_name_directory, file_name
+            )
             if os.path.exists(input_file):
                 os.makedirs(os.path.dirname(output_file), exist_ok=True)
                 shutil.copy(input_file, output_file)
@@ -257,8 +271,12 @@ class UpscaleImagesView(JobView):
                 full_image_output_directory,
                 size=comic_file_size,
                 # A direction picked in the app, or (on "Automatic") the one saved next to the images.
-                reading_direction=self.parent_gui.page.client_storage.get("reading_direction"),
-                one_image_at_a_time=all(image_info["name"].startswith("panel_") for image_info in images),
+                reading_direction=self.parent_gui.page.client_storage.get(
+                    "reading_direction"
+                ),
+                one_image_at_a_time=all(
+                    image_info["name"].startswith("panel_") for image_info in images
+                ),
             )
 
         print(
@@ -291,7 +309,9 @@ class UpscaleImagesView(JobView):
                 images_done += 1
                 report_progress(pages_done=images_done)
 
-        report_progress(pages_done=0, pages_total=len(image_upscale_ratios), unit="images")
+        report_progress(
+            pages_done=0, pages_total=len(image_upscale_ratios), unit="images"
+        )
 
         waifu2x_image_upscale_ratios = dict(image_upscale_ratios)
         if upscale_model == "best":
@@ -308,7 +328,9 @@ class UpscaleImagesView(JobView):
                 try:
                     upscale_image_with_janai(
                         os.path.join(image_folder, file_name),
-                        os.path.join(output_folder, replace_extension(file_name, image_format)),
+                        os.path.join(
+                            output_folder, replace_extension(file_name, image_format)
+                        ),
                         upscale_ratio,
                     )
                 except OSError:
@@ -322,9 +344,14 @@ class UpscaleImagesView(JobView):
 
         for upscale_ratio in sorted(set(waifu2x_image_upscale_ratios.values())):
             # waifu2x upscales a whole folder, so the images with this ratio go in a temporary folder of their own. Hard links take no time or space (waifu2x skips symlinks).
-            group_folder = tempfile.mkdtemp(prefix="panelyze-upscale-", dir=output_folder)
+            group_folder = tempfile.mkdtemp(
+                prefix="panelyze-upscale-", dir=output_folder
+            )
             try:
-                for file_name, image_upscale_ratio in waifu2x_image_upscale_ratios.items():
+                for (
+                    file_name,
+                    image_upscale_ratio,
+                ) in waifu2x_image_upscale_ratios.items():
                     if image_upscale_ratio == upscale_ratio:
                         link_or_copy_file(
                             os.path.join(image_folder, file_name),

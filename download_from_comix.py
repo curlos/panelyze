@@ -24,7 +24,9 @@ from utils import (
 COMIX_SOURCE = "comix.to"
 
 # The comix.to code is a copy of comix-downloader's (see comix_downloader/README.md). Its package is named "src", so its folder has to be on the import path.
-COMIX_DOWNLOADER_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "comix_downloader")
+COMIX_DOWNLOADER_FOLDER = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "comix_downloader"
+)
 if COMIX_DOWNLOADER_FOLDER not in sys.path:
     sys.path.insert(0, COMIX_DOWNLOADER_FOLDER)
 
@@ -53,7 +55,10 @@ def parse_comix_url(url):
     if not is_comix_url(url):
         raise ValueError(f"Not a comix.to link: {url}")
 
-    match = re.match(r"^/title/([a-z0-9]+)(?:-[^/]*)?(?:/(\d+)-chapter-[^/]+)?/?$", urlparse(url.strip()).path)
+    match = re.match(
+        r"^/title/([a-z0-9]+)(?:-[^/]*)?(?:/(\d+)-chapter-[^/]+)?/?$",
+        urlparse(url.strip()).path,
+    )
     if not match:
         raise ValueError(
             f"Not a comix.to series or chapter link (like https://comix.to/title/w25zn-slam-dunk): {url}"
@@ -95,11 +100,14 @@ def select_chapters_in_range(chapters, start_chapter="", end_chapter=""):
         start = float(start_chapter) if start_chapter else float("-inf")
         end = float(end_chapter) if end_chapter else float("inf")
     except ValueError:
-        raise ValueError(f'The Start and End Chapters must be numbers (they are "{start_chapter}" and "{end_chapter}").')
+        raise ValueError(
+            f'The Start and End Chapters must be numbers (they are "{start_chapter}" and "{end_chapter}").'
+        ) from None
     return [
         chapter
         for chapter in chapters
-        if (number := get_chapter_number(chapter)) is not None and start <= number <= end
+        if (number := get_chapter_number(chapter)) is not None
+        and start <= number <= end
     ]
 
 
@@ -135,7 +143,11 @@ def get_reading_direction_from_comix(manga):
 
     if manga.original_language in RIGHT_TO_LEFT_LANGUAGES:
         return "rtl"
-    if manga.manga_type in ("manhwa", "manhua") or manga.original_language in ("ko", "zh", "zh-hk"):
+    if manga.manga_type in ("manhwa", "manhua") or manga.original_language in (
+        "ko",
+        "zh",
+        "zh-hk",
+    ):
         return "webtoon"
     return "ltr"
 
@@ -183,17 +195,26 @@ class ChapterProgressReporter:
     def report(self):
         if self.chapter_count == 1:
             report_progress(
-                chapter=1, chapters=1, unit="pages", detail=None,
-                pages_done=self.pages_downloaded, pages_total=self.page_total,
+                chapter=1,
+                chapters=1,
+                unit="pages",
+                detail=None,
+                pages_done=self.pages_downloaded,
+                pages_total=self.page_total,
             )
         else:
             report_progress(
-                chapter=min(self.chapters_done + 1, self.chapter_count), chapters=self.chapter_count,
-                pages_done=None, pages_total=None, detail=f"{pluralize(self.pages_downloaded, 'page')} downloaded",
+                chapter=min(self.chapters_done + 1, self.chapter_count),
+                chapters=self.chapter_count,
+                pages_done=None,
+                pages_total=None,
+                detail=f"{pluralize(self.pages_downloaded, 'page')} downloaded",
             )
 
 
-def get_comix_summary(manga, downloaded_chapters, page_count, already_there=()):
+def get_comix_summary(
+    manga, downloaded_chapters, page_count, already_there=(), failed_count=0
+):
     """
     What was downloaded in one line: "Downloaded Absolute Batman chapter 25 · 25 pages" for one chapter, or "Downloaded Slam Dunk: 3 chapters · 77 pages". "already_there" are the chapters (and their page counts) that were downloaded before and skipped, as (chapter, pages).
     """
@@ -208,7 +229,11 @@ def get_comix_summary(manga, downloaded_chapters, page_count, already_there=()):
     else:
         summary = f"Downloaded {manga.title}: {pluralize(len(downloaded_chapters), 'chapter')} · {pluralize(page_count, 'page')}"
     if already_there:
-        summary += f" · {pluralize(len(already_there), 'more chapter')} already downloaded"
+        summary += (
+            f" · {pluralize(len(already_there), 'more chapter')} already downloaded"
+        )
+    if failed_count:
+        summary += f" · {pluralize(failed_count, 'chapter')} failed (see Raw Output)"
     return summary
 
 
@@ -223,7 +248,9 @@ def get_page_times(folder):
     if not os.path.isdir(folder):
         return {}
     return {
-        name: os.stat(os.path.join(folder, name)).st_mtime_ns for name in os.listdir(folder) if COMIX_PAGE_NAME.match(name)
+        name: os.stat(os.path.join(folder, name)).st_mtime_ns
+        for name in os.listdir(folder)
+        if COMIX_PAGE_NAME.match(name)
     }
 
 
@@ -242,7 +269,9 @@ def convert_gif_pages(folder):
 
 
 def get_chapter_folder(output_directory, manga, chapter):
-    return os.path.join(output_directory, manga.get_safe_title(), chapter.get_safe_folder_name())
+    return os.path.join(
+        output_directory, manga.get_safe_title(), chapter.get_safe_folder_name()
+    )
 
 
 def get_earlier_download(output_directory, manga, chapter, library_directory=None):
@@ -251,14 +280,26 @@ def get_earlier_download(output_directory, manga, chapter, library_directory=Non
     """
     folder = get_chapter_folder(output_directory, manga, chapter)
     info = read_download_info(folder)
-    if info and info.get("source") == COMIX_SOURCE and info.get("chapter_id") == chapter.chapter_id and is_download_intact(folder, info):
+    if (
+        info
+        and info.get("source") == COMIX_SOURCE
+        and info.get("chapter_id") == chapter.chapter_id
+        and is_download_intact(folder, info)
+    ):
         return info
     if library_directory:
         # A Pipeline's Download step: a chapter that's still all there in the Download tab's folder is copied.
         library_folder = get_chapter_folder(library_directory, manga, chapter)
         library_info = read_download_info(library_folder)
-        if library_info and library_info.get("source") == COMIX_SOURCE and library_info.get("chapter_id") == chapter.chapter_id and is_download_intact(library_folder, library_info):
-            copy_from_library(library_folder, library_directory, output_directory)
+        if (
+            library_info
+            and library_info.get("source") == COMIX_SOURCE
+            and library_info.get("chapter_id") == chapter.chapter_id
+            and is_download_intact(library_folder, library_info)
+        ):
+            copy_from_library(
+                library_folder, library_directory, output_directory, replace=True
+            )
             return library_info
     return None
 
@@ -308,31 +349,58 @@ def download_from_comix(
     manga_code, chapter_id = parse_comix_url(comix_url_to_download_from)
     forget_saved_cookies()
     nodriver_browser.BROWSER_EXECUTABLE_PATH = find_browser()
-    print(f"Using {os.path.basename(nodriver_browser.BROWSER_EXECUTABLE_PATH)} (hidden) to open comix.to")
+    print(
+        f"Using {os.path.basename(nodriver_browser.BROWSER_EXECUTABLE_PATH)} (hidden) to open comix.to"
+    )
 
-    replace_existing = bool(flet_page_client_storage and flet_page_client_storage.get("replace_existing_manga"))
+    replace_existing = bool(
+        flet_page_client_storage
+        and flet_page_client_storage.get("replace_existing_manga")
+    )
 
     report_progress(detail="Opening comix.to in a hidden browser...")
     manga = ComixAPI.get_manga_info(manga_code, headless=True)
     stop_if_cancelled()
 
-    library_directory = None if replace_existing else get_library_directory(output_directory, flet_page_client_storage)
+    library_directory = (
+        None
+        if replace_existing
+        else get_library_directory(output_directory, flet_page_client_storage)
+    )
 
     if chapter_id is not None and not replace_existing:
         # A link to a chapter that's already downloaded needs no chapter list (which can take minutes) and no pages.
-        found = find_downloaded_folder(os.path.join(output_directory, manga.get_safe_title()), source=COMIX_SOURCE, chapter_id=chapter_id)
+        found = find_downloaded_folder(
+            os.path.join(output_directory, manga.get_safe_title()),
+            source=COMIX_SOURCE,
+            chapter_id=chapter_id,
+        )
         if not found and library_directory:
-            found = find_downloaded_folder(os.path.join(library_directory, manga.get_safe_title()), source=COMIX_SOURCE, chapter_id=chapter_id)
+            found = find_downloaded_folder(
+                os.path.join(library_directory, manga.get_safe_title()),
+                source=COMIX_SOURCE,
+                chapter_id=chapter_id,
+            )
             if found:
-                found = (copy_from_library(found[0], library_directory, output_directory), found[1])
+                found = (
+                    copy_from_library(
+                        found[0], library_directory, output_directory, replace=True
+                    ),
+                    found[1],
+                )
         if found:
             folder, info = found
-            print(f"{manga.title} chapter {info.get('chapter_number')} is already downloaded.")
+            print(
+                f"{manga.title} chapter {info.get('chapter_number')} is already downloaded."
+            )
             return DownloadSummary(
-                f"Already downloaded: {manga.title} chapter {info.get('chapter_number')} · {pluralize(info['pages'], 'page')}", folder
+                f"Already downloaded: {manga.title} chapter {info.get('chapter_number')} · {pluralize(info['pages'], 'page')}",
+                folder,
             )
     print(f"Found {manga.title}. Getting its chapter list (this can take a minute)...")
-    report_progress(detail=f"Getting the chapter list of {manga.title} (this can take a few minutes for a long series)...")
+    report_progress(
+        detail=f"Getting the chapter list of {manga.title} (this can take a few minutes for a long series)..."
+    )
     comix.CHAPTER_LIST_PROGRESS_CALLBACK = lambda page_number, uploads: report_progress(
         detail=f"Reading the chapter list: page {page_number} ({pluralize(uploads, 'upload')} so far)..."
     )
@@ -355,26 +423,38 @@ def download_from_comix(
         chapters = pick_best_upload_of_each_chapter(chapters)
 
     if not chapters:
-        raise RuntimeError(f"No chapters of {manga.title} to download (check the link and the Start and End Chapters).")
+        raise RuntimeError(
+            f"No chapters of {manga.title} to download (check the link and the Start and End Chapters)."
+        )
 
     # Chapters that are already downloaded (and still have all their pages) aren't downloaded again, unless "Replace What's Already Downloaded" is on.
     already_there = []
     if not replace_existing:
         chapters_to_download = []
         for chapter in chapters:
-            earlier_download = get_earlier_download(output_directory, manga, chapter, library_directory)
+            earlier_download = get_earlier_download(
+                output_directory, manga, chapter, library_directory
+            )
             if earlier_download:
                 already_there.append((chapter, earlier_download["pages"]))
             else:
                 chapters_to_download.append(chapter)
         if already_there:
-            print(f"{pluralize(len(already_there), 'chapter')} already downloaded, so not downloaded again.")
+            print(
+                f"{pluralize(len(already_there), 'chapter')} already downloaded, so not downloaded again."
+            )
         chapters = chapters_to_download
 
     series_folder = os.path.join(output_directory, manga.get_safe_title())
     if not chapters:
-        only_folder = get_chapter_folder(output_directory, manga, already_there[0][0]) if len(already_there) == 1 else series_folder
-        return DownloadSummary(get_comix_summary(manga, [], 0, already_there), only_folder)
+        only_folder = (
+            get_chapter_folder(output_directory, manga, already_there[0][0])
+            if len(already_there) == 1
+            else series_folder
+        )
+        return DownloadSummary(
+            get_comix_summary(manga, [], 0, already_there), only_folder
+        )
 
     print(f"Downloading {len(chapters)} chapter(s) of {manga.title}:")
     for chapter in chapters:
@@ -383,7 +463,12 @@ def download_from_comix(
     # The chapters that were saved this time (also when they were already in the folder, which is then written over).
     downloaded_chapters = []
     # The pages already in the chapters' folders, from an earlier download (of another upload, or one that's being replaced).
-    pages_before = {chapter.chapter_id: get_page_times(get_chapter_folder(output_directory, manga, chapter)) for chapter in chapters}
+    pages_before = {
+        chapter.chapter_id: get_page_times(
+            get_chapter_folder(output_directory, manga, chapter)
+        )
+        for chapter in chapters
+    }
 
     def on_chapter_complete(chapter, success, message):
         if success:
@@ -392,7 +477,10 @@ def download_from_comix(
             # The new pages are saved over the old ones, so the old pages that weren't written over (e.g. the old upload had more pages) go, or the two would be mixed.
             for name, changed_at in pages_before[chapter.chapter_id].items():
                 page_path = os.path.join(chapter_folder, name)
-                if os.path.exists(page_path) and os.stat(page_path).st_mtime_ns == changed_at:
+                if (
+                    os.path.exists(page_path)
+                    and os.stat(page_path).st_mtime_ns == changed_at
+                ):
                     os.remove(page_path)
             if os.path.isdir(chapter_folder):
                 convert_gif_pages(chapter_folder)
@@ -405,33 +493,57 @@ def download_from_comix(
                     pages=count_images(chapter_folder),
                 )
         # The message already names the chapter (e.g. "Downloaded Chapter 1: Sakuragi (35 pages)").
-        print(message or f"{'Downloaded' if success else 'FAILED'}: {chapter.get_display_name()}")
+        print(
+            message
+            or f"{'Downloaded' if success else 'FAILED'}: {chapter.get_display_name()}"
+        )
 
     config = DownloadConfig(
         output_format=OutputFormat.IMAGES,
         download_path=output_directory,
         headless=True,
     )
-    report_progress(detail=f"Loading the pages of {pluralize(len(chapters), 'chapter')} in the browser (this can take a minute for each)...")
+    report_progress(
+        detail=f"Loading the pages of {pluralize(len(chapters), 'chapter')} in the browser (this can take a minute for each)..."
+    )
     progress_reporter = ChapterProgressReporter(len(chapters))
     stop_if_cancelled()
     successful, failed = MangaDownloader(config).download_chapters(
-        manga, chapters, progress_reporter, on_chapter_complete=on_chapter_complete
+        manga,
+        chapters,
+        progress_reporter,  # pyright: ignore[reportArgumentType]
+        on_chapter_complete=on_chapter_complete,
     )
 
-    print(f"comix.to download finished: {successful} chapter(s) downloaded, {failed} failed.")
+    print(
+        f"comix.to download finished: {successful} chapter(s) downloaded, {failed} failed."
+    )
     if cancel_event.is_set():
-        kept = f" {pluralize(successful, 'chapter')} already downloaded {'was' if successful == 1 else 'were'} kept." if successful else ""
+        kept = (
+            f" {pluralize(successful, 'chapter')} already downloaded {'was' if successful == 1 else 'were'} kept."
+            if successful
+            else ""
+        )
         raise DownloadCancelled(f"Download cancelled.{kept}")
     if not successful:
-        raise RuntimeError("No chapters could be downloaded from comix.to (see the errors above).")
+        raise RuntimeError(
+            "No chapters could be downloaded from comix.to (see the errors above)."
+        )
 
     reading_direction = get_reading_direction_from_comix(manga)
-    print(f"Reading direction from comix.to ({manga.original_language}, {manga.manga_type}): {reading_direction}")
+    print(
+        f"Reading direction from comix.to ({manga.original_language}, {manga.manga_type}): {reading_direction}"
+    )
     for chapter in downloaded_chapters:
-        chapter_folder = os.path.join(output_directory, manga.get_safe_title(), chapter.get_safe_folder_name())
+        chapter_folder = os.path.join(
+            output_directory, manga.get_safe_title(), chapter.get_safe_folder_name()
+        )
         if os.path.isdir(chapter_folder):
-            with open(os.path.join(chapter_folder, READING_DIRECTION_FILE_NAME), "w", encoding="utf-8") as direction_file:
+            with open(
+                os.path.join(chapter_folder, READING_DIRECTION_FILE_NAME),
+                "w",
+                encoding="utf-8",
+            ) as direction_file:
                 direction_file.write(reading_direction)
 
     # One chapter: its own folder. Several: the series' folder.
@@ -440,6 +552,17 @@ def download_from_comix(
         if len(downloaded_chapters) == 1 and not already_there
         else series_folder
     )
+    # The pages really saved: the copied code also counts the pages it couldn't download, and those of chapters that failed.
+    chapter_folders = [
+        get_chapter_folder(output_directory, manga, chapter)
+        for chapter in downloaded_chapters
+    ]
+    page_count = sum(
+        count_images(folder) for folder in chapter_folders if os.path.isdir(folder)
+    )
     return DownloadSummary(
-        get_comix_summary(manga, downloaded_chapters, progress_reporter.pages_downloaded, already_there), downloaded_folder
+        get_comix_summary(
+            manga, downloaded_chapters, page_count, already_there, failed
+        ),
+        downloaded_folder,
     )

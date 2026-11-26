@@ -36,6 +36,9 @@ Yes. Only 18 and 25 change real code. The rest is commands, one README line, a ~
 | 02 | 27 GB free | ⚠️ **34 GB** free |
 | 19 | Repo public, 0 releases, README's "Download for Mac" link goes nowhere | ✅ Still true (repo `curlos/panelyze`) |
 | 21 | A new macOS user account for the app test | ⚠️ **Not doing it** (user, 2026-11-23): it needs an admin password, and Claude shouldn't make accounts. Instead: **one GitHub Actions workflow on a clean `macos-15` runner** (free for this public repo) that installs from `requirements.txt`, runs the fast tests and the self-test (which downloads the 2 GB Magi model for real), and builds and self-tests the app. It only needs to show that it works, even if slow (no GPU there). It doesn't need #15. The user still opens the draft zip once in Safari ("Open Anyway"). No Docker or VM. |
+| 02, 19 | The build uses the shared `venv` | ⚠️ **Found while building (2026-11-23):** the shared venv was upgraded on 2026-11-22 (likely by spec 01: torch 2.5.1→2.14.1, torchvision 0.20.1→0.29.2, transformers 4.34→4.57, coremltools 8.1→9.0, 9 pinned packages in all). The built app then failed 2 of 8 self-test checks (`operator torchvision::nms does not exist`: PyInstaller 6.11.1 doesn't bundle the new torchvision's `_C_stable.so`). **User's pick:** build from a private `venv-build/` in this worktree, installed from `requirements-lock.txt` (`VENV_DIR=venv-build ./build_mac_app.sh`), so the app ships what `requirements.txt` promises and the shared venv (spec 01) is left alone. |
+| — | Added during the user's review (2026-11-23) | **Panel-By-Panel's settings didn't scroll** on a short window (an older bug): they now scroll like the other tabs. **Where the models come from:** the Best (MangaJaNai) and Magi download messages and their errors name the page they come from, and **web links in the Status view and Raw Output are clickable** (opened with `page.launch_url`, so the desktop app opens the default browser). A full model manager stays in [spec 33](33-manage-app-folders.md). |
+| 19 | `--product-version 1.0.0` sets the app's version | ⚠️ The built app still said `0.0.0`. Fixed with `plutil` in `build_mac_app.sh`, plus `codesign --force --deep --sign -`, because changing `Info.plist` breaks the app's ad-hoc signature. |
 
 ## 4. Recommended approach
 | Part | Recommended | Not doing (why) |
@@ -58,13 +61,13 @@ Yes. Only 18 and 25 change real code. The rest is commands, one README line, a ~
 | `DEVELOPING.md`, `HANDOFF.md` | Drop the `.env` mentions | 23 |
 | `CLAUDE.md` (on `main`, done) | The worktree setup no longer copies `.env` | 23 |
 | `experiments/colab/*.ipynb` | The one old `manga-panel-splitter` link | 12 |
-| `pyproject.toml` (new) | `[tool.pyright]`: standard mode, `exclude` the 3 copied folders, `extraPaths = ["comix_downloader"]`, relaxed rules for `tests/` | 18 |
+| `pyproject.toml` (new) | `[tool.pyright]`: standard mode, `exclude` the 3 copied folders, `extraPaths = ["comix_downloader"]`. Setting `exclude` replaces Pyright's defaults, so `venv`, `venv-*`, `dist`, `build-assets` and hidden folders are listed too. No relaxed rules for `tests/`: all 74 test errors are fixed instead (decision 5) | 18 |
 | About 30 app files | The type fixes listed in spec 18 §5 | 18 |
-| Files the review names | Only the lines a confirmed bug needs, each with a test | 25 |
+| Files the review names | Only the lines a confirmed bug needs, each with a test. The user picked which behavior-changing ones to fix (all 11, 2026-11-23) | 25 |
 | `self_test.py` | `check_best_upscaler_libraries` (~15 lines) and a test for it | 02 |
 | `.github/workflows/clean-mac-check.yml` (new, ~30 lines) | Manual trigger. `macos-15`, Python 3.12, `pip install -r requirements.txt`, `python -m pytest`, `python gui.py --self-test`, `./build_mac_app.sh` (which self-tests the built app). Upload the logs if it fails. | 21 |
 | `DEVELOPING.md` | One line: what the workflow checks and how to start it | 21 |
-| `build_mac_app.sh` | Only if the built app's version is still `0.0.0`: one `plutil` line | 19 |
+| `build_mac_app.sh` | The version was still `0.0.0`: `plutil` and a re-sign (2 lines). `VENV_DIR` to build from another venv (`venv-build/`) | 19 |
 | `specs/PROGRESS.md`, this spec | Tick the steps | — |
 
 Disk-only (no git change): the deletions in 23, the build in `dist/`.
@@ -72,36 +75,46 @@ Disk-only (no git change): the deletions in 23, the build in `dist/`.
 ## 6. Steps
 **A. Housekeeping (23, 12)**
 - [x] User answers the open questions in 8.
-- [ ] In `panelyze-main/` (disk only, nothing tracked changes): `rm -rf venv-py310-old dist build-assets/pack testing-output`. `git stash list` (check it's the same 2 "BUNCH OF SHIT…" entries), `git stash drop` ×2, `git gc --prune=now`. `__pycache__` folders in the worktree.
-- [ ] Delete the worktree's `.env` copy. Drop the `.env` fallback for Azure, update its tests and the docs.
-- [ ] `package.json` `--ignore-dirs`, README tagline, Colab link.
+- [x] In `panelyze-main/` (disk only, nothing tracked changes): `rm -rf venv-py310-old dist build-assets/pack testing-output`. `git stash list` (check it's the same 2 "BUNCH OF SHIT…" entries), `git stash drop` ×2, `git gc --prune=now`. `__pycache__` folders in the worktree.
+- [x] Delete the worktree's `.env` copy. Drop the `.env` fallback for Azure, update its tests and the docs.
+- [x] `package.json` `--ignore-dirs`, README tagline, Colab link.
 
 **B. Type fixes (18)**
-- [ ] `pyproject.toml` with `[tool.pyright]`. Check: about 79 app errors and 74 test errors, 0 in the copied folders.
-- [ ] Fix the wrong enums and `Option(str(...))` (check the upscale ratio and noise level are still remembered after a restart).
-- [ ] `| None` signatures, variables set before `if`/loops, `JobView` return type and the attributes it sets on `PickInputAndOutputDirectories`.
-- [ ] Guards or asserts with clear messages for the real `None` cases.
-- [ ] The `SettingsBase` helper for `page`, used in the views.
-- [ ] `Image.Resampling.LANCZOS`, then named `# pyright: ignore[rule]` on the library-type lines.
-- [ ] The 74 test errors: `assert x is not None`, `cast(...)` for the fakes, a named ignore only where a test passes a wrong type on purpose.
-- [ ] `npx --yes pyright@1.1.414 --pythonpath venv/bin/python` → 0 errors. Fast tests pass.
+- [x] `pyproject.toml` with `[tool.pyright]`. Check: about 79 app errors and 74 test errors, 0 in the copied folders.
+- [x] Fix the wrong enums and `Option(str(...))` (check the upscale ratio and noise level are still remembered after a restart).
+- [x] `| None` signatures, variables set before `if`/loops, `JobView` return type and the attributes it sets on `PickInputAndOutputDirectories`.
+- [x] Guards or asserts with clear messages for the real `None` cases.
+- [x] The `SettingsBase` helper for `page`, used in the views.
+- [x] `Image.Resampling.LANCZOS`, then named `# pyright: ignore[rule]` on the library-type lines.
+- [x] The 74 test errors: `assert x is not None`, `cast(...)` for the fakes, a named ignore only where a test passes a wrong type on purpose.
+- [x] `npx --yes pyright@1.1.414 --pythonpath venv/bin/python` → 0 errors. Fast tests pass.
 
 **C. Code review (25)**
-- [ ] 7 read-only agents, one per area: Magi and panels · Upscale · Video and voice · Core and settings · Downloaders (MangaDex, comix.to, page URL, comic import, `comix_downloader` patches) · GUI and Pipeline · Tests. Each uses spec 25's "look especially at" list and writes a findings table.
-- [ ] Merge and sort the findings; check every "high" one by reading the code or writing a failing test.
-- [ ] Show the user the list. Fix the confirmed bugs, each with a test that failed first. Fast tests after each area, e2e (`-m e2e`) after Magi, upscale or video fixes.
+- [x] 7 read-only agents, one per area: Magi and panels · Upscale · Video and voice · Core and settings · Downloaders (MangaDex, comix.to, page URL, comic import, `comix_downloader` patches) · GUI and Pipeline · Tests. Each uses spec 25's "look especially at" list and writes a findings table.
+- [x] Merge and sort the findings; check every "high" one by reading the code or writing a failing test.
+- [x] Show the user the list. Fix the confirmed bugs, each with a test that failed first. Fast tests after each area, e2e (`-m e2e`) after Magi, upscale or video fixes.
 
 **D. Build and check (02)**
-- [ ] `check_best_upscaler_libraries` in `self_test.py` → `venv/bin/python gui.py --self-test` shows 8 PASS.
-- [ ] `./build_mac_app.sh` in the worktree → `SELF-TEST PASSED` in the built app. Note the app and zip sizes and the `Info.plist` version.
+- [x] `check_best_upscaler_libraries` in `self_test.py` → `venv/bin/python gui.py --self-test` shows 8 PASS.
+- [x] `./build_mac_app.sh` in the worktree → `SELF-TEST PASSED` in the built app. Note the app and zip sizes and the `Info.plist` version.
 - [ ] Open the built app: upscale 2–3 Dragon Ball ch. 93 panels with Fast, Better and Best (one color image too); the log says Core ML was used.
-- [ ] Scratch script: first-time "Best" download into an empty scratch folder (592 MB). Then the no-Core-ML run (`janai.can_use_coreml = lambda: False`). Compare the images and times.
+- [x] Scratch script: first-time "Best" download into an empty scratch folder (592 MB). Then the no-Core-ML run (`janai.can_use_coreml = lambda: False`). Compare the images and times.
 
 **E. New machine (21) and release (19)**
-- [ ] Write `.github/workflows/clean-mac-check.yml` and the DEVELOPING.md line. Check the file's syntax locally (it can't run before the merge).
-- [ ] Ask the user, then upload the zip to a **draft** release (`gh release create v1.0.0 --draft ...`, private until published).
+- [x] Write `.github/workflows/clean-mac-check.yml` and the DEVELOPING.md line. Check the file's syntax locally (it can't run before the merge).
+- [x] Ask the user, then upload the zip to a **draft** release (`gh release create v1.0.0 --draft ...`, private until published).
 - [ ] User downloads the zip from the draft in Safari, unzips, drags it to Applications, follows the README's "Open Anyway" steps, and checks the window opens and one short job runs.
-- [ ] Review agent, then the user's review and the merge (CLAUDE.md "Finish").
+- [x] Merge spec 10 (`origin/main`) into the worktree. Fix its 42 new Pyright errors, and 2 of its e2e tests that still expected PNG output and kept audio files (its new defaults).
+- [x] `tests/test_types.py` (the user's pick): the fast tests run Pyright and fail on any type error, so later specs catch them too. Skipped without Node's `npx`.
+- [x] Review agent. Fixed: a link line printed in two parts showed twice in Raw Output, quotes/brackets after a link, 16-bit TIFF pages in comic files, a reused transcript was rewritten (and backed up) for nothing, a duplicate `int()`, the workflow's own waifu2x download (the self-test downloads it), one `APP_VERSION` in the build script, the reading-direction sync across web-mode tabs. Left: a stopped MangaDex download still continues the Pipeline (it says so), and the "Mac and Windows" tagline (the user's pick).
+- [x] Lint and CI (the user's pick): Ruff 0.17.6 in requirements.txt with its classic rules (`E4, E7, E9, F`; its newer default rules flag 199 mostly style things), `tests/test_lint.py`, and the 26 old findings fixed (unused imports, a variable, lambdas, an import order; `gui.py` keeps its late imports on purpose). Then the user's other picks: Ruff's "bugbear" rules too (9 fixes; `zip()` without `strict=` and `setattr` with a fixed name are left off), and the whole code formatted with `ruff format` (Black's style, 88 characters, like VS Code's Black extension on save: 66 files). Moved 5 `# pyright: ignore` comments back to their lines after the wrapping. `tests/test_lint.py` checks both. `.github/workflows/tests.yml` runs the fast tests (with Pyright and Ruff) on every push to `main`, on macos-15.
+- [x] Raw Output only follows new lines while scrolled to the bottom (it jumped there on every new line, even while reading older ones). Checked in web mode.
+- [x] New app icon (the user's pick, before the release): No-Face is a Studio Ghibli character, so it's replaced by an original one, `assets/panelyze-icon.svg` (a manga page in black ink on cream paper, with one panel in hanko vermilion pulled out of its place) with sharp panel corners, like printed manga (picked from 5 corner radii) and `assets/panelyze-icon.png` (1024 px, on Apple's icon grid) for the build. Chosen from about 60 drafts, a blind review and real manga page layouts found with Magi. `assets/no-face.png` deleted.
+- [x] Tabs in the title bar on a Mac (the user's pick, like Edge, VS Code, Finder and Notes): `page.window.title_bar_hidden` with the window buttons kept, 78 px of room for them on the left of the tab bar, and the tab bar spans the whole window (its color reaches the window buttons) as a `WindowDragArea` (drag to move; no double-click to zoom, because listening for double-clicks made every tab click wait about 0.3 s). Windows keeps its own title bar (hiding it also hides its minimize, maximize and close buttons). On a window wider than the content, that room shrinks by the margin (the buttons sit in it). Also, on a narrow window the Clear/Cancel and main buttons share its width instead of going past its edge (two at 170 px didn't fit a 360 px window). The terminal also spans the whole window now (no side borders), with its text lined up with the content, and its blue resize line only shows while the mouse is over the top edge (like VS Code). Tests in `tests/test_layout.py`.
+- [x] Spec 33 (Settings → Storage) built in this worktree too (the user's pick): saved files and downloaded models with their sizes, Open, Delete (with a confirm) and Download, the log's size, and download progress in the Status view. See `specs/33-manage-app-folders.md`.
+- [ ] Rebuild the app with the title bar change and replace the draft's zip.
+- [x] Rebuild the app after the merge and the fixes (with the new icon and the Raw Output scroll fix), and replace the draft's zip: 8/8 self-test PASS, v1.0.0, 742 MB app, 368 MB zip.
+- [ ] The user's review and the merge (CLAUDE.md "Finish").
 - [ ] After the push: start the workflow (`gh workflow run clean-mac-check.yml`) and watch it. If it fails, fix in a small follow-up (with the user), rebuild, replace the draft's zip.
 - [ ] When it passes, with the user's OK: publish the draft. Click the README's "Download for Mac" link and check it reaches the zip.
 
@@ -131,7 +144,7 @@ Disk-only (no git change): the deletions in 23, the build in `dist/`.
 1. Delete `testing-output/`.
 2. Drop the 2 old git stashes.
 3. No `.env`: keys are typed in the app's Settings.
-4. Tagline: "Panelyze: a manga toolkit for your Mac. Download, split into panels, upscale and make videos."
+4. Tagline: "Panelyze: a manga toolkit for Mac and Windows. Download, split into panels, upscale and make videos."
 5. Fix all 74 test type errors.
 6. Version `v1.0.0`.
 7. No test macOS account. A clean GitHub Actions Mac checks it instead, first run after the merge (see 3, spec 21 row).

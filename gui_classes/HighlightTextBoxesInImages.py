@@ -44,9 +44,15 @@ class HighlightTextBoxesInImages(SettingsBase):
         default_images_to_video_text_box_border_color_opacity = float(
             self.get_setting_value("images_to_video_text_box_border_color_opacity")
         )
-        default_images_to_video_text_box_border_style = self.get_setting_value("images_to_video_text_box_border_style")
-        default_images_to_video_text_box_border_color = self.get_setting_value("images_to_video_text_box_border_color")
-        default_images_to_video_text_box_background_color = self.get_setting_value("images_to_video_text_box_background_color")
+        default_images_to_video_text_box_border_style = self.get_setting_value(
+            "images_to_video_text_box_border_style"
+        )
+        default_images_to_video_text_box_border_color = self.get_setting_value(
+            "images_to_video_text_box_border_color"
+        )
+        default_images_to_video_text_box_background_color = self.get_setting_value(
+            "images_to_video_text_box_background_color"
+        )
 
         self.text_box_border_color_dropdown = DropdownTextOptions(
             label="Border Color",
@@ -61,7 +67,7 @@ class HighlightTextBoxesInImages(SettingsBase):
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.START,
-                        vertical_alignment=ft.VerticalAlignment.CENTER,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=5,
                     ),
                 )
@@ -98,7 +104,7 @@ class HighlightTextBoxesInImages(SettingsBase):
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.START,
-                        vertical_alignment=ft.VerticalAlignment.CENTER,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         spacing=5,
                     ),
                 )

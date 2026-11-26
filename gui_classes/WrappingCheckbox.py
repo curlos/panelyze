@@ -18,7 +18,14 @@ class WrappingCheckbox(ft.Row):
             ft.Container(
                 content=ft.Row(
                     [
-                        *([ft.Icon(icon, size=18, color=Nord.TEXT), ft.Container(width=6)] if icon else []),
+                        *(
+                            [
+                                ft.Icon(icon, size=18, color=Nord.TEXT),
+                                ft.Container(width=6),
+                            ]
+                            if icon
+                            else []
+                        ),
                         ft.Text(label, style=label_style, expand=True),
                     ],
                     spacing=0,

@@ -15,17 +15,21 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-PYTHON="$REPO_DIR/venv/bin/python"
+# Another venv can be used with VENV_DIR=..., e.g. one installed from requirements-lock.txt when "venv" has newer packages.
+VENV_DIR="${VENV_DIR:-$REPO_DIR/venv}"
+PYTHON="$VENV_DIR/bin/python"
 BUILD_ASSETS_DIR="$REPO_DIR/build-assets"
 # "flet pack" deletes a "build" folder in whatever folder it runs from, so it runs from here instead of the repo.
 PACK_DIR="$BUILD_ASSETS_DIR/pack"
 DIST_DIR="$REPO_DIR/dist"
 APP_PATH="$DIST_DIR/Panelyze.app"
 WAIFU2X_VERSION="20250915"
+# The version users see (Finder's "Get Info", and the GitHub release "v1.0.0").
+APP_VERSION="1.0.0"
 WAIFU2X_DIR="$BUILD_ASSETS_DIR/waifu2x"
 
 if [ ! -x "$PYTHON" ]; then
-    echo "ERROR: No virtual environment found at $REPO_DIR/venv. Set it up first (see the README)."
+    echo "ERROR: No virtual environment found at $VENV_DIR. Set it up first (see the README)."
     exit 1
 fi
 
@@ -59,14 +63,14 @@ fi
 # 2. The small panels-only Magi model (built from the full model the first time; this downloads about 2 GB once).
 (cd "$REPO_DIR" && "$PYTHON" -c "import magi, os; os.path.exists(magi.PANELS_MODEL_FILE) or magi.build_panels_model_file()")
 
-# 3. App icon: macOS needs an ".icns" file made from the same image at several sizes.
+# 3. App icon: macOS needs an ".icns" file made from the same image at several sizes. "assets/panelyze-icon.png" is "assets/panelyze-icon.svg" at 1024 px, with the tile at 824 px in the middle (Apple's icon grid), so it's the same size as other apps' icons in the Dock.
 ICONSET_DIR="$BUILD_ASSETS_DIR/Panelyze.iconset"
 rm -rf "$ICONSET_DIR"
 mkdir -p "$ICONSET_DIR"
 for size in 16 32 128 256 512; do
-    sips -z "$size" "$size" "$REPO_DIR/assets/no-face.png" --out "$ICONSET_DIR/icon_${size}x${size}.png" > /dev/null
+    sips -z "$size" "$size" "$REPO_DIR/assets/panelyze-icon.png" --out "$ICONSET_DIR/icon_${size}x${size}.png" > /dev/null
     double_size=$((size * 2))
-    sips -z "$double_size" "$double_size" "$REPO_DIR/assets/no-face.png" --out "$ICONSET_DIR/icon_${size}x${size}@2x.png" > /dev/null
+    sips -z "$double_size" "$double_size" "$REPO_DIR/assets/panelyze-icon.png" --out "$ICONSET_DIR/icon_${size}x${size}@2x.png" > /dev/null
 done
 iconutil -c icns "$ICONSET_DIR" -o "$BUILD_ASSETS_DIR/Panelyze.icns"
 
@@ -76,12 +80,12 @@ rm -rf "$PACK_DIR" "$APP_PATH"
 mkdir -p "$PACK_DIR"
 (
     cd "$PACK_DIR"
-    "$REPO_DIR/venv/bin/flet" pack "$REPO_DIR/gui.py" \
+    "$VENV_DIR/bin/flet" pack "$REPO_DIR/gui.py" \
         --name Panelyze \
         --icon "$BUILD_ASSETS_DIR/Panelyze.icns" \
         --bundle-id com.curlos.panelyze \
         --product-name Panelyze \
-        --product-version 1.0.0 \
+        --product-version "$APP_VERSION" \
         --distpath "$DIST_DIR" \
         --add-data "$REPO_DIR/magi_model:magi_model" \
         --add-data "$WAIFU2X_DIR:waifu2x" \
@@ -108,6 +112,9 @@ mkdir -p "$PACK_DIR"
         --pyinstaller-build-args=--exclude-module=flet_web \
         --yes
 )
+# "--product-version" doesn't reach the Mac app's Info.plist (it says 0.0.0), so it's set here. Changing Info.plist breaks the app's ad-hoc signature, so it's signed again.
+plutil -replace CFBundleShortVersionString -string "$APP_VERSION" "$APP_PATH/Contents/Info.plist"
+codesign --force --deep --sign - "$APP_PATH"
 
 # 5. Check the built app really works before sharing it.
 echo "Running the self-test on the built app (it's stopped if it takes longer than 10 minutes)..."

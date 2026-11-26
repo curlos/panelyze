@@ -63,14 +63,22 @@ def get_four_koma_strip(left):
 def test_four_koma_reads_the_right_strip_top_to_bottom_then_the_left_strip():
     right_strip, left_strip = get_four_koma_strip(300), get_four_koma_strip(0)
     # Magi's own order goes row by row: right, left, right, left...
-    manga_order = {"panels": [panel for row in zip(right_strip, left_strip) for panel in row]}
+    manga_order = {
+        "panels": [panel for row in zip(right_strip, left_strip) for panel in row]
+    }
 
-    assert reorder_page_result_four_koma(manga_order)["panels"] == right_strip + left_strip
+    assert (
+        reorder_page_result_four_koma(manga_order)["panels"] == right_strip + left_strip
+    )
 
 
 def test_four_koma_text_follows_the_panels_it_is_in():
     right_strip, left_strip = get_four_koma_strip(300), get_four_koma_strip(0)
-    in_right_top, in_left_top, in_right_second = [310, 10, 350, 30], [10, 10, 50, 30], [310, 120, 350, 140]
+    in_right_top, in_left_top, in_right_second = (
+        [310, 10, 350, 30],
+        [10, 10, 50, 30],
+        [310, 120, 350, 140],
+    )
     manga_order = {
         "panels": [right_strip[0], left_strip[0], right_strip[1], left_strip[1]],
         "texts": [in_right_top, in_left_top, in_right_second],
@@ -115,7 +123,9 @@ def test_only_most_pages_have_to_look_like_four_koma():
 
 
 def test_a_manga_grid_of_two_columns_of_three_does_not_look_like_four_koma():
-    grid = [[left, top, left + 400, top + 250] for top in (0, 300, 600) for left in (500, 0)]
+    grid = [
+        [left, top, left + 400, top + 250] for top in (0, 300, 600) for left in (500, 0)
+    ]
 
     assert not looks_like_four_koma([grid, grid])
 
@@ -150,7 +160,9 @@ def test_automatic_without_a_good_saved_direction_stays_automatic(tmp_path, save
     assert get_saved_reading_direction("auto", str(tmp_path)) == "auto"
 
 
-def find_panels_automatically(tmp_path, monkeypatch, page_panels, capsys, saved=None, picked="auto"):
+def find_panels_automatically(
+    tmp_path, monkeypatch, page_panels, capsys, saved=None, picked="auto"
+):
     """
     Run Panel-By-Panel on "picked" with "saved" saved by the download (or nothing), with Magi finding "page_panels" on 2 pages. Returns the directions Magi was asked to find the panels with, the reading order of page 1, and what was printed.
     """
@@ -188,17 +200,23 @@ def test_automatic_reads_four_koma_pages_as_four_koma(tmp_path, monkeypatch, cap
     right_strip, left_strip = get_four_koma_strip(300), get_four_koma_strip(0)
     manga_order = [panel for row in zip(right_strip, left_strip) for panel in row]
 
-    asked, order, printed = find_panels_automatically(tmp_path, monkeypatch, manga_order, capsys)
+    asked, order, printed = find_panels_automatically(
+        tmp_path, monkeypatch, manga_order, capsys
+    )
 
     assert asked == ["rtl"]
     assert order == right_strip + left_strip
     assert "4-koma" in printed
 
 
-def test_automatic_with_nothing_found_uses_manga_order_and_says_so(tmp_path, monkeypatch, capsys):
+def test_automatic_with_nothing_found_uses_manga_order_and_says_so(
+    tmp_path, monkeypatch, capsys
+):
     manga_order = [TOP_RIGHT, TOP_LEFT, BOTTOM_RIGHT, BOTTOM_LEFT]
 
-    asked, order, printed = find_panels_automatically(tmp_path, monkeypatch, manga_order, capsys)
+    asked, order, printed = find_panels_automatically(
+        tmp_path, monkeypatch, manga_order, capsys
+    )
 
     assert asked == ["rtl"]
     assert order == manga_order
@@ -207,14 +225,20 @@ def test_automatic_with_nothing_found_uses_manga_order_and_says_so(tmp_path, mon
 
 def get_four_koma_page_in_manga_order():
     right_strip, left_strip = get_four_koma_strip(300), get_four_koma_strip(0)
-    return [panel for row in zip(right_strip, left_strip) for panel in row], right_strip + left_strip
+    return [
+        panel for row in zip(right_strip, left_strip) for panel in row
+    ], right_strip + left_strip
 
 
-def test_untagged_four_koma_saved_as_manga_order_is_still_read_as_four_koma(tmp_path, monkeypatch, capsys):
+def test_untagged_four_koma_saved_as_manga_order_is_still_read_as_four_koma(
+    tmp_path, monkeypatch, capsys
+):
     # Like "Bocchi the Rock!": Japanese, but not tagged 4-Koma on MangaDex.
     manga_order, four_koma_order = get_four_koma_page_in_manga_order()
 
-    asked, order, printed = find_panels_automatically(tmp_path, monkeypatch, manga_order, capsys, saved="rtl")
+    asked, order, printed = find_panels_automatically(
+        tmp_path, monkeypatch, manga_order, capsys, saved="rtl"
+    )
 
     assert order == four_koma_order
     assert "No reading direction found" not in printed
@@ -222,17 +246,25 @@ def test_untagged_four_koma_saved_as_manga_order_is_still_read_as_four_koma(tmp_
 
 def test_a_saved_left_to_right_is_used_as_is(tmp_path, monkeypatch, capsys):
     asked, order, printed = find_panels_automatically(
-        tmp_path, monkeypatch, [TOP_RIGHT, TOP_LEFT, BOTTOM_RIGHT, BOTTOM_LEFT], capsys, saved="ltr"
+        tmp_path,
+        monkeypatch,
+        [TOP_RIGHT, TOP_LEFT, BOTTOM_RIGHT, BOTTOM_LEFT],
+        capsys,
+        saved="ltr",
     )
 
     assert asked == ["ltr"]
     assert order == [TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT]
 
 
-def test_a_picked_manga_order_is_never_changed_to_four_koma(tmp_path, monkeypatch, capsys):
+def test_a_picked_manga_order_is_never_changed_to_four_koma(
+    tmp_path, monkeypatch, capsys
+):
     manga_order, _ = get_four_koma_page_in_manga_order()
 
-    asked, order, printed = find_panels_automatically(tmp_path, monkeypatch, manga_order, capsys, saved="4koma", picked="rtl")
+    asked, order, printed = find_panels_automatically(
+        tmp_path, monkeypatch, manga_order, capsys, saved="4koma", picked="rtl"
+    )
 
     assert order == manga_order
 
@@ -240,9 +272,15 @@ def test_a_picked_manga_order_is_never_changed_to_four_koma(tmp_path, monkeypatc
 def test_images_to_video_uses_the_saved_direction_too(tmp_path, monkeypatch):
     (tmp_path / READING_DIRECTION_FILE_NAME).write_text("ltr")
     magi = Magi()
-    monkeypatch.setattr(magi, "get_chapter_pages_image_numpy_array", lambda input_directory: [drawn_page(1000, 1000)])
     monkeypatch.setattr(
-        magi, "get_per_page_results", lambda pages: [{"panels": [TOP_RIGHT, TOP_LEFT, BOTTOM_RIGHT, BOTTOM_LEFT]}]
+        magi,
+        "get_chapter_pages_image_numpy_array",
+        lambda input_directory: [drawn_page(1000, 1000)],
+    )
+    monkeypatch.setattr(
+        magi,
+        "get_per_page_results",
+        lambda pages: [{"panels": [TOP_RIGHT, TOP_LEFT, BOTTOM_RIGHT, BOTTOM_LEFT]}],
     )
 
     results = magi.get_data_from_images(str(tmp_path), "auto")
@@ -250,13 +288,19 @@ def test_images_to_video_uses_the_saved_direction_too(tmp_path, monkeypatch):
     assert results[0]["panels"] == [TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT]
 
 
-def test_a_direction_saved_by_the_download_goes_along_with_the_panels(tmp_path, monkeypatch, capsys):
-    find_panels_automatically(tmp_path, monkeypatch, [TOP_RIGHT, TOP_LEFT], capsys, saved="ltr")
+def test_a_direction_saved_by_the_download_goes_along_with_the_panels(
+    tmp_path, monkeypatch, capsys
+):
+    find_panels_automatically(
+        tmp_path, monkeypatch, [TOP_RIGHT, TOP_LEFT], capsys, saved="ltr"
+    )
 
     assert get_saved_panels_direction(tmp_path) == "ltr"
 
 
-def test_nothing_is_saved_with_the_panels_when_the_download_saved_nothing(tmp_path, monkeypatch, capsys):
+def test_nothing_is_saved_with_the_panels_when_the_download_saved_nothing(
+    tmp_path, monkeypatch, capsys
+):
     find_panels_automatically(tmp_path, monkeypatch, [TOP_RIGHT, TOP_LEFT], capsys)
 
     assert get_saved_panels_direction(tmp_path) is None

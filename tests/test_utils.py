@@ -1,7 +1,9 @@
 import pytest
+from types import SimpleNamespace
 import os
 import shutil
 import sys
+from typing import Any, cast
 
 import utils
 from utils import (
@@ -66,9 +68,15 @@ def test_output_dir_would_overwrite_input(tmp_path):
 def test_the_panels_folder_is_like_every_other_tab_s_and_grouped_panels_get_a_series_folder_of_their_own():
     from utils import get_panels_folder
 
-    assert get_panels_folder("/out", os.path.join("One Piece", "Ch 1")) == os.path.join("/out", "One Piece", "Ch 1")
-    assert get_panels_folder("/out", "One Piece/Ch 1", group_by_page=True) == os.path.join("/out", "One Piece (grouped by page)", "Ch 1")
-    assert get_panels_folder("/out", "Ch 1/", group_by_page=True) == os.path.join("/out", "Ch 1 (grouped by page)")
+    assert get_panels_folder("/out", os.path.join("One Piece", "Ch 1")) == os.path.join(
+        "/out", "One Piece", "Ch 1"
+    )
+    assert get_panels_folder(
+        "/out", "One Piece/Ch 1", group_by_page=True
+    ) == os.path.join("/out", "One Piece (grouped by page)", "Ch 1")
+    assert get_panels_folder("/out", "Ch 1/", group_by_page=True) == os.path.join(
+        "/out", "Ch 1 (grouped by page)"
+    )
 
 
 def test_paths_overlap(tmp_path):
@@ -121,7 +129,13 @@ def test_get_all_mangadex_languages_needs_no_process_or_internet(monkeypatch):
 
 
 def test_list_images_is_in_natural_order_and_skips_other_files(tmp_path):
-    for name in ["page_10.png", "page_2.jpg", "page_1.webp", "notes.txt", "._page_3.png"]:
+    for name in [
+        "page_10.png",
+        "page_2.jpg",
+        "page_1.webp",
+        "notes.txt",
+        "._page_3.png",
+    ]:
         (tmp_path / name).write_bytes(b"")
 
     file_names = [os.path.basename(path) for path in utils.list_images(str(tmp_path))]
@@ -134,9 +148,15 @@ def test_folder_scan_sorts_images_naturally(tmp_path):
     for name in ["ch1_page10.png", "ch1_page9.png", "ch2_page1.png"]:
         (tmp_path / name).write_bytes(b"")
 
-    images = utils.construct_directory_structure(str(tmp_path))[tmp_path.name]["__images__"]
+    images = utils.construct_directory_structure(str(tmp_path))[tmp_path.name][
+        "__images__"
+    ]
 
-    assert [image["name"] for image in images] == ["ch1_page9.png", "ch1_page10.png", "ch2_page1.png"]
+    assert [image["name"] for image in images] == [
+        "ch1_page9.png",
+        "ch1_page10.png",
+        "ch2_page1.png",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -151,21 +171,35 @@ def test_folder_scan_sorts_images_naturally(tmp_path):
     ],
 )
 def test_capped_upscale_ratio(width, height, upscale_ratio, expected_ratio):
-    assert utils.get_capped_upscale_ratio(width, height, upscale_ratio) == expected_ratio
+    assert (
+        utils.get_capped_upscale_ratio(width, height, upscale_ratio) == expected_ratio
+    )
 
 
 @pytest.mark.parametrize(
     "width, height, upscale_ratio, expected_ratio",
     [
         (350, 429, 32, 8),  # 16x would be 6864px; 8x is 3432px, 1.12x short of 4K
-        (500, 1000, 32, 4),  # 4x is 4000px, only a bit past 4K; 2x (2000px) would be 1.9x short of 4K, too much
+        (
+            500,
+            1000,
+            32,
+            4,
+        ),  # 4x is 4000px, only a bit past 4K; 2x (2000px) would be 1.9x short of 4K, too much
         (1325, 2035, 32, 2),  # "Best" always does at least one pass
         (600, 700, 2, 2),  # the chosen ratio is the limit, as before
         (320, 160, 32, 8),  # 8x is 2560px, exactly 1.5x short of 4K: still allowed
-        (300, 200, 32, 16),  # 16x is 4800px; 8x (2400px) would be 1.6x short of 4K, too much
+        (
+            300,
+            200,
+            32,
+            16,
+        ),  # 16x is 4800px; 8x (2400px) would be 1.6x short of 4K, too much
     ],
 )
-def test_best_upscale_ratio_stops_short_of_4k_when_the_last_pass_would_go_far_past_it(width, height, upscale_ratio, expected_ratio):
+def test_best_upscale_ratio_stops_short_of_4k_when_the_last_pass_would_go_far_past_it(
+    width, height, upscale_ratio, expected_ratio
+):
     assert utils.get_best_upscale_ratio(width, height, upscale_ratio) == expected_ratio
 
 
@@ -183,10 +217,16 @@ def test_picked_images_are_copied_into_a_folder_named_after_them(tmp_path):
     assert os.path.basename(one_image_folder) == "Ch 1 - page_5"
     assert os.listdir(one_image_folder) == ["page_5.png"]
     assert os.path.basename(three_images_folder) == "Ch 1 - 3 images"
-    assert sorted(os.listdir(three_images_folder)) == ["page_5.png", "page_6.png", "page_7.png"]
+    assert sorted(os.listdir(three_images_folder)) == [
+        "page_5.png",
+        "page_6.png",
+        "page_7.png",
+    ]
 
 
-def test_a_picked_image_whose_name_ends_in_a_space_still_gets_a_working_folder(tmp_path):
+def test_a_picked_image_whose_name_ends_in_a_space_still_gets_a_working_folder(
+    tmp_path,
+):
     # Windows drops a space at the end of a folder name, and then can't find the files inside it.
     chapter = tmp_path / "Ch 1"
     chapter.mkdir()
@@ -201,7 +241,9 @@ def test_a_picked_image_whose_name_ends_in_a_space_still_gets_a_working_folder(t
 def test_process_manager_reads_japanese_output(monkeypatch):
     # On Windows, a child Python writes in an older encoding unless it's told to use UTF-8. Some terminals already tell it, which would hide the bug.
     monkeypatch.delenv("PYTHONIOENCODING", raising=False)
-    lines = ProcessManager().monitor_terminal_output([sys.executable, "-c", "print('呪術廻戦 ♥')"])
+    lines = ProcessManager().monitor_terminal_output(
+        [sys.executable, "-c", "print('呪術廻戦 ♥')"]
+    )
 
     assert [line.rstrip("\r\n") for line in lines] == ["呪術廻戦 ♥"]
 
@@ -210,7 +252,9 @@ def test_waifu2x_path_uses_the_bundled_copy_in_the_packaged_app(tmp_path, monkey
     bundled = tmp_path / "waifu2x" / "waifu2x-ncnn-vulkan"
     bundled.parent.mkdir()
     bundled.write_text("")
-    monkeypatch.setattr(utils.shutil, "which", lambda name: "/usr/local/bin/waifu2x-ncnn-vulkan")
+    monkeypatch.setattr(
+        utils.shutil, "which", lambda name: "/usr/local/bin/waifu2x-ncnn-vulkan"
+    )
 
     assert utils.get_waifu2x_path() == "/usr/local/bin/waifu2x-ncnn-vulkan"
 
@@ -226,7 +270,9 @@ def fake_waifu2x_download(tmp_path, monkeypatch, fail=False, extra_files=None):
     """
     import waifu2x
 
-    program_name = "waifu2x-ncnn-vulkan.exe" if sys.platform == "win32" else "waifu2x-ncnn-vulkan"
+    program_name = (
+        "waifu2x-ncnn-vulkan.exe" if sys.platform == "win32" else "waifu2x-ncnn-vulkan"
+    )
     zip_path = make_comic_file(
         tmp_path / "release.zip",
         {
@@ -269,12 +315,19 @@ def test_waifu2x_is_downloaded_the_first_time_it_is_needed(tmp_path, monkeypatch
     assert len(downloaded) == 1
 
 
-def test_a_waifu2x_zip_made_on_a_mac_with_extra_entries_still_works(tmp_path, monkeypatch):
+def test_a_waifu2x_zip_made_on_a_mac_with_extra_entries_still_works(
+    tmp_path, monkeypatch
+):
     import waifu2x
 
     # A zip made on a Mac can have a "__MACOSX" folder, and a stray file next to the program's folder.
     fake_waifu2x_download(
-        tmp_path, monkeypatch, extra_files={"__MACOSX/waifu2x-ncnn-vulkan-20250915/._a.bin": b"mac", "README.txt": b"read me"}
+        tmp_path,
+        monkeypatch,
+        extra_files={
+            "__MACOSX/waifu2x-ncnn-vulkan-20250915/._a.bin": b"mac",
+            "README.txt": b"read me",
+        },
     )
 
     path = waifu2x.download_waifu2x(report=lambda message: None)
@@ -295,7 +348,9 @@ def test_a_half_finished_waifu2x_folder_is_downloaded_again(tmp_path, monkeypatc
     assert len(downloaded) == 1
 
 
-def test_the_upscale_tab_downloads_waifu2x_and_then_upscales(make_gui, tmp_path, monkeypatch):
+def test_the_upscale_tab_downloads_waifu2x_and_then_upscales(
+    make_gui, tmp_path, monkeypatch
+):
     from gui_classes import UpscaleImagesView
 
     import waifu2x
@@ -321,9 +376,15 @@ def test_download_file_saves_what_it_downloads(tmp_path):
 def test_the_waifu2x_download_is_the_one_for_this_computer(monkeypatch):
     import waifu2x
 
-    for platform, system in (("win32", "windows"), ("darwin", "macos"), ("linux", "linux")):
+    for platform, system in (
+        ("win32", "windows"),
+        ("darwin", "macos"),
+        ("linux", "linux"),
+    ):
         monkeypatch.setattr(waifu2x.sys, "platform", platform)
-        assert waifu2x.get_waifu2x_zip_url().endswith(f"/20250915/waifu2x-ncnn-vulkan-20250915-{system}.zip")
+        assert waifu2x.get_waifu2x_zip_url().endswith(
+            f"/20250915/waifu2x-ncnn-vulkan-20250915-{system}.zip"
+        )
 
 
 def test_a_failed_waifu2x_download_leaves_nothing_behind(tmp_path, monkeypatch):
@@ -348,12 +409,16 @@ def test_mangadex_downloader_command_in_the_packaged_app(monkeypatch):
     assert get_mangadex_downloader_command()[1:] == ["--run-mangadex"]
 
 
-def test_a_finished_command_does_not_open_a_finder_window_in_tests(tmp_path, monkeypatch):
+def test_a_finished_command_does_not_open_a_finder_window_in_tests(
+    tmp_path, monkeypatch
+):
     import subprocess
     import sys
 
     launched = []
-    monkeypatch.setattr(subprocess, "run", lambda command, *args, **kwargs: launched.append(command))
+    monkeypatch.setattr(
+        subprocess, "run", lambda command, *args, **kwargs: launched.append(command)
+    )
 
     utils.ProcessManager().monitor_terminal_output(
         [sys.executable, "-c", "pass"], None, str(tmp_path)
@@ -369,14 +434,19 @@ def test_a_folder_is_saved_as_a_comic_file_in_reading_order(tmp_path):
     from utils import save_folder_as_cbz
 
     chapter = tmp_path / "Ch 1"
-    for page, panel in [("page_2", "panel_1.png"), ("page_10", "panel_1.png"), ("page_2", "panel_10.png"), ("page_2", "panel_2.png")]:
+    for page, panel in [
+        ("page_2", "panel_1.png"),
+        ("page_10", "panel_1.png"),
+        ("page_2", "panel_10.png"),
+        ("page_2", "panel_2.png"),
+    ]:
         (chapter / page).mkdir(parents=True, exist_ok=True)
         (chapter / page / panel).write_bytes(f"{page}/{panel}".encode())
     (chapter / "panel-text.json").write_text("[]")
 
     cbz_path = save_folder_as_cbz(str(chapter))
 
-    assert cbz_path == str(tmp_path / "Ch 1.cbz")
+    assert cbz_path is not None and cbz_path == str(tmp_path / "Ch 1.cbz")
     with zipfile.ZipFile(cbz_path) as cbz:
         assert cbz.namelist() == ["0001.png", "0002.png", "0003.png", "0004.png"]
         # Pages in order (2 before 10), then panels in order inside each page. Only images.
@@ -398,12 +468,19 @@ def test_a_panel_comic_file_shows_one_panel_at_a_time_and_reads_right_to_left(tm
     for name in ["panel_1.png", "panel_2.png"]:
         (chapter / name).write_bytes(b"x")
 
-    with zipfile.ZipFile(save_folder_as_cbz(str(chapter), reading_direction="rtl", one_image_at_a_time=True)) as cbz:
+    cbz_path = save_folder_as_cbz(
+        str(chapter), reading_direction="rtl", one_image_at_a_time=True
+    )
+    assert cbz_path is not None
+    with zipfile.ZipFile(cbz_path) as cbz:
         assert cbz.namelist() == ["0001.png", "0002.png", "ComicInfo.xml"]
         comic_info = cbz.read("ComicInfo.xml").decode()
 
     # Every panel is marked as a two-page spread, so apps in two-page view never put two side by side.
-    assert '<Page Image="0" DoublePage="true"/><Page Image="1" DoublePage="true"/>' in comic_info
+    assert (
+        '<Page Image="0" DoublePage="true"/><Page Image="1" DoublePage="true"/>'
+        in comic_info
+    )
     assert "<Manga>YesAndRightToLeft</Manga>" in comic_info
 
 
@@ -418,14 +495,18 @@ def test_a_comic_file_reads_right_to_left_from_the_saved_reading_direction(tmp_p
         (chapter / "001.jpg").write_bytes(b"x")
         (chapter / READING_DIRECTION_FILE_NAME).write_text(direction)
 
-    with zipfile.ZipFile(save_folder_as_cbz(str(manga), reading_direction="auto")) as cbz:
+    cbz_path = save_folder_as_cbz(str(manga), reading_direction="auto")
+    assert cbz_path is not None
+    with zipfile.ZipFile(cbz_path) as cbz:
         comic_info = cbz.read("ComicInfo.xml").decode()
     assert "<Manga>YesAndRightToLeft</Manga>" in comic_info
     assert "DoublePage" not in comic_info
     # 4-koma pages turn right to left too.
-    assert "<Manga>YesAndRightToLeft</Manga>" in get_comic_info(1, "4koma", False)
+    assert "<Manga>YesAndRightToLeft</Manga>" in str(get_comic_info(1, "4koma", False))
     # Left to right is what apps do anyway, so there's nothing to tell them.
-    with zipfile.ZipFile(save_folder_as_cbz(str(comic))) as cbz:
+    cbz_path = save_folder_as_cbz(str(comic))
+    assert cbz_path is not None
+    with zipfile.ZipFile(cbz_path) as cbz:
         assert cbz.namelist() == ["0001.jpg"]
 
 
@@ -436,7 +517,9 @@ def test_a_folder_without_images_makes_no_comic_file(tmp_path):
     assert not (tmp_path.parent / f"{tmp_path.name}.cbz").exists()
 
 
-def test_a_small_comic_file_has_webp_images_sized_for_tablets_and_grayscale_for_black_and_white(tmp_path):
+def test_a_small_comic_file_has_webp_images_sized_for_tablets_and_grayscale_for_black_and_white(
+    tmp_path,
+):
     import io
     import zipfile
 
@@ -449,7 +532,9 @@ def test_a_small_comic_file_has_webp_images_sized_for_tablets_and_grayscale_for_
     Image.new("RGB", (3000, 1000), (128, 128, 130)).save(chapter / "panel_1.png")
     Image.new("RGB", (500, 400), (40, 140, 230)).save(chapter / "panel_2.png")
 
-    with zipfile.ZipFile(save_folder_as_cbz(str(chapter), size="small")) as cbz:
+    cbz_path = save_folder_as_cbz(str(chapter), size="small")
+    assert cbz_path is not None
+    with zipfile.ZipFile(cbz_path) as cbz:
         assert cbz.namelist() == ["0001.webp", "0002.webp"]
         black_and_white = Image.open(io.BytesIO(cbz.read("0001.webp")))
         color = Image.open(io.BytesIO(cbz.read("0002.webp")))
@@ -495,7 +580,11 @@ def test_a_cbz_becomes_one_chapter_folder_in_page_order(tmp_path):
     folder = utils.extract_comic_files_to_folder([cbz_path])
 
     assert os.path.basename(folder) == "Invincible 001"
-    assert read_pages(folder) == [("001.png", b"1"), ("002.png", b"2"), ("003.png", b"10")]
+    assert read_pages(folder) == [
+        ("001.png", b"1"),
+        ("002.png", b"2"),
+        ("003.png", b"10"),
+    ]
     delete_temporary_folder(folder)
 
 
@@ -520,7 +609,9 @@ def test_a_comic_file_can_not_write_outside_its_folder(tmp_path):
 
     assert read_pages(folder) == [("001.png", b"evil")]
     assert not (tmp_path / "evil.png").exists()
-    assert not os.path.exists(os.path.join(os.path.dirname(os.path.dirname(folder)), "evil.png"))
+    assert not os.path.exists(
+        os.path.join(os.path.dirname(os.path.dirname(folder)), "evil.png")
+    )
     delete_temporary_folder(folder)
 
 
@@ -544,7 +635,11 @@ def test_a_comic_file_keeps_only_its_images(tmp_path):
 def test_an_epub_gives_its_images(tmp_path):
     epub_path = make_comic_file(
         tmp_path / "Book.epub",
-        {"mimetype": b"application/epub+zip", "OEBPS/images/p1.jpg": b"p1", "OEBPS/p1.xhtml": b"<html/>"},
+        {
+            "mimetype": b"application/epub+zip",
+            "OEBPS/images/p1.jpg": b"p1",
+            "OEBPS/p1.xhtml": b"<html/>",
+        },
     )
 
     folder = utils.extract_comic_files_to_folder([epub_path])
@@ -564,7 +659,13 @@ def test_a_pdf_gives_one_image_per_page(tmp_path):
 
     assert sorted(os.listdir(folder)) == ["001.png", "002.png", "003.png"]
     with Image.open(os.path.join(folder, "002.png")) as page:
-        assert page.convert("RGB").getpixel((page.width // 2, page.height // 2))[1] > 100
+        assert (
+            cast(
+                tuple[int, int, int],
+                page.convert("RGB").getpixel((page.width // 2, page.height // 2)),
+            )[1]
+            > 100
+        )
     delete_temporary_folder(folder)
 
 
@@ -575,7 +676,9 @@ def test_only_comic_files_can_be_extracted(tmp_path):
 
 def test_a_cbr_gives_its_pages_in_order(tmp_path):
     # Many .cbr files are really zip files, which bsdtar opens too (real RAR files can't be made in a test).
-    cbr_path = make_comic_file(tmp_path / "Pirates.cbr", {"p/10.jpg": b"10", "p/2.jpg": b"2"})
+    cbr_path = make_comic_file(
+        tmp_path / "Pirates.cbr", {"p/10.jpg": b"10", "p/2.jpg": b"2"}
+    )
 
     folder = utils.extract_comic_files_to_folder([cbr_path])
 
@@ -586,7 +689,9 @@ def test_a_cbr_gives_its_pages_in_order(tmp_path):
 def test_a_cbr_with_a_japanese_name_gives_its_pages(tmp_path):
     # Windows' tar.exe can't read Japanese letters in its arguments.
     (tmp_path / "呪術廻戦").mkdir()
-    cbr_path = make_comic_file(tmp_path / "呪術廻戦" / "呪術廻戦 01.cbr", {"1.jpg": b"1"})
+    cbr_path = make_comic_file(
+        tmp_path / "呪術廻戦" / "呪術廻戦 01.cbr", {"1.jpg": b"1"}
+    )
 
     folder = utils.extract_comic_files_to_folder([cbr_path])
 
@@ -610,7 +715,11 @@ def test_a_cbr_without_bsdtar_gives_a_clear_error(tmp_path, monkeypatch):
     monkeypatch.setattr(utils.shutil, "which", lambda name: None)
     # Only bsdtar (or Windows' tar.exe) is missing; other files and folders are still there.
     real_exists = os.path.exists
-    monkeypatch.setattr(utils.os.path, "exists", lambda path: "tar" not in os.path.basename(path) and real_exists(path))
+    monkeypatch.setattr(
+        utils.os.path,
+        "exists",
+        lambda path: "tar" not in os.path.basename(path) and real_exists(path),
+    )
 
     with pytest.raises(RuntimeError, match="need bsdtar"):
         utils.extract_comic_files_to_folder([cbr_path])
@@ -643,17 +752,28 @@ def test_a_folder_without_images_gives_a_warning(tmp_path):
     (tmp_path / "Empty").mkdir()
     (tmp_path / "Empty" / "notes.txt").write_text("hi")
 
-    assert utils.get_input_summary(str(tmp_path / "Empty")) == "No images found in this folder"
-    assert utils.get_input_summary(str(tmp_path / "Gone")) == "No images found in this folder"
+    assert (
+        utils.get_input_summary(str(tmp_path / "Empty"))
+        == "No images found in this folder"
+    )
+    assert (
+        utils.get_input_summary(str(tmp_path / "Gone"))
+        == "No images found in this folder"
+    )
 
 
 def test_picked_images_and_comic_files_are_counted(tmp_path):
     from PIL import Image
 
     assert utils.get_input_summary(image_paths=["a.png"]) == "1 image"
-    assert utils.get_input_summary(image_paths=["a.png", "b.png", "c.png"]) == "3 images"
+    assert (
+        utils.get_input_summary(image_paths=["a.png", "b.png", "c.png"]) == "3 images"
+    )
 
-    cbz = make_comic_file(tmp_path / "One.cbz", {"1.png": b"1", "2.png": b"2", "ComicInfo.xml": b"x", "__MACOSX/._1.png": b"m"})
+    cbz = make_comic_file(
+        tmp_path / "One.cbz",
+        {"1.png": b"1", "2.png": b"2", "ComicInfo.xml": b"x", "__MACOSX/._1.png": b"m"},
+    )
     pages = [Image.new("RGB", (50, 50), "red") for _ in range(3)]
     pdf = str(tmp_path / "Two.pdf")
     pages[0].save(pdf, save_all=True, append_images=pages[1:])
@@ -674,7 +794,9 @@ def test_a_cancel_clicked_before_the_job_set_what_it_stops_stops_it_right_away()
     from types import SimpleNamespace
 
     # Clicked while it was still starting: the button already says "Cancelling..." and can't be clicked again.
-    cancel_button = SimpleNamespace(on_click=None, disabled=True, text=utils.CANCELLING_TEXT)
+    cancel_button = SimpleNamespace(
+        on_click=None, disabled=True, text=utils.CANCELLING_TEXT
+    )
     stopped = []
 
     utils.set_cancel_click(cancel_button, lambda: stopped.append(True))
@@ -689,22 +811,265 @@ def test_a_program_cancelled_before_it_started_is_stopped_as_soon_as_it_starts()
     process_manager.cancel_process()
     started_at = time.monotonic()
 
-    process_manager.monitor_terminal_output([sys.executable, "-c", "import time; time.sleep(30)"])
+    process_manager.monitor_terminal_output(
+        [sys.executable, "-c", "import time; time.sleep(30)"]
+    )
 
-    assert process_manager.cancelled and process_manager.process.returncode != 0
+    assert (
+        process_manager.cancelled
+        and process_manager.process is not None
+        and process_manager.process.returncode != 0
+    )
     assert time.monotonic() - started_at < 10
 
 
-def test_a_comic_file_that_cannot_be_opened_leaves_nothing_behind(tmp_path, monkeypatch):
+def test_a_comic_file_that_cannot_be_opened_leaves_nothing_behind(
+    tmp_path, monkeypatch
+):
     import tempfile
+    import zipfile
 
     broken = tmp_path / "Broken.cbz"
     broken.write_bytes(b"not a zip file")
     made_folders = []
     real_mkdtemp = tempfile.mkdtemp
-    monkeypatch.setattr(utils.tempfile, "mkdtemp", lambda *args, **kwargs: made_folders.append(real_mkdtemp(*args, **kwargs)) or made_folders[-1])
+    monkeypatch.setattr(
+        utils.tempfile,
+        "mkdtemp",
+        lambda *args, **kwargs: (
+            made_folders.append(real_mkdtemp(*args, **kwargs)) or made_folders[-1]
+        ),
+    )
 
-    with pytest.raises(Exception):
+    with pytest.raises(zipfile.BadZipFile):
         utils.extract_comic_files_to_folder([str(broken)])
 
     assert made_folders and not os.path.exists(made_folders[0])
+
+
+def test_an_error_while_reading_the_output_stops_the_command():
+    def fail(line):
+        raise ValueError("can't show this line")
+
+    process_manager = ProcessManager()
+    child_code = "import time; print('first line', flush=True); time.sleep(30)"
+
+    process_manager.monitor_terminal_output(
+        [sys.executable, "-c", child_code], on_line=fail
+    )
+
+    # Not left running in the background (e.g. waifu2x still reading a folder that's being deleted).
+    assert (
+        process_manager.process is not None
+        and process_manager.process.poll() is not None
+    )
+    assert process_manager.process.returncode != 0
+
+
+def test_a_comic_file_that_fails_halfway_leaves_nothing_behind(tmp_path):
+    from PIL import Image, UnidentifiedImageError
+    from utils import save_folder_as_cbz
+
+    chapter = tmp_path / "Ch 1"
+    chapter.mkdir()
+    Image.new("RGB", (20, 20), "white").save(chapter / "001.png")
+    (chapter / "002.png").write_bytes(b"not an image")
+
+    with pytest.raises(UnidentifiedImageError):
+        save_folder_as_cbz(str(chapter), size="small")
+
+    assert sorted(os.listdir(tmp_path)) == ["Ch 1"]
+
+
+def test_a_broken_shortcut_to_an_image_is_skipped(tmp_path):
+    from utils import construct_directory_structure
+
+    chapter = tmp_path / "Ch 1"
+    chapter.mkdir()
+    (chapter / "001.png").write_bytes(b"x")
+    # A shortcut (symlink) to an image that was moved or deleted.
+    os.symlink(tmp_path / "gone.png", chapter / "002.png")
+
+    assert construct_directory_structure(str(chapter)) == {
+        "Ch 1": {"__images__": [{"name": "001.png", "size": 1}]}
+    }
+
+
+def test_the_output_folder_is_the_same_folder_in_another_case(tmp_path):
+    from utils import output_dir_would_overwrite_input
+
+    (tmp_path / "Manga" / "One Piece").mkdir(parents=True)
+
+    # Mac disks ignore case: "manga" is the "Manga" folder.
+    assert output_dir_would_overwrite_input(
+        str(tmp_path / "Manga" / "One Piece"), str(tmp_path / "manga")
+    )
+    assert output_dir_would_overwrite_input(
+        str(tmp_path / "Manga" / "One Piece"),
+        str(tmp_path / "manga" / "one piece" / "out"),
+    )
+
+
+def test_comic_file_pages_in_other_image_formats_are_saved_as_png(tmp_path):
+    import io
+    import shutil
+    import zipfile
+    from PIL import Image
+    from utils import count_comic_file_pages, extract_comic_files_to_folder
+
+    def image_bytes(image_format):
+        data = io.BytesIO()
+        Image.new("RGB", (8, 8), "white").save(data, image_format)
+        return data.getvalue()
+
+    cbz_path = tmp_path / "comic.cbz"
+    with zipfile.ZipFile(cbz_path, "w") as cbz:
+        cbz.writestr("p1.gif", image_bytes("GIF"))
+        cbz.writestr("p2.jpg", image_bytes("JPEG"))
+        cbz.writestr("p3.bmp", image_bytes("BMP"))
+        cbz.writestr("p10.tiff", image_bytes("TIFF"))
+
+    assert count_comic_file_pages(str(cbz_path)) == 4
+    folder = extract_comic_files_to_folder([str(cbz_path)])
+    try:
+        # One comic file gives a folder named after it with its pages.
+        pages_folder = folder
+        assert sorted(os.listdir(pages_folder)) == [
+            "001.png",
+            "002.jpg",
+            "003.png",
+            "004.png",
+        ]
+        with Image.open(os.path.join(pages_folder, "001.png")) as page:
+            assert page.format == "PNG"
+    finally:
+        shutil.rmtree(os.path.dirname(folder))
+
+
+def test_a_16_bit_tiff_page_in_a_comic_file_keeps_its_grays(tmp_path):
+    import io
+    import shutil
+    import zipfile
+    import numpy
+    from PIL import Image
+    from utils import extract_comic_files_to_folder
+
+    # Dark gray, as a 16-bit scan.
+    data = io.BytesIO()
+    Image.fromarray(numpy.full((8, 8), 16384, dtype=numpy.uint16)).save(data, "TIFF")
+    cbz_path = tmp_path / "comic.cbz"
+    with zipfile.ZipFile(cbz_path, "w") as cbz:
+        cbz.writestr("p1.tif", data.getvalue())
+
+    folder = extract_comic_files_to_folder([str(cbz_path)])
+    try:
+        with Image.open(os.path.join(folder, "001.png")) as page:
+            assert page.convert("L").getpixel((0, 0)) == 64
+    finally:
+        shutil.rmtree(os.path.dirname(folder))
+
+
+def test_a_comic_file_that_cant_be_written_says_why(tmp_path):
+    from utils import save_folder_as_cbz
+
+    chapter = tmp_path / "Ch 1"
+    chapter.mkdir()
+    (chapter / "001.png").write_bytes(b"x")
+    os.chmod(tmp_path, 0o500)
+    try:
+        with pytest.raises(PermissionError):
+            save_folder_as_cbz(str(chapter))
+    finally:
+        os.chmod(tmp_path, 0o700)
+
+
+def test_the_download_tab_folder_in_another_case_is_the_same_folder(tmp_path):
+    from utils import get_library_directory
+
+    (tmp_path / "Downloads").mkdir()
+
+    assert (
+        get_library_directory(
+            str(tmp_path / "downloads"),
+            {"output_directory_mangadex": str(tmp_path / "Downloads")},
+        )
+        is None
+    )
+
+
+def test_a_web_link_in_a_line_can_be_clicked():
+    import flet as ft
+    from utils import set_text_with_links
+
+    line = ft.Text()
+    set_text_with_links(
+        line,
+        "Couldn't download it. It comes from https://github.com/the-database/MangaJaNai/releases. Try again.",
+    )
+
+    assert line.value is None
+    spans = line.spans or []
+    assert [span.text for span in spans] == [
+        "Couldn't download it. It comes from ",
+        "https://github.com/the-database/MangaJaNai/releases",
+        ". Try again.",
+    ]
+    assert [bool(span.on_click) for span in spans] == [False, True, False]
+
+    # Clicking it opens it in the browser.
+    opened = []
+    on_click = spans[1].on_click
+    assert on_click is not None
+    on_click(cast(Any, SimpleNamespace(page=SimpleNamespace(launch_url=opened.append))))
+    assert opened == ["https://github.com/the-database/MangaJaNai/releases"]
+
+    # A line without a link stays plain text.
+    set_text_with_links(line, "Upscaling finished!")
+    assert line.value == "Upscaling finished!" and not line.spans
+
+
+def test_the_end_of_a_sentence_is_not_part_of_a_link():
+    import flet as ft
+    from utils import set_text_with_links
+
+    for text in (
+        "(about 2 GB from https://huggingface.co/ragavsachdeva/magiv2).",
+        "from https://github.com/the-database/MangaJaNai/releases...",
+    ):
+        line = ft.Text()
+        set_text_with_links(line, text)
+        assert [span.text for span in line.spans or [] if span.on_click] == [
+            text.split("from ")[1].rstrip(".)")
+        ]
+
+
+def test_quotes_and_brackets_around_a_link_are_not_part_of_it():
+    import flet as ft
+    from utils import set_text_with_links
+
+    # E.g. an error that shows a list of addresses.
+    line = ft.Text()
+    set_text_with_links(
+        line,
+        "Couldn't open ['https://huggingface.co/ragavsachdeva/magiv2'] or \"https://example.com\"",
+    )
+
+    assert [span.text for span in line.spans or [] if span.on_click] == [
+        "https://huggingface.co/ragavsachdeva/magiv2",
+        "https://example.com",
+    ]
+
+
+def test_a_message_about_links_with_no_real_link_stays_plain_text():
+    import flet as ft
+    from utils import set_text_with_links
+
+    line = ft.Text()
+    set_text_with_links(
+        line, "Not a web link (it should start with https://): slam dunk"
+    )
+
+    assert (
+        line.value == "Not a web link (it should start with https://): slam dunk"
+        and not line.spans
+    )

@@ -3,6 +3,7 @@ A quick check that everything Panelyze needs works, with no window: "python gui.
 
 "build_mac_app.sh" runs it on the freshly built app, so a broken bundle (e.g. a missing library, Magi files or waifu2x) is caught before it's zipped and shared. Nothing here needs the internet.
 """
+
 import os
 import subprocess
 import sys
@@ -21,10 +22,18 @@ def make_test_page(path):
     page = Image.new("RGB", (800, 1200), "white")
     draw = ImageDraw.Draw(page)
 
-    for x1, y1, x2, y2 in [(30, 30, 390, 580), (410, 30, 770, 580), (30, 600, 770, 1170)]:
+    for x1, y1, x2, y2 in [
+        (30, 30, 390, 580),
+        (410, 30, 770, 580),
+        (30, 600, 770, 1170),
+    ]:
         draw.rectangle((x1, y1, x2, y2), outline="black", width=8)
         for i in range(6):
-            draw.line((x1 + 40 + i * 40, y1 + 60, x1 + 120 + i * 30, y2 - 60), fill="black", width=4)
+            draw.line(
+                (x1 + 40 + i * 40, y1 + 60, x1 + 120 + i * 30, y2 - 60),
+                fill="black",
+                width=4,
+            )
         draw.ellipse((x1 + 60, y1 + 80, x1 + 220, y1 + 200), outline="black", width=4)
 
     page.save(path)
@@ -48,7 +57,9 @@ def check_waifu2x(work_directory):
 
     if is_running_as_packaged_app():
         # The packaged app must use its own copy, not one found on the PATH or downloaded: that's what this check is for when the app is built.
-        assert (get_waifu2x_path() or "").startswith(sys._MEIPASS), "waifu2x isn't bundled in the app"
+        assert (get_waifu2x_path() or "").startswith(sys._MEIPASS), (  # pyright: ignore[reportAttributeAccessIssue]
+            "waifu2x isn't bundled in the app"
+        )
     else:
         # Downloaded the first time when running from source, like the Upscale tab does.
         download_waifu2x()
@@ -57,7 +68,11 @@ def check_waifu2x(work_directory):
     output_image = os.path.join(work_directory, "small_2x.png")
     Image.new("RGB", (40, 30), "white").save(input_image)
     upscale_with_waifu2x(
-        input_image, output_image, upscale_ratio=2, noise_level=0, process_manager=ProcessManager()
+        input_image,
+        output_image,
+        upscale_ratio=2,
+        noise_level=0,
+        process_manager=ProcessManager(),
     )
 
     assert Image.open(output_image).size == (80, 60), "wrong upscaled size"
@@ -69,8 +84,12 @@ def check_video(work_directory):
 
     images_folder = os.path.join(work_directory, "panels")
     os.makedirs(images_folder)
-    Image.new("RGB", (300, 400), "white").save(os.path.join(images_folder, "panel_1.png"))
-    Image.new("RGB", (400, 300), "gray").save(os.path.join(images_folder, "panel_2.png"))
+    Image.new("RGB", (300, 400), "white").save(
+        os.path.join(images_folder, "panel_1.png")
+    )
+    Image.new("RGB", (400, 300), "gray").save(
+        os.path.join(images_folder, "panel_2.png")
+    )
 
     settings = {
         "use_reading_speed_wpm": False,
@@ -83,7 +102,9 @@ def check_video(work_directory):
     video_creator.initialize_flet_client_storage_values(settings)
     video_file = os.path.join(work_directory, "video.mp4")
     video_creator.create_video_from_images(
-        images_folder, video_file, full_output_directory=os.path.join(work_directory, "video")
+        images_folder,
+        video_file,
+        full_output_directory=os.path.join(work_directory, "video"),
     )
 
     assert os.path.getsize(video_file) > 0, "empty video"
@@ -100,7 +121,9 @@ def check_mangadex_downloader(work_directory):
         timeout=120,
     )
 
-    assert "English" in result.stdout, f"no language list: {result.stdout[-300:]}{result.stderr[-300:]}"
+    assert "English" in result.stdout, (
+        f"no language list: {result.stdout[-300:]}{result.stderr[-300:]}"
+    )
     return "mangadex-downloader runs"
 
 
@@ -151,6 +174,38 @@ def check_comix_downloader(work_directory):
     return "comix.to downloader and nodriver load"
 
 
+def check_best_upscaler_libraries(work_directory):
+    import numpy
+    import spandrel
+    import torch
+    from janai import can_use_coreml
+
+    assert spandrel.ModelLoader
+    if not can_use_coreml():
+        return "spandrel loads (Core ML isn't used on this computer)"
+
+    # The same steps as for a real "Best" model (see "get_coreml_upscale_function"), on a tiny one: the real ones are a 592 MB download.
+    import coremltools as ct
+
+    layer = torch.nn.Conv2d(3, 3, 3, padding=1).eval()
+    traced_layer = torch.jit.trace(layer, torch.rand(1, 3, 16, 16))
+    model = ct.convert(
+        traced_layer,
+        inputs=[ct.TensorType(name="image", shape=(1, 3, 16, 16))],
+        outputs=[ct.TensorType(name="upscaled")],
+        minimum_deployment_target=ct.target.macOS13,
+        convert_to="mlprogram",
+    )
+    model_path = os.path.join(work_directory, "tiny.mlpackage")
+    model.save(model_path)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+    output = ct.models.MLModel(model_path).predict(
+        {"image": numpy.zeros((1, 3, 16, 16), numpy.float32)}
+    )["upscaled"]
+
+    assert output.shape == (1, 3, 16, 16), f"wrong output shape {output.shape}"
+    return "spandrel loads, and Core ML converts and runs a model"
+
+
 CHECKS = [
     check_magi_panels,
     check_waifu2x,
@@ -159,6 +214,7 @@ CHECKS = [
     check_text_to_speech_libraries,
     check_comic_files,
     check_comix_downloader,
+    check_best_upscaler_libraries,
 ]
 
 
@@ -174,7 +230,9 @@ def run_self_test():
     failed_checks = 0
 
     for check in CHECKS:
-        with tempfile.TemporaryDirectory(prefix="panelyze-self-test-") as work_directory:
+        with tempfile.TemporaryDirectory(
+            prefix="panelyze-self-test-"
+        ) as work_directory:
             try:
                 report_lines.append(f"PASS {check.__name__}: {check(work_directory)}")
             except Exception:
@@ -183,7 +241,9 @@ def run_self_test():
         print(report_lines[-1], flush=True)
 
     report_lines.append(
-        "SELF-TEST PASSED" if failed_checks == 0 else f"SELF-TEST FAILED ({failed_checks} failed)"
+        "SELF-TEST PASSED"
+        if failed_checks == 0
+        else f"SELF-TEST FAILED ({failed_checks} failed)"
     )
     print(report_lines[-1], flush=True)
 

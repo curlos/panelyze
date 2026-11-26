@@ -9,8 +9,15 @@ from gui_classes.WrappingCheckbox import WrappingCheckbox
 from default_settings import can_pick_output_folders, get_output_directory
 from gui_classes.MangaDexDownloaderView import get_downloader
 from download_pages_from_url import get_min_image_side
-from gui_classes.PickInputAndOutputDirectories import COMIC_FILES_HELP_TEXT, save_input_to_temporary_folder
-from gui_classes.ProgressPanel import format_duration, report_output_folder, report_progress
+from gui_classes.PickInputAndOutputDirectories import (
+    COMIC_FILES_HELP_TEXT,
+    save_input_to_temporary_folder,
+)
+from gui_classes.ProgressPanel import (
+    format_duration,
+    report_output_folder,
+    report_progress,
+)
 from utils import (
     COMIC_FILE_EXTENSIONS,
     IMAGE_EXTENSIONS,
@@ -23,8 +30,16 @@ from utils import (
     is_comic_file,
     is_image_file,
     open_directory,
+    is_same_or_inside,
     paths_overlap,
 )
+
+
+class StepFailed(RuntimeError):
+    """
+    A step's tab stopped with an error it already showed.
+    """
+
 
 # The steps always run in this order, so a later step can never come before an earlier one. Any combination of one or more steps can be picked.
 PIPELINE_STEPS = [
@@ -63,7 +78,9 @@ def get_section(label, controls):
     """
     return ft.Column(
         controls=[
-            ft.Text(label.upper(), size=12, weight=ft.FontWeight.BOLD, color=LABEL_COLOR),
+            ft.Text(
+                label.upper(), size=12, weight=ft.FontWeight.BOLD, color=LABEL_COLOR
+            ),
             *controls,
         ],
         spacing=6,
@@ -148,18 +165,27 @@ def get_download_review(storage, url):
     details = []
     if source in (None, "MangaDex"):
         language = get("language") or {}
-        details.append(f"language {language.get('name', 'English')}" + (" (MangaDex only)" if source is None else ""))
+        details.append(
+            f"language {language.get('name', 'English')}"
+            + (" (MangaDex only)" if source is None else "")
+        )
     if source in (None, "MangaDex", "comix.to") and get("use_start_and_end_chapters"):
-        details.append(f"chapters {get('start_chapter') or 'first'} to {get('end_chapter') or 'last'}")
+        details.append(
+            f"chapters {get('start_chapter') or 'first'} to {get('end_chapter') or 'last'}"
+        )
     if source in (None, "MangaDex"):
         if get("use_start_and_end_pages"):
-            details.append(f"pages {get('start_page') or 'first'} to {get('end_page') or 'last'}")
+            details.append(
+                f"pages {get('start_page') or 'first'} to {get('end_page') or 'last'}"
+            )
         if get("upload_choice") == "first":
             details.append("first upload of each chapter")
         elif get("upload_choice") == "group" and (get("preferred_group") or "").strip():
             details.append("the preferred group's uploads")
     if source == "the web page" and get_min_image_side(storage):
-        details.append(f"only images at least {get_min_image_side(storage)}px on the shorter side")
+        details.append(
+            f"only images at least {get_min_image_side(storage)}px on the shorter side"
+        )
     if source:
         details.insert(0, f"from {source}")
     return ", ".join(details)
@@ -259,13 +285,17 @@ class PipelineView(ft.Container):
             on_result=lambda e: self.handle_directory_picked(e, "output")
         )
         self.input_images_picker = ft.FilePicker(on_result=self.handle_images_picked)
-        self.input_comic_files_picker = ft.FilePicker(on_result=self.handle_comic_files_picked)
+        self.input_comic_files_picker = ft.FilePicker(
+            on_result=self.handle_comic_files_picked
+        )
         self.parent_gui.page.overlay.append(self.input_images_picker)
         self.parent_gui.page.overlay.append(self.input_comic_files_picker)
         self.parent_gui.page.overlay.append(self.input_directory_picker)
         self.parent_gui.page.overlay.append(self.output_directory_picker)
 
-        self.input_directory_text = ft.Text("No input directory picked", color=Nord.TEXT)
+        self.input_directory_text = ft.Text(
+            "No input directory picked", color=Nord.TEXT
+        )
 
         self.output_directory_text = ft.Text(self.output_directory, color=Nord.PATH)
 
@@ -285,7 +315,9 @@ class PipelineView(ft.Container):
                     on_click=lambda e: self.input_images_picker.pick_files(
                         allow_multiple=True,
                         file_type=ft.FilePickerFileType.CUSTOM,
-                        allowed_extensions=[extension.lstrip(".") for extension in IMAGE_EXTENSIONS],
+                        allowed_extensions=[
+                            extension.lstrip(".") for extension in IMAGE_EXTENSIONS
+                        ],
                     ),
                 ),
                 ft.ElevatedButton(
@@ -295,11 +327,13 @@ class PipelineView(ft.Container):
                     on_click=lambda e: self.input_comic_files_picker.pick_files(
                         allow_multiple=True,
                         file_type=ft.FilePickerFileType.CUSTOM,
-                        allowed_extensions=[extension.lstrip(".") for extension in COMIC_FILE_EXTENSIONS],
+                        allowed_extensions=[
+                            extension.lstrip(".") for extension in COMIC_FILE_EXTENSIONS
+                        ],
                     ),
                 ),
                 self.input_directory_text,
-            ]
+            ],
         )
         # Links are downloaded with the Download step instead.
         self.input_column = ft.Column(
@@ -328,7 +362,9 @@ class PipelineView(ft.Container):
                     "Change Output Folder",
                     style=Nord.button_style("secondary"),
                     icon=ft.Icons.FOLDER_OPEN,
-                    on_click=lambda e: self.output_directory_picker.get_directory_path(),
+                    on_click=lambda e: (
+                        self.output_directory_picker.get_directory_path()
+                    ),
                     visible=can_pick_output_folders(),
                 ),
                 ft.IconButton(
@@ -340,7 +376,7 @@ class PipelineView(ft.Container):
                     visible=can_pick_output_folders(),
                 ),
                 self.output_directory_text,
-            ]
+            ],
         )
 
         self.content = ft.Column(
@@ -362,14 +398,20 @@ class PipelineView(ft.Container):
             expand=True,
         )
         # Shown next to Run while the Pipeline runs. Each step sets what it stops (see "run_step").
-        self.cancel_button = ft.FilledTonalButton(style=Nord.button_style("danger"), text="Cancel", visible=False)
+        self.cancel_button = ft.FilledTonalButton(
+            style=Nord.button_style("danger"), text="Cancel", visible=False
+        )
         # Set when Cancel is clicked, so no step after the current one starts.
         self.cancelled = False
         # How far a run is: each selected step and whether it's done, running, waiting, failed or cancelled (see "show_step_statuses").
         self.step_status_column = ft.Column(spacing=4, visible=False)
         # The Run button stays under the part that scrolls, so it's always on screen.
         self.content = ft.Column(
-            controls=[self.content, ft.Row(controls=[self.run_button, self.cancel_button]), self.step_status_column],
+            controls=[
+                self.content,
+                ft.Row(controls=[self.run_button, self.cancel_button]),
+                self.step_status_column,
+            ],
             spacing=15,
         )
 
@@ -385,7 +427,9 @@ class PipelineView(ft.Container):
         selected_steps = self.get_selected_steps()
 
         if not selected_steps:
-            self.review_column.controls = [ft.Text("Pick at least one step.", color=MUTED_COLOR)]
+            self.review_column.controls = [
+                ft.Text("Pick at least one step.", color=MUTED_COLOR)
+            ]
             return
 
         self.review_column.controls = [
@@ -394,7 +438,11 @@ class PipelineView(ft.Container):
                 "Settings each step will use",
                 [
                     *self.get_settings_rows(selected_steps),
-                    ft.Text("Change them in each step's own tab.", size=12, color=MUTED_COLOR),
+                    ft.Text(
+                        "Change them in each step's own tab.",
+                        size=12,
+                        color=MUTED_COLOR,
+                    ),
                 ],
             ),
             get_section("Final result", [self.get_final_result_card(selected_steps)]),
@@ -406,7 +454,11 @@ class PipelineView(ft.Container):
             controls=[
                 ft.Row(
                     controls=[
-                        ft.Text(f"{step_number}.", weight=ft.FontWeight.BOLD, color=Nord.TEXT),
+                        ft.Text(
+                            f"{step_number}.",
+                            weight=ft.FontWeight.BOLD,
+                            color=Nord.TEXT,
+                        ),
                         ft.Icon(TAB_ICONS[step], size=18, color=Nord.TEXT),
                         ft.Text(step, weight=ft.FontWeight.BOLD, color=Nord.TEXT),
                     ],
@@ -424,7 +476,12 @@ class PipelineView(ft.Container):
                     ft.Row(
                         controls=[
                             ft.Icon(TAB_ICONS[step], size=18, color=Nord.TEXT),
-                            ft.Text(step, weight=ft.FontWeight.BOLD, color=Nord.TEXT, expand=True),
+                            ft.Text(
+                                step,
+                                weight=ft.FontWeight.BOLD,
+                                color=Nord.TEXT,
+                                expand=True,
+                            ),
                         ],
                         spacing=6,
                         width=230,
@@ -434,7 +491,9 @@ class PipelineView(ft.Container):
                 vertical_alignment=ft.CrossAxisAlignment.START,
             )
             for step, details in get_settings_review(
-                self.parent_gui.page.client_storage, selected_steps, self.mangadex_url_text_field.value
+                self.parent_gui.page.client_storage,
+                selected_steps,
+                self.mangadex_url_text_field.value or "",
             )
         ]
 
@@ -499,7 +558,9 @@ class PipelineView(ft.Container):
         # An empty one means the default folder.
         storage = self.parent_gui.page.client_storage
         storage.set("output_directory_pipeline", output_directory)
-        self.output_directory = get_output_directory(storage, "output_directory_pipeline")
+        self.output_directory = get_output_directory(
+            storage, "output_directory_pipeline"
+        )
         self.output_directory_text.value = self.output_directory
 
         self.refresh_review()
@@ -513,7 +574,9 @@ class PipelineView(ft.Container):
         self.clear_input()
         self.input_image_paths = [file.path for file in e.files]
         self.input_directory = os.path.dirname(self.input_image_paths[0])
-        self.input_directory_text.value = f"{len(self.input_image_paths)} image(s) from {self.input_directory}"
+        self.input_directory_text.value = (
+            f"{len(self.input_image_paths)} image(s) from {self.input_directory}"
+        )
         self.input_directory_text.color = PATH_COLOR
 
         self.refresh_review()
@@ -535,7 +598,9 @@ class PipelineView(ft.Container):
         self.clear_input()
         self.input_comic_paths = comic_paths
         self.input_directory = os.path.dirname(comic_paths[0])
-        self.input_directory_text.value = f"{len(comic_paths)} comic file(s) from {self.input_directory}"
+        self.input_directory_text.value = (
+            f"{len(comic_paths)} comic file(s) from {self.input_directory}"
+        )
         self.input_directory_text.color = PATH_COLOR
 
         self.refresh_review()
@@ -561,6 +626,12 @@ class PipelineView(ft.Container):
                 return f"ERROR: {error}"
         elif not self.input_directory or not os.path.isdir(self.input_directory):
             return "ERROR: Please pick an input directory."
+        elif not (self.input_image_paths or self.input_comic_paths):
+            # Each step's numbered folder is cleared before it runs, so an input inside one would be deleted. (Picked images and comic files are copied to a temporary folder first.)
+            for step in selected_steps:
+                step_folder = get_step_output_directory(self.output_directory, step)
+                if is_same_or_inside(self.input_directory, step_folder):
+                    return f'ERROR: The input is inside "{os.path.basename(step_folder)}", a folder the Pipeline clears before the "{step}" step. Please move it out, or pick a different output directory.'
 
         return None
 
@@ -617,17 +688,23 @@ class PipelineView(ft.Container):
         try:
             # Picked comic files or picked images are saved into their own temporary folder, so they're processed exactly like a picked folder.
             if "Download" not in selected_steps:
-                temporary_input_folder = save_input_to_temporary_folder(self.input_comic_paths, self.input_image_paths)
+                temporary_input_folder = save_input_to_temporary_folder(
+                    self.input_comic_paths, self.input_image_paths
+                )
             if temporary_input_folder:
                 input_directory = temporary_input_folder
 
             self.run_pipeline(selected_steps, input_directory)
         except Exception as error:
-            terminal_output.update_terminal_with_error_message(f"ERROR: Pipeline stopped: {error}")
+            terminal_output.update_terminal_with_error_message(
+                f"ERROR: Pipeline stopped: {error}"
+            )
         finally:
             # Only ever delete the temporary folder made just above.
             if temporary_input_folder:
-                shutil.rmtree(os.path.dirname(temporary_input_folder), ignore_errors=True)
+                shutil.rmtree(
+                    os.path.dirname(temporary_input_folder), ignore_errors=True
+                )
 
             report_progress(prefix="", total_started_at=None)
             reset_cancel_button(self.cancel_button)
@@ -661,6 +738,8 @@ class PipelineView(ft.Container):
         step_statuses = {step: ("waiting", "") for step in selected_steps}
         self.show_step_statuses(step_statuses)
 
+        # Set by the loop below (there's always at least one step).
+        step = step_output_directory = None
         for step_number, step in enumerate(selected_steps, start=1):
             if self.cancelled:
                 self.show_pipeline_cancelled(step_statuses, step)
@@ -693,9 +772,16 @@ class PipelineView(ft.Container):
                     return
                 step_statuses[step] = ("failed", "")
                 self.show_step_statuses(step_statuses)
-                terminal_output.update_terminal_with_error_message(
-                    f'ERROR: Pipeline stopped. "{step}" failed: {error}'
-                )
+                message = f'ERROR: Pipeline stopped. "{step}" failed: {error}'
+                if isinstance(error, StepFailed):
+                    # The Status view keeps the step's own error (e.g. "waifu2x was not found"), which says what to fix.
+                    add_line_to_terminal_output_list_view(
+                        terminal_output.terminal_output_list_view,
+                        message,
+                        color=Nord.RED_TEXT,
+                    )
+                else:
+                    terminal_output.update_terminal_with_error_message(message)
                 return
 
             step_statuses[step] = ("done", step_time)
@@ -717,13 +803,17 @@ class PipelineView(ft.Container):
                 return
 
         total_time = format_duration(time.monotonic() - pipeline_started_at)
-        self.show_progress_message(f"Time: {' · '.join(step_durations)} · total {total_time}")
+        self.show_progress_message(
+            f"Time: {' · '.join(step_durations)} · total {total_time}"
+        )
         self.show_progress_message(
             f"Pipeline finished in {total_time}! Everything was saved to {self.output_directory}"
         )
         open_directory(self.output_directory)
         # Opened last, so it's the window in front.
-        open_directory(get_final_step_folder(step, step_input_directory, step_output_directory))
+        open_directory(
+            get_final_step_folder(step, step_input_directory, step_output_directory)
+        )
 
     def show_pipeline_cancelled(self, step_statuses, step):
         """
@@ -734,9 +824,13 @@ class PipelineView(ft.Container):
         message = f'Pipeline cancelled at "{step}". The steps that finished are kept in {self.output_directory}'
         # Shown as cancelled, like a tab's own Cancel, not as an error.
         add_line_to_terminal_output_list_view(
-            self.parent_gui.terminal_output.terminal_output_list_view, message, color=Nord.YELLOW
+            self.parent_gui.terminal_output.terminal_output_list_view,
+            message,
+            color=Nord.YELLOW,
         )
-        self.parent_gui.terminal_output.hide_loading_text(message, success=False, cancelled=True)
+        self.parent_gui.terminal_output.hide_loading_text(
+            message, success=False, cancelled=True
+        )
 
     def show_step_statuses(self, step_statuses):
         """
@@ -756,8 +850,15 @@ class PipelineView(ft.Container):
                 ft.Row(
                     controls=[
                         ft.Icon(icon, size=16, color=color),
-                        ft.Text(step, color=Nord.TEXT if status != "waiting" else Nord.TEXT_MUTED),
-                        *([ft.Text(note, size=12, color=Nord.TEXT_MUTED)] if note else []),
+                        ft.Text(
+                            step,
+                            color=Nord.TEXT if status != "waiting" else Nord.TEXT_MUTED,
+                        ),
+                        *(
+                            [ft.Text(note, size=12, color=Nord.TEXT_MUTED)]
+                            if note
+                            else []
+                        ),
                     ],
                     spacing=8,
                 )
@@ -787,7 +888,9 @@ class PipelineView(ft.Container):
             terminal_output.show_loading_text(f"Downloading from {source}...")
             report_output_folder(step_output_directory)
             # The downloader sets what Cancel stops once it has started (like in the Download tab).
-            set_cancel_click(self.cancel_button, self.cancel, "Cancelling the download...")
+            set_cancel_click(
+                self.cancel_button, self.cancel, "Cancelling the download..."
+            )
             try:
                 summary = download(
                     url,
@@ -797,13 +900,27 @@ class PipelineView(ft.Container):
                     self.cancel_button,
                 )
             except DownloadCancelled as cancelled:
-                terminal_output.hide_loading_text(str(cancelled) or f"Download from {source} cancelled.", success=False, cancelled=True)
+                terminal_output.hide_loading_text(
+                    str(cancelled) or f"Download from {source} cancelled.",
+                    success=False,
+                    cancelled=True,
+                )
                 raise
             except Exception:
-                terminal_output.hide_loading_text(f"Download from {source} failed.", success=False)
+                terminal_output.hide_loading_text(
+                    f"Download from {source} failed.", success=False
+                )
                 raise
-            report_progress(chapter=None, chapters=None, pages_done=None, pages_total=None, detail=None)
-            terminal_output.hide_loading_text(summary or f"Download from {source} ended.")
+            report_progress(
+                chapter=None,
+                chapters=None,
+                pages_done=None,
+                pages_total=None,
+                detail=None,
+            )
+            terminal_output.hide_loading_text(
+                summary or f"Download from {source} ended."
+            )
             return
 
         # The other steps run exactly like they do in their own tabs.
@@ -837,4 +954,4 @@ class PipelineView(ft.Container):
                 step_view.read_text_for_video = False
 
         if not finished:
-            raise RuntimeError("see the error above")
+            raise StepFailed("see the error above")

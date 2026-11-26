@@ -1,7 +1,9 @@
 """
 A fake Flet page so the real GUI and its views can be built and driven in tests without opening a window. Click and change handlers are called directly, the same way a click would call them.
 """
+
 from types import SimpleNamespace
+from typing import Any, cast
 
 import flet as ft
 import pytest
@@ -69,8 +71,19 @@ class FakePage:
         handler(*args)
 
 
+def get_shown_text(text_control):
+    """
+    What an "ft.Text" shows: its value, or its pieces when it has a clickable link (see "set_text_with_links").
+    """
+    if text_control.spans:
+        return "".join(span.text or "" for span in text_control.spans)
+    return text_control.value or ""
+
+
 def fake_event(data=None, path=None, control=None, files=None):
-    return SimpleNamespace(data=data, path=path, control=control, files=files)
+    return cast(
+        Any, SimpleNamespace(data=data, path=path, control=control, files=files)
+    )
 
 
 @pytest.fixture
@@ -96,6 +109,6 @@ def make_gui(monkeypatch):
 
     def build():
         page = FakePage()
-        return gui.GUI(page)
+        return gui.GUI(cast(ft.Page, page))
 
     return build

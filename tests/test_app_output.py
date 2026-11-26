@@ -60,7 +60,9 @@ def test_prints_errors_and_logging_all_show_up(app_output):
         print("an error", file=sys.stderr)
         # Like the app: Python's own logging and warnings print to whatever sys.stderr is (pytest normally intercepts them).
         logging.StreamHandler(sys.stderr).handle(
-            logging.makeLogRecord({"msg": "a logged warning", "levelno": logging.WARNING})
+            logging.makeLogRecord(
+                {"msg": "a logged warning", "levelno": logging.WARNING}
+            )
         )
 
     lines = "\n".join(app_output.lines())
@@ -141,7 +143,12 @@ def test_tool_output_is_streamed_once_with_progress_as_one_line(app_output):
     with app_output.installed():
         ProcessManager().monitor_terminal_output(command)
 
-    assert app_output.lines() == ["start", "100%", "end", "Command executed successfully!"]
+    assert app_output.lines() == [
+        "start",
+        "100%",
+        "end",
+        "Command executed successfully!",
+    ]
 
 
 def test_the_app_terminal_keeps_only_the_newest_lines(app_output, monkeypatch):
@@ -161,23 +168,35 @@ def test_each_start_rotates_the_logs_so_panelyze_log_is_only_this_run(tmp_path):
     log_file_path = tmp_path / "panelyze.log"
     for run in range(1, 13):
         log_file = open_log_file(str(log_file_path))
+        assert log_file is not None
         log_file.write(f"run {run}\n")
         log_file.close()
 
     # 12 runs: this run, then the 9 before it; the 2 oldest are gone.
-    assert "run 12" in log_file_path.read_text() and "run 11" not in log_file_path.read_text()
+    assert (
+        "run 12" in log_file_path.read_text()
+        and "run 11" not in log_file_path.read_text()
+    )
     assert "run 11" in (tmp_path / "panelyze.1.log").read_text()
     assert "run 3" in (tmp_path / "panelyze.9.log").read_text()
-    assert {path.name for path in tmp_path.iterdir()} == {"panelyze.log"} | {f"panelyze.{number}.log" for number in range(1, 10)}
+    assert {path.name for path in tmp_path.iterdir()} == {"panelyze.log"} | {
+        f"panelyze.{number}.log" for number in range(1, 10)
+    }
 
 
 @pytest.mark.parametrize("locked_file", ["panelyze.log", "panelyze.2.log"])
-def test_a_log_that_can_t_be_moved_leaves_every_log_as_it_was_and_this_run_is_added(tmp_path, monkeypatch, locked_file):
+def test_a_log_that_can_t_be_moved_leaves_every_log_as_it_was_and_this_run_is_added(
+    tmp_path, monkeypatch, locked_file
+):
     import os
 
     from gui_classes import AppOutput
 
-    logs = {"panelyze.log": "the run before\n", "panelyze.1.log": "two runs ago\n", "panelyze.2.log": "three runs ago\n"}
+    logs = {
+        "panelyze.log": "the run before\n",
+        "panelyze.1.log": "two runs ago\n",
+        "panelyze.2.log": "three runs ago\n",
+    }
     for name, text in logs.items():
         (tmp_path / name).write_text(text)
     real_replace = os.replace
@@ -185,17 +204,58 @@ def test_a_log_that_can_t_be_moved_leaves_every_log_as_it_was_and_this_run_is_ad
     def replace(source, destination):
         # Windows can't move a file another program has open (another Panelyze, or a viewer).
         if os.path.basename(source) == locked_file:
-            raise PermissionError(32, "The process cannot access the file because it is being used by another process")
+            raise PermissionError(
+                32,
+                "The process cannot access the file because it is being used by another process",
+            )
         real_replace(source, destination)
 
     monkeypatch.setattr(AppOutput.os, "replace", replace)
 
     log_file = AppOutput.open_log_file(str(tmp_path / "panelyze.log"))
+    assert log_file is not None
     log_file.write("this run\n")
     log_file.close()
 
     # No old run is lost, and none moved: this run is added to the last one.
     assert {path.name for path in tmp_path.iterdir()} == set(logs)
-    assert (tmp_path / "panelyze.log").read_text().startswith("the run before") and "this run" in (tmp_path / "panelyze.log").read_text()
+    assert (tmp_path / "panelyze.log").read_text().startswith(
+        "the run before"
+    ) and "this run" in (tmp_path / "panelyze.log").read_text()
     assert (tmp_path / "panelyze.1.log").read_text() == "two runs ago\n"
     assert (tmp_path / "panelyze.2.log").read_text() == "three runs ago\n"
+
+
+def test_a_link_in_a_line_from_the_app_can_be_clicked(tmp_path):
+    from gui_classes.AppOutput import AppOutput
+
+    app_output = AppOutput(FakeListView(), str(tmp_path / "panelyze.log"))
+    app_output.original_stdout = None
+
+    app_output.add_line("It comes from https://huggingface.co/ragavsachdeva/magiv2")
+
+    assert [
+        span.text for span in app_output.lines_to_add[-1].spans if span.on_click
+    ] == ["https://huggingface.co/ragavsachdeva/magiv2"]
+
+
+def test_a_printed_line_with_a_link_shows_once(tmp_path):
+    from tests.fake_gui import get_shown_text
+
+    list_view = FakeListView()
+    output = AppOutput(list_view, str(tmp_path / "panelyze.log"))
+    output.original_stdout = None
+    stdout = AppOutputStream(output, "stdout", None)
+
+    # "print" writes the text and the line break separately.
+    stdout.write("It comes from https://github.com/the-database/MangaJaNai/releases...")
+    stdout.write("\n")
+    output.update_gui()
+
+    [line] = list_view.controls
+    # Flet shows "value" and then "spans", so only one of them can be set.
+    assert line.value is None
+    assert (
+        get_shown_text(line)
+        == "It comes from https://github.com/the-database/MangaJaNai/releases..."
+    )

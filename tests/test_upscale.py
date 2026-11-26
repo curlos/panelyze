@@ -20,7 +20,9 @@ def make_fake_waifu2x(monkeypatch, runs, fail_on=()):
     A fake waifu2x that "upscales" a whole folder: it saves each image at the given ratio, in the output format, and prints a "done" line for each, like the real one.
     """
 
-    def fake_upscale(input_image, output_image, upscale_ratio, image_format, model, on_line, **kwargs):
+    def fake_upscale(
+        input_image, output_image, upscale_ratio, image_format, model, on_line, **kwargs
+    ):
         file_names = sorted(os.listdir(input_image))
         runs.append({"ratio": upscale_ratio, "model": model, "files": file_names})
 
@@ -28,8 +30,12 @@ def make_fake_waifu2x(monkeypatch, runs, fail_on=()):
             if file_name in fail_on:
                 continue
             with Image.open(os.path.join(input_image, file_name)) as image:
-                image.resize((image.width * upscale_ratio, image.height * upscale_ratio)).save(
-                    os.path.join(output_image, replace_extension(file_name, image_format))
+                image.resize(
+                    (image.width * upscale_ratio, image.height * upscale_ratio)
+                ).save(
+                    os.path.join(
+                        output_image, replace_extension(file_name, image_format)
+                    )
                 )
             on_line(f"{file_name} -> out done\n")
 
@@ -52,7 +58,9 @@ def run_upscale(gui, tmp_path, sizes):
     return tmp_path / "upscaled" / "panels" / "Ch 1"
 
 
-def test_custom_panel_height_resizes_every_image_to_that_height(make_gui, tmp_path, monkeypatch):
+def test_custom_panel_height_resizes_every_image_to_that_height(
+    make_gui, tmp_path, monkeypatch
+):
     runs = []
     make_fake_waifu2x(monkeypatch, runs)
     gui = make_gui()
@@ -66,7 +74,9 @@ def test_custom_panel_height_resizes_every_image_to_that_height(make_gui, tmp_pa
     assert Image.open(output / "panel_2.png").size == (225, 300)
 
 
-def test_best_with_the_4k_limit_a_custom_height_and_a_max_width_all_apply_in_order(make_gui, tmp_path, monkeypatch):
+def test_best_with_the_4k_limit_a_custom_height_and_a_max_width_all_apply_in_order(
+    make_gui, tmp_path, monkeypatch
+):
     import janai
 
     runs, janai_ratios = [], []
@@ -75,7 +85,9 @@ def test_best_with_the_4k_limit_a_custom_height_and_a_max_width_all_apply_in_ord
     def fake_janai(input_image, output_image, upscale_ratio):
         janai_ratios.append(upscale_ratio)
         with Image.open(input_image) as image:
-            image.resize((image.width * upscale_ratio, image.height * upscale_ratio)).save(output_image)
+            image.resize(
+                (image.width * upscale_ratio, image.height * upscale_ratio)
+            ).save(output_image)
 
     monkeypatch.setattr(janai, "upscale_image_with_janai", fake_janai)
     gui = make_gui()
@@ -95,7 +107,9 @@ def test_best_with_the_4k_limit_a_custom_height_and_a_max_width_all_apply_in_ord
     assert Image.open(output / "panel_1.png").size == (600, 736)
 
 
-def test_a_folder_saved_as_png_because_of_webp_s_size_limit_still_gets_the_custom_height(make_gui, tmp_path, monkeypatch):
+def test_a_folder_saved_as_png_because_of_webp_s_size_limit_still_gets_the_custom_height(
+    make_gui, tmp_path, monkeypatch
+):
     runs = []
     make_fake_waifu2x(monkeypatch, runs)
     gui = make_gui()
@@ -112,7 +126,9 @@ def test_a_folder_saved_as_png_because_of_webp_s_size_limit_still_gets_the_custo
 
 
 @pytest.mark.parametrize("height", ["", "0", "abc"])
-def test_a_custom_height_or_max_width_that_isnt_a_number_above_0_resizes_nothing(make_gui, tmp_path, monkeypatch, height):
+def test_a_custom_height_or_max_width_that_isnt_a_number_above_0_resizes_nothing(
+    make_gui, tmp_path, monkeypatch, height
+):
     runs = []
     make_fake_waifu2x(monkeypatch, runs)
     gui = make_gui()
@@ -126,7 +142,9 @@ def test_a_custom_height_or_max_width_that_isnt_a_number_above_0_resizes_nothing
     assert Image.open(output / "panel_1.png").size == (200, 160)
 
 
-def test_max_image_width_only_shrinks_images_that_are_wider(make_gui, tmp_path, monkeypatch):
+def test_max_image_width_only_shrinks_images_that_are_wider(
+    make_gui, tmp_path, monkeypatch
+):
     runs = []
     make_fake_waifu2x(monkeypatch, runs)
     gui = make_gui()
@@ -141,7 +159,9 @@ def test_max_image_width_only_shrinks_images_that_are_wider(make_gui, tmp_path, 
 
 
 @pytest.mark.parametrize("noise_level", ["-1", "0", "3"])
-def test_the_noise_level_is_given_to_waifu2x(make_gui, tmp_path, monkeypatch, noise_level):
+def test_the_noise_level_is_given_to_waifu2x(
+    make_gui, tmp_path, monkeypatch, noise_level
+):
     noise_levels = []
     runs = []
     make_fake_waifu2x(monkeypatch, runs)
@@ -160,14 +180,22 @@ def test_the_noise_level_is_given_to_waifu2x(make_gui, tmp_path, monkeypatch, no
     assert noise_levels == [noise_level]
 
 
-def test_waifu2x_is_run_with_the_ratio_noise_level_format_and_model(monkeypatch, tmp_path):
+def test_waifu2x_is_run_with_the_ratio_noise_level_format_and_model(
+    monkeypatch, tmp_path
+):
     import waifu2x
 
     commands = []
-    monkeypatch.setattr(waifu2x, "get_waifu2x_path", lambda: str(tmp_path / "waifu2x-ncnn-vulkan.exe"))
-    monkeypatch.setattr(waifu2x.subprocess, "run", lambda command, check: commands.append(command))
+    monkeypatch.setattr(
+        waifu2x, "get_waifu2x_path", lambda: str(tmp_path / "waifu2x-ncnn-vulkan.exe")
+    )
+    monkeypatch.setattr(
+        waifu2x.subprocess, "run", lambda command, check: commands.append(command)
+    )
 
-    waifu2x.upscale_with_waifu2x("in", "out", upscale_ratio=4, noise_level=2, image_format="webp", model="fast")
+    waifu2x.upscale_with_waifu2x(
+        "in", "out", upscale_ratio=4, noise_level=2, image_format="webp", model="fast"
+    )
 
     command = commands[0]
     assert command[command.index("-s") + 1] == "4"
@@ -176,7 +204,9 @@ def test_waifu2x_is_run_with_the_ratio_noise_level_format_and_model(monkeypatch,
     assert command[command.index("-m") + 1].endswith(waifu2x.WAIFU2X_MODELS["fast"])
 
 
-def test_a_folder_with_an_image_too_big_for_webp_is_saved_as_png(make_gui, tmp_path, monkeypatch):
+def test_a_folder_with_an_image_too_big_for_webp_is_saved_as_png(
+    make_gui, tmp_path, monkeypatch
+):
     runs = []
     make_fake_waifu2x(monkeypatch, runs)
     gui = make_gui()
@@ -188,7 +218,9 @@ def test_a_folder_with_an_image_too_big_for_webp_is_saved_as_png(make_gui, tmp_p
     assert sorted(os.listdir(output)) == ["panel_1.png", "panel_2.png"]
 
 
-def test_webp_images_left_from_an_earlier_run_are_removed_when_the_folder_is_saved_as_png(make_gui, tmp_path, monkeypatch):
+def test_webp_images_left_from_an_earlier_run_are_removed_when_the_folder_is_saved_as_png(
+    make_gui, tmp_path, monkeypatch
+):
     runs = []
     make_fake_waifu2x(monkeypatch, runs)
     gui = make_gui()
@@ -203,7 +235,9 @@ def test_webp_images_left_from_an_earlier_run_are_removed_when_the_folder_is_sav
     assert sorted(os.listdir(output)) == ["panel_1.png"]
 
 
-def test_a_big_upscale_without_the_4k_limit_is_saved_as_png_when_too_big_for_webp(make_gui, tmp_path, monkeypatch):
+def test_a_big_upscale_without_the_4k_limit_is_saved_as_png_when_too_big_for_webp(
+    make_gui, tmp_path, monkeypatch
+):
     runs = []
     make_fake_waifu2x(monkeypatch, runs)
     gui = make_gui()
@@ -219,7 +253,9 @@ def test_a_big_upscale_without_the_4k_limit_is_saved_as_png_when_too_big_for_web
     assert sorted(os.listdir(output)) == ["panel_1.png"]
 
 
-def test_images_finished_before_a_cancel_still_keep_the_4k_limit(make_gui, tmp_path, monkeypatch):
+def test_images_finished_before_a_cancel_still_keep_the_4k_limit(
+    make_gui, tmp_path, monkeypatch
+):
     from utils import DownloadCancelled
 
     gui = make_gui()
@@ -227,10 +263,14 @@ def test_images_finished_before_a_cancel_still_keep_the_4k_limit(make_gui, tmp_p
     gui.page.client_storage.set("upscale_ratio", 4)
     gui.page.client_storage.set("limit_upscale_to_4k", True)
 
-    def fake_upscale(input_image, output_image, upscale_ratio, image_format, model, on_line, **kwargs):
+    def fake_upscale(
+        input_image, output_image, upscale_ratio, image_format, model, on_line, **kwargs
+    ):
         # panel_1 is done (2x of 2100x3170 = 4200x6340, past 4K), panel_2 is cut off by the cancel, panel_3 never starts.
         with Image.open(os.path.join(input_image, "panel_1.png")) as image:
-            image.resize((image.width * upscale_ratio, image.height * upscale_ratio)).save(os.path.join(output_image, "panel_1.png"))
+            image.resize(
+                (image.width * upscale_ratio, image.height * upscale_ratio)
+            ).save(os.path.join(output_image, "panel_1.png"))
         with open(os.path.join(output_image, "panel_2.png"), "wb") as file:
             file.write(b"\x89PNG\r\n\x1a\n half written")
         view.cancel_event.set()
@@ -238,7 +278,9 @@ def test_images_finished_before_a_cancel_still_keep_the_4k_limit(make_gui, tmp_p
     monkeypatch.setattr(upscale_module, "upscale_with_waifu2x", fake_upscale)
     monkeypatch.setattr(upscale_module, "ProcessManager", lambda: SimpleNamespace())
     errors = []
-    monkeypatch.setattr(gui.terminal_output, "update_terminal_with_error_message", errors.append)
+    monkeypatch.setattr(
+        gui.terminal_output, "update_terminal_with_error_message", errors.append
+    )
 
     # The text Panel-By-Panel read is only copied along when the whole folder is done.
     from utils import PANEL_TEXT_FILE_NAME
@@ -255,7 +297,9 @@ def test_images_finished_before_a_cancel_still_keep_the_4k_limit(make_gui, tmp_p
     assert errors == []
 
 
-def test_images_finished_before_a_cancel_also_get_the_custom_height(make_gui, tmp_path, monkeypatch):
+def test_images_finished_before_a_cancel_also_get_the_custom_height(
+    make_gui, tmp_path, monkeypatch
+):
     from utils import DownloadCancelled
 
     gui = make_gui()
@@ -265,10 +309,14 @@ def test_images_finished_before_a_cancel_also_get_the_custom_height(make_gui, tm
     storage.set("use_custom_panel_image_height", True)
     storage.set("custom_panel_image_height", "500")
 
-    def fake_upscale(input_image, output_image, upscale_ratio, image_format, model, on_line, **kwargs):
+    def fake_upscale(
+        input_image, output_image, upscale_ratio, image_format, model, on_line, **kwargs
+    ):
         # panel_1 is done, then the cancel.
         with Image.open(os.path.join(input_image, "panel_1.png")) as image:
-            image.resize((image.width * upscale_ratio, image.height * upscale_ratio)).save(os.path.join(output_image, "panel_1.png"))
+            image.resize(
+                (image.width * upscale_ratio, image.height * upscale_ratio)
+            ).save(os.path.join(output_image, "panel_1.png"))
         view.cancel_event.set()
 
     monkeypatch.setattr(upscale_module, "upscale_with_waifu2x", fake_upscale)
@@ -277,10 +325,14 @@ def test_images_finished_before_a_cancel_also_get_the_custom_height(make_gui, tm
     with pytest.raises(DownloadCancelled):
         run_upscale(gui, tmp_path, [(300, 400), (300, 400)])
 
-    assert Image.open(tmp_path / "upscaled" / "panels" / "Ch 1" / "panel_1.png").size == (375, 500)
+    assert Image.open(
+        tmp_path / "upscaled" / "panels" / "Ch 1" / "panel_1.png"
+    ).size == (375, 500)
 
 
-def test_all_images_are_upscaled_in_one_run_with_the_fast_model(make_gui, tmp_path, monkeypatch):
+def test_all_images_are_upscaled_in_one_run_with_the_fast_model(
+    make_gui, tmp_path, monkeypatch
+):
     runs = []
     make_fake_waifu2x(monkeypatch, runs)
     gui = make_gui()
@@ -288,8 +340,18 @@ def test_all_images_are_upscaled_in_one_run_with_the_fast_model(make_gui, tmp_pa
 
     output = run_upscale(gui, tmp_path, [(100, 80), (60, 90), (50, 50)])
 
-    assert runs == [{"ratio": 2, "model": "fast", "files": ["panel_1.png", "panel_2.png", "panel_3.png"]}]
-    assert sorted(os.listdir(output)) == ["panel_1.webp", "panel_2.webp", "panel_3.webp"]
+    assert runs == [
+        {
+            "ratio": 2,
+            "model": "fast",
+            "files": ["panel_1.png", "panel_2.png", "panel_3.png"],
+        }
+    ]
+    assert sorted(os.listdir(output)) == [
+        "panel_1.webp",
+        "panel_2.webp",
+        "panel_3.webp",
+    ]
     assert Image.open(output / "panel_1.webp").size == (200, 160)
 
 
@@ -304,16 +366,26 @@ def test_the_better_waifu2x_model_can_be_picked(make_gui, tmp_path, monkeypatch)
     assert runs[0]["model"] == "better"
 
 
-def test_the_best_model_upscales_each_image_with_janai_except_ones_already_4k(make_gui, tmp_path, monkeypatch):
+def test_the_best_model_upscales_each_image_with_janai_except_ones_already_4k(
+    make_gui, tmp_path, monkeypatch
+):
     import janai
 
     runs, janai_runs = [], []
     make_fake_waifu2x(monkeypatch, runs)
 
     def fake_janai(input_image, output_image, upscale_ratio):
-        janai_runs.append((os.path.basename(input_image), os.path.basename(output_image), upscale_ratio))
+        janai_runs.append(
+            (
+                os.path.basename(input_image),
+                os.path.basename(output_image),
+                upscale_ratio,
+            )
+        )
         with Image.open(input_image) as image:
-            image.resize((image.width * upscale_ratio, image.height * upscale_ratio)).save(output_image)
+            image.resize(
+                (image.width * upscale_ratio, image.height * upscale_ratio)
+            ).save(output_image)
 
     monkeypatch.setattr(janai, "upscale_image_with_janai", fake_janai)
     gui = make_gui()
@@ -322,13 +394,22 @@ def test_the_best_model_upscales_each_image_with_janai_except_ones_already_4k(ma
 
     output = run_upscale(gui, tmp_path, [(100, 80), (4000, 200), (60, 90)])
 
-    assert janai_runs == [("panel_1.png", "panel_1.webp", 2), ("panel_3.png", "panel_3.webp", 2)]
+    assert janai_runs == [
+        ("panel_1.png", "panel_1.webp", 2),
+        ("panel_3.png", "panel_3.webp", 2),
+    ]
     # The image that's already 4K is only cleaned up, by waifu2x.
     assert runs == [{"ratio": 1, "model": "better", "files": ["panel_2.png"]}]
-    assert sorted(os.listdir(output)) == ["panel_1.webp", "panel_2.webp", "panel_3.webp"]
+    assert sorted(os.listdir(output)) == [
+        "panel_1.webp",
+        "panel_2.webp",
+        "panel_3.webp",
+    ]
 
 
-def test_images_the_4k_limit_upscales_less_get_their_own_run(make_gui, tmp_path, monkeypatch):
+def test_images_the_4k_limit_upscales_less_get_their_own_run(
+    make_gui, tmp_path, monkeypatch
+):
     runs = []
     make_fake_waifu2x(monkeypatch, runs)
     gui = make_gui()
@@ -345,13 +426,17 @@ def test_images_the_4k_limit_upscales_less_get_their_own_run(make_gui, tmp_path,
     assert sorted(os.listdir(output)) == ["panel_1.png", "panel_2.png"]
 
 
-def test_progress_counts_each_finished_image_and_a_failed_one_is_reported(make_gui, tmp_path, monkeypatch):
+def test_progress_counts_each_finished_image_and_a_failed_one_is_reported(
+    make_gui, tmp_path, monkeypatch
+):
     import gui_classes.UpscaleImagesView as view_module
 
     runs = []
     make_fake_waifu2x(monkeypatch, runs, fail_on=("panel_2.png",))
     reports = []
-    monkeypatch.setattr(view_module, "report_progress", lambda **fields: reports.append(fields))
+    monkeypatch.setattr(
+        view_module, "report_progress", lambda **fields: reports.append(fields)
+    )
     gui = make_gui()
     errors = []
     gui.terminal_output.update_terminal_with_error_message = errors.append
@@ -367,7 +452,9 @@ def test_progress_counts_each_finished_image_and_a_failed_one_is_reported(make_g
     assert len(errors) == 1 and "panel_2.png" in errors[0]
 
 
-def test_the_upscaled_chapter_is_also_saved_as_a_comic_file_when_turned_on(make_gui, tmp_path, monkeypatch):
+def test_the_upscaled_chapter_is_also_saved_as_a_comic_file_when_turned_on(
+    make_gui, tmp_path, monkeypatch
+):
     import zipfile
 
     make_fake_waifu2x(monkeypatch, [])
@@ -383,7 +470,9 @@ def test_the_upscaled_chapter_is_also_saved_as_a_comic_file_when_turned_on(make_
         assert cbz.read("ComicInfo.xml").decode().count('DoublePage="true"') == 2
 
 
-def test_upscaled_pages_are_not_marked_as_one_image_at_a_time(make_gui, tmp_path, monkeypatch):
+def test_upscaled_pages_are_not_marked_as_one_image_at_a_time(
+    make_gui, tmp_path, monkeypatch
+):
     import zipfile
 
     make_fake_waifu2x(monkeypatch, [])
@@ -393,7 +482,12 @@ def test_upscaled_pages_are_not_marked_as_one_image_at_a_time(make_gui, tmp_path
     chapter.mkdir(parents=True)
     Image.new("RGB", (60, 90), "white").save(chapter / "001.png")
 
-    gui.UpscaleImagesView.process_image_folder(str(chapter), [{"name": "001.png"}], str(tmp_path / "pages"), str(tmp_path / "upscaled"))
+    gui.UpscaleImagesView.process_image_folder(
+        str(chapter),
+        [{"name": "001.png"}],
+        str(tmp_path / "pages"),
+        str(tmp_path / "upscaled"),
+    )
 
     with zipfile.ZipFile(tmp_path / "upscaled" / "pages" / "Ch 1.cbz") as cbz:
         # Pages can still be shown two at a time, like a book. Nothing else to say, so no ComicInfo.xml.
@@ -414,7 +508,9 @@ def test_an_image_is_copied_when_a_hard_link_cant_be_made(tmp_path, monkeypatch)
     assert (tmp_path / "copy.png").read_bytes() == b"image"
 
 
-def test_best_stops_short_of_4k_without_stretching_when_the_last_pass_would_go_far_past_it(make_gui, tmp_path, monkeypatch):
+def test_best_stops_short_of_4k_without_stretching_when_the_last_pass_would_go_far_past_it(
+    make_gui, tmp_path, monkeypatch
+):
     import janai
 
     runs, janai_runs = [], []
@@ -423,7 +519,9 @@ def test_best_stops_short_of_4k_without_stretching_when_the_last_pass_would_go_f
     def fake_janai(input_image, output_image, upscale_ratio):
         janai_runs.append((os.path.basename(input_image), upscale_ratio))
         with Image.open(input_image) as image:
-            image.resize((image.width * upscale_ratio, image.height * upscale_ratio)).save(output_image)
+            image.resize(
+                (image.width * upscale_ratio, image.height * upscale_ratio)
+            ).save(output_image)
 
     monkeypatch.setattr(janai, "upscale_image_with_janai", fake_janai)
     gui = make_gui()
@@ -437,3 +535,75 @@ def test_best_stops_short_of_4k_without_stretching_when_the_last_pass_would_go_f
     assert janai_runs == [("panel_1.png", 8), ("panel_2.png", 4)]
     assert Image.open(output / "panel_1.png").size == (2800, 3432)
     assert Image.open(output / "panel_2.png").size == (1920, 3840)
+
+
+def test_the_best_model_at_1x_only_cleans_up_with_waifu2x_also_without_the_4k_limit(
+    make_gui, tmp_path, monkeypatch
+):
+    import janai
+
+    runs, janai_runs = [], []
+    make_fake_waifu2x(monkeypatch, runs)
+    monkeypatch.setattr(
+        janai, "upscale_image_with_janai", lambda *args: janai_runs.append(args)
+    )
+    gui = make_gui()
+    gui.page.client_storage.set("upscale_model", "best")
+    gui.page.client_storage.set("limit_upscale_to_4k", False)
+    # What the Upscale Ratio dropdown saves.
+    gui.page.client_storage.set("upscale_ratio", "1")
+
+    run_upscale(gui, tmp_path, [(100, 80)])
+
+    assert janai_runs == []
+    assert runs == [{"ratio": 1, "model": "better", "files": ["panel_1.png"]}]
+
+
+def test_an_upscaled_image_left_from_an_earlier_run_is_not_taken_for_a_new_one(
+    make_gui, tmp_path, monkeypatch
+):
+    runs = []
+    # waifu2x exits with 0 even when it couldn't upscale an image.
+    make_fake_waifu2x(monkeypatch, runs, fail_on=("panel_1.png",))
+    gui = make_gui()
+    errors = []
+    gui.terminal_output.update_terminal_with_error_message = errors.append
+    earlier_output = tmp_path / "upscaled" / "panels" / "Ch 1"
+    earlier_output.mkdir(parents=True)
+    Image.new("RGB", (10, 10), "black").save(earlier_output / "panel_1.png")
+
+    output = run_upscale(gui, tmp_path, [(100, 80)])
+
+    assert os.listdir(output) == []
+    assert len(errors) == 1 and "panel_1.png" in errors[0]
+
+
+def test_the_saved_upscale_ratio_and_noise_level_are_shown_when_the_app_opens_again(
+    make_gui,
+):
+    from tests.fake_gui import fake_event, get_all_controls
+    import flet as ft
+
+    gui = make_gui()
+    dropdowns = {
+        control.label: control
+        for control in get_all_controls(gui.UpscaleImagesView)
+        if isinstance(control, ft.Dropdown)
+    }
+    # What the dropdowns save when a choice is picked.
+    for label, value in (("Upscale Ratio", "4"), ("Noise Level", "-1")):
+        on_change = dropdowns[label].on_change
+        assert on_change is not None
+        on_change(fake_event(data=value, control=dropdowns[label]))
+
+    # The app opened again with the same settings.
+    gui_again = type(gui)(gui.page)
+    dropdowns = {
+        control.label: control
+        for control in get_all_controls(gui_again.UpscaleImagesView)
+        if isinstance(control, ft.Dropdown)
+    }
+
+    for label, value in (("Upscale Ratio", "4"), ("Noise Level", "-1")):
+        assert dropdowns[label].value == value
+        assert value in [option.key for option in dropdowns[label].options]

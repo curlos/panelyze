@@ -7,7 +7,6 @@ from xml.sax.saxutils import escape
 
 import edge_tts
 from moviepy import AudioClip, AudioFileClip, concatenate_audioclips
-from utils import utils_load_dotenv
 
 DEFAULT_VOICE_LOCALE = "en-US"
 DEFAULT_VOICE_NAME = "en-US-AriaNeural"
@@ -87,6 +86,7 @@ def join_words_split_across_lines(text):
     """
     "Presi- dential" becomes "Presidential", so the voice says it as one word. Someone being cut off looks the same ("Wait- what?!", "Wait- Stop!"), so it's only joined if that makes a real English word. A stutter ("Wh- what") stays as it is.
     """
+
     def join(match):
         first, second = match.groups()
         if second.lower().startswith(first.lower()):
@@ -135,9 +135,9 @@ class TextToSpeech:
 
         locale_voice_mapping = {}
         for voice in all_voices:
-            locale_voice_mapping.setdefault(voice["Locale"], {})[
-                voice["ShortName"]
-            ] = voice
+            locale_voice_mapping.setdefault(voice["Locale"], {})[voice["ShortName"]] = (
+                voice
+            )
 
         return locale_voice_mapping
 
@@ -174,7 +174,9 @@ class TextToSpeech:
             and self.get_setting("azure_voice_style", "none") == "auto"
         )
 
-        if (break_time_between_text <= 0 and not reads_each_line_separately) or len(text_list) == 1:
+        if (break_time_between_text <= 0 and not reads_each_line_separately) or len(
+            text_list
+        ) == 1:
             self.generate_audio_for_text(" ".join(text_list), output_file)
         else:
             self.generate_audio_with_breaks(
@@ -201,7 +203,9 @@ class TextToSpeech:
 
                 if not is_last_text and break_time_between_text > 0:
                     audio_clips.append(
-                        AudioClip(lambda t: 0, duration=break_time_between_text, fps=44100)
+                        AudioClip(
+                            lambda t: 0, duration=break_time_between_text, fps=44100
+                        )
                     )
 
             concatenate_audioclips(audio_clips).write_audiofile(
@@ -222,9 +226,7 @@ class TextToSpeech:
 
         voice_name = self.get_voice_name()
         rate = VOICE_RATE_OPTIONS.get(self.get_setting("azure_voice_rate", "medium"))
-        pitch = VOICE_PITCH_OPTIONS.get(
-            self.get_setting("azure_voice_pitch", "medium")
-        )
+        pitch = VOICE_PITCH_OPTIONS.get(self.get_setting("azure_voice_pitch", "medium"))
         volume = VOICE_VOLUME_OPTIONS.get(
             self.get_setting("azure_voice_volume", "medium")
         )
@@ -253,20 +255,17 @@ class TextToSpeech:
 
     def generate_azure_audio_for_text(self, text, output_file):
         """
-        Same as the Edge version but with the paid Azure Speech service. The key and region come from the settings, or from "AZURE_SUBSCRIPTION_KEY" and "AZURE_REGION" in a ".env" file.
+        Same as the Edge version but with the paid Azure Speech service. The key and region come from the settings.
         """
         try:
             import azure.cognitiveservices.speech as speechsdk
         except ImportError as error:
             raise RuntimeError(
-                'Azure Text-To-Speech needs its package. Install it with: pip install azure-cognitiveservices-speech'
+                "Azure Text-To-Speech needs its package. Install it with: pip install azure-cognitiveservices-speech"
             ) from error
 
-        utils_load_dotenv()
-        subscription_key = self.get_setting(
-            "azure_subscription_key", os.getenv("AZURE_SUBSCRIPTION_KEY")
-        )
-        region = self.get_setting("azure_region", os.getenv("AZURE_REGION"))
+        subscription_key = self.get_setting("azure_subscription_key", None)
+        region = self.get_setting("azure_region", None)
 
         if not subscription_key or not region:
             raise RuntimeError(
@@ -285,10 +284,16 @@ class TextToSpeech:
             speechsdk.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3
         )
         # The audio comes back in memory ("audio_config=None") and is saved here. Written by Azure itself, the file stayed open for a while after it was done, and Windows can't delete an open file (the parts of a line read in several pieces are deleted right after).
-        synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
+        synthesizer = speechsdk.SpeechSynthesizer(
+            speech_config=speech_config, audio_config=None
+        )
 
-        result = synthesizer.speak_ssml_async(self.get_azure_ssml(text, voice_styles)).get()
+        result = synthesizer.speak_ssml_async(
+            self.get_azure_ssml(text, voice_styles)
+        ).get()
 
+        if result is None:
+            raise RuntimeError("Azure Text-To-Speech failed: it gave no result.")
         if result.reason != speechsdk.ResultReason.SynthesizingAudioCompleted:
             error_details = getattr(result, "cancellation_details", None)
             raise RuntimeError(
@@ -306,12 +311,16 @@ class TextToSpeech:
 
         if voice_name not in _cached_azure_voice_styles:
             locale = "-".join(voice_name.split("-")[:2])
-            voices = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
+            voices = speechsdk.SpeechSynthesizer(
+                speech_config=speech_config, audio_config=None
+            )
             result = voices.get_voices_async(locale).get()
 
             # Don't remember a failed lookup (wrong key, no internet, etc.) as "this voice has no styles". Try again next time.
             if result.reason != speechsdk.ResultReason.VoicesListRetrieved:
-                print(f"Couldn't get the voice styles from Azure ({result.reason}). Using the normal voice style.")
+                print(
+                    f"Couldn't get the voice styles from Azure ({result.reason}). Using the normal voice style."
+                )
                 return []
 
             _cached_azure_voice_styles[voice_name] = next(
@@ -347,9 +356,7 @@ class TextToSpeech:
         # Use the saved voice as is. Checking it against Edge's voice list would make Azure depend on Edge's online service, and Azure has voices that Edge doesn't.
         voice_name = self.get_setting("azure_voice_name", DEFAULT_VOICE_NAME)
         rate = VOICE_RATE_OPTIONS.get(self.get_setting("azure_voice_rate", "medium"))
-        pitch = VOICE_PITCH_OPTIONS.get(
-            self.get_setting("azure_voice_pitch", "medium")
-        )
+        pitch = VOICE_PITCH_OPTIONS.get(self.get_setting("azure_voice_pitch", "medium"))
         volume = VOICE_VOLUME_OPTIONS.get(
             self.get_setting("azure_voice_volume", "medium")
         )
@@ -376,7 +383,9 @@ class TextToSpeech:
             voice_name in voices for voices in self.locale_voice_mapping.values()
         )
         if not voice_exists:
-            print(f'Voice "{voice_name}" is not available. Using "{DEFAULT_VOICE_NAME}".')
+            print(
+                f'Voice "{voice_name}" is not available. Using "{DEFAULT_VOICE_NAME}".'
+            )
             return DEFAULT_VOICE_NAME
 
         return voice_name

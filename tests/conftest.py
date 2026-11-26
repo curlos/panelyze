@@ -26,7 +26,14 @@ def never_check_the_gpu_in_settings(monkeypatch):
     """
     from gui_classes import AppSettingsView
 
-    monkeypatch.setattr(AppSettingsView, "get_device_sentence", lambda: ("The AI models run on the Test GPU. Not used: the Old GPU (PyTorch can't run on it).", ["Test GPU", "Old GPU"]))
+    monkeypatch.setattr(
+        AppSettingsView,
+        "get_device_sentence",
+        lambda: (
+            "The AI models run on the Test GPU. Not used: the Old GPU (PyTorch can't run on it).",
+            ["Test GPU", "Old GPU"],
+        ),
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -45,7 +52,18 @@ def never_open_finder_windows(monkeypatch):
     The app opens a job's output folder in Finder when it finishes. Tests must never do that (it would open a window every time one runs), whichever part of the app starts the job.
     """
     import utils
-    from gui_classes import AppSettingsView, JobView, MangaDexDownloaderView, PipelineView
+    from gui_classes import (
+        AppSettingsView,
+        JobView,
+        MangaDexDownloaderView,
+        PipelineView,
+    )
 
-    for module in (utils, AppSettingsView, JobView, MangaDexDownloaderView, PipelineView):
+    for module in (
+        utils,
+        AppSettingsView,
+        JobView,
+        MangaDexDownloaderView,
+        PipelineView,
+    ):
         monkeypatch.setattr(module, "open_directory", lambda path: None)

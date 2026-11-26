@@ -1,8 +1,10 @@
 """
 Every Images To Video setting, checked by making real (small) videos. Offline: Magi and the voice are faked, everything else (moviepy, ffmpeg, drawing the boxes) is real.
 """
+
 import os
 import sys
+from typing import Any, cast
 
 import numpy
 import pytest
@@ -14,7 +16,10 @@ from SpeechTextParser import SpeechTextParser
 from VideoCreatorFromImages import VideoCreatorFromImages
 
 # What "Magi" reads on the two test panels: 5 words, then 10 words (at 150 words a minute, 2 s and 4 s).
-PANEL_TEXT = ["One two three four five.", "One two three four five six seven eight nine ten."]
+PANEL_TEXT = [
+    "One two three four five.",
+    "One two three four five six seven eight nine ten.",
+]
 
 
 def make_settings(**overrides):
@@ -44,7 +49,11 @@ def make_panels(tmp_path):
 
 def fake_magi(monkeypatch):
     results = [
-        {"texts": [[20, 20 + 30 * index, 280, 50 + 30 * index]], "ocr": [text], "is_essential_text": [True]}
+        {
+            "texts": [[20, 20 + 30 * index, 280, 50 + 30 * index]],
+            "ocr": [text],
+            "is_essential_text": [True],
+        }
         for index, text in enumerate(PANEL_TEXT)
     ]
 
@@ -59,14 +68,17 @@ def fake_voice(video_creator, seconds_per_word=0.4):
     """
     A "voice" that says each word in 0.4 s (a quiet tone: pure silence comes back from an mp3 as almost no time).
     """
+
     def generate_audio(text_list, output_file):
         words = len(" ".join(text_list).split())
         # Like the real voice: nothing to say, no file.
         if not words:
             return
-        AudioClip(lambda t: 0.1 * numpy.sin(2 * numpy.pi * 440 * t), duration=words * seconds_per_word, fps=22050).write_audiofile(
-            output_file, logger=None
-        )
+        AudioClip(
+            lambda t: 0.1 * numpy.sin(2 * numpy.pi * 440 * t),
+            duration=words * seconds_per_word,
+            fps=22050,
+        ).write_audiofile(output_file, logger=None)
 
     video_creator.tts.generate_audio = generate_audio
 
@@ -79,37 +91,62 @@ def make_video(tmp_path, monkeypatch, extension="mp4", voice=False, **settings):
         fake_voice(video_creator)
     output_directory = tmp_path / "Videos" / "Ch 1"
     output_file = f"{output_directory}.{extension}"
-    video_creator.create_video_from_images(str(panels), output_file, str(output_directory))
+    video_creator.create_video_from_images(
+        str(panels), output_file, str(output_directory)
+    )
     with VideoFileClip(output_file) as video:
-        info = {"duration": video.duration, "size": tuple(video.size), "has_audio": video.audio is not None}
+        info = {
+            "duration": video.duration,
+            "size": tuple(video.size),
+            "has_audio": video.audio is not None,
+        }
     return info, output_directory
 
 
 # "Image displayed duration": neither the reading speed nor the voice sets the time.
-FIXED_TIME = dict(use_reading_speed_wpm=False, use_text_to_speech_azure=False, use_minimum_image_duration=False)
+FIXED_TIME: dict[str, Any] = dict(
+    use_reading_speed_wpm=False,
+    use_text_to_speech_azure=False,
+    use_minimum_image_duration=False,
+)
 
 
 @pytest.mark.parametrize("extension", ["mp4", "mov"])
 def test_the_video_format(tmp_path, monkeypatch, extension):
-    info, _ = make_video(tmp_path, monkeypatch, extension, image_displayed_duration=2, **FIXED_TIME)
+    info, _ = make_video(
+        tmp_path, monkeypatch, extension, image_displayed_duration=2, **FIXED_TIME
+    )
 
     assert info["duration"] == pytest.approx(4, abs=0.2)
 
 
 @pytest.mark.parametrize(
     "aspect_ratio, height, size",
-    [("16:9", 360, (640, 360)), ("9:16", 360, (360, 640)), ("1:1", 360, (360, 360)), ("16:9", 720, (1280, 720))],
+    [
+        ("16:9", 360, (640, 360)),
+        ("9:16", 360, (360, 640)),
+        ("1:1", 360, (360, 360)),
+        ("16:9", 720, (1280, 720)),
+    ],
 )
-def test_the_video_shape_and_resolution(tmp_path, monkeypatch, aspect_ratio, height, size):
+def test_the_video_shape_and_resolution(
+    tmp_path, monkeypatch, aspect_ratio, height, size
+):
     info, _ = make_video(
-        tmp_path, monkeypatch, video_aspect_ratio=aspect_ratio, image_displayed_duration=1, **{**FIXED_TIME, "video_height": height}
+        tmp_path,
+        monkeypatch,
+        video_aspect_ratio=aspect_ratio,
+        image_displayed_duration=1,
+        **{**FIXED_TIME, "video_height": height},
     )
 
     assert info["size"] == size
 
 
 def test_each_image_shows_for_the_set_time(tmp_path, monkeypatch):
-    info, _ = make_video(tmp_path, monkeypatch, image_displayed_duration=3, **FIXED_TIME)
+    info, _ = make_video(
+        tmp_path, monkeypatch, image_displayed_duration=3, **FIXED_TIME
+    )
 
     assert info["duration"] == pytest.approx(6, abs=0.2)
     assert not info["has_audio"]
@@ -126,7 +163,9 @@ def test_each_image_shows_for_the_set_time(tmp_path, monkeypatch):
         (600, 3, 6),
     ],
 )
-def test_reading_speed_and_the_minimum_time(tmp_path, monkeypatch, words_a_minute, minimum, expected):
+def test_reading_speed_and_the_minimum_time(
+    tmp_path, monkeypatch, words_a_minute, minimum, expected
+):
     info, _ = make_video(
         tmp_path,
         monkeypatch,
@@ -142,11 +181,18 @@ def test_reading_speed_and_the_minimum_time(tmp_path, monkeypatch, words_a_minut
 @pytest.mark.parametrize("words_a_minute", [0, -50, "", "fast"])
 def test_a_reading_speed_that_isnt_a_positive_number_uses_150(words_a_minute):
     # 0 used to divide by zero and stop the video.
-    assert VideoCreatorFromImages(make_settings(reading_speed_wpm=words_a_minute)).reading_speed_wpm == 150
+    assert (
+        VideoCreatorFromImages(
+            make_settings(reading_speed_wpm=words_a_minute)
+        ).reading_speed_wpm
+        == 150
+    )
 
 
 @pytest.mark.parametrize("clean_up", [True, False])
-def test_the_voice_over_sets_each_image_s_time_and_its_folder_is_cleaned_up(tmp_path, monkeypatch, clean_up):
+def test_the_voice_over_sets_each_image_s_time_and_its_folder_is_cleaned_up(
+    tmp_path, monkeypatch, clean_up
+):
     info, output_directory = make_video(
         tmp_path,
         monkeypatch,
@@ -163,7 +209,9 @@ def test_the_voice_over_sets_each_image_s_time_and_its_folder_is_cleaned_up(tmp_
     assert info["duration"] == pytest.approx(8, abs=0.3)
     assert info["has_audio"]
     assert (output_directory / "audio-files").exists() == (not clean_up)
-    assert (output_directory / "transcript.txt").read_text(encoding="utf-8").count("One two three") == 2
+    assert (output_directory / "transcript.txt").read_text(encoding="utf-8").count(
+        "One two three"
+    ) == 2
 
 
 @pytest.mark.parametrize("clean_up", [True, False])
@@ -185,7 +233,10 @@ def test_highlighting_the_text_boxes(tmp_path, monkeypatch, clean_up):
     if clean_up:
         assert not highlighted_folder.exists()
     else:
-        assert sorted(path.stem for path in highlighted_folder.iterdir()) == ["panel_1-1", "panel_2-1"]
+        assert sorted(path.stem for path in highlighted_folder.iterdir()) == [
+            "panel_1-1",
+            "panel_2-1",
+        ]
 
 
 @pytest.mark.parametrize(
@@ -210,7 +261,10 @@ def test_highlighting_without_a_voice(tmp_path, monkeypatch, settings, expected)
 
     assert info["duration"] == pytest.approx(expected, abs=0.6)
     assert not info["has_audio"]
-    assert sorted(path.stem for path in (output_directory / "images-with-highlighted-text-boxes").iterdir()) == ["panel_1-1", "panel_2-1"]
+    assert sorted(
+        path.stem
+        for path in (output_directory / "images-with-highlighted-text-boxes").iterdir()
+    ) == ["panel_1-1", "panel_2-1"]
 
 
 @pytest.mark.parametrize(
@@ -220,17 +274,33 @@ def test_highlighting_without_a_voice(tmp_path, monkeypatch, settings, expected)
         ({**FIXED_TIME, "image_displayed_duration": 0}, 10),
         ({**FIXED_TIME, "image_displayed_duration": -2}, 10),
         # A negative pause counts as none, so the voice is never cut off (2 s + 4 s of voice).
-        ({"use_reading_speed_wpm": False, "use_text_to_speech_azure": True, "use_minimum_image_duration": False, "image_pre_tts_audio_delay": -1, "image_post_tts_audio_delay": -1}, 6),
+        (
+            {
+                "use_reading_speed_wpm": False,
+                "use_text_to_speech_azure": True,
+                "use_minimum_image_duration": False,
+                "image_pre_tts_audio_delay": -1,
+                "image_post_tts_audio_delay": -1,
+            },
+            6,
+        ),
     ],
 )
 def test_time_settings_below_zero(tmp_path, monkeypatch, settings, expected):
-    info, _ = make_video(tmp_path, monkeypatch, voice=settings.get("use_text_to_speech_azure", False), **settings)
+    info, _ = make_video(
+        tmp_path,
+        monkeypatch,
+        voice=settings.get("use_text_to_speech_azure", False),
+        **settings,
+    )
 
     assert info["duration"] == pytest.approx(expected, abs=0.3)
 
 
 def test_a_panel_without_text_shows_for_the_minimum_time(tmp_path, monkeypatch):
-    monkeypatch.setattr(sys.modules[__name__], "PANEL_TEXT", ["One two three four five.", ""])
+    monkeypatch.setattr(
+        sys.modules[__name__], "PANEL_TEXT", ["One two three four five.", ""]
+    )
     info, _ = make_video(
         tmp_path,
         monkeypatch,
@@ -260,14 +330,16 @@ def test_the_text_box_look(tmp_path):
         images_to_video_text_box_border_style="solid",
     )
 
-    DrawBoxCoords(settings).draw_box_coords_box_list([[100, 100, 300, 300]], str(image_path), str(tmp_path / "out"))
+    DrawBoxCoords(settings).draw_box_coords_box_list(
+        [[100, 100, 300, 300]], str(image_path), str(tmp_path / "out")
+    )
 
     image = Image.open(next((tmp_path / "out").iterdir())).convert("RGB")
     # The border is 20 px outside the text box (the padding), in blue.
-    border = [image.getpixel((x, 200)) for x in range(70, 90)]
+    border = [cast(tuple, image.getpixel((x, 200))) for x in range(70, 90)]
     assert any(blue > 200 and red < 80 and green < 80 for red, green, blue in border)
     # Inside, white is half covered by green.
-    red, green, blue = image.getpixel((200, 200))
+    red, green, blue = cast(tuple, image.getpixel((200, 200)))
     assert green > 200 and 100 < red < 160 and 100 < blue < 160
     # Outside, the image is untouched.
     assert image.getpixel((20, 200)) == (255, 255, 255)
@@ -287,12 +359,22 @@ def test_every_border_style_draws_a_border(tmp_path, border_style):
         images_to_video_text_box_border_style=border_style,
     )
 
-    DrawBoxCoords(settings).draw_box_coords_box_list([[100, 100, 300, 300]], str(image_path), str(tmp_path / "out"))
+    DrawBoxCoords(settings).draw_box_coords_box_list(
+        [[100, 100, 300, 300]], str(image_path), str(tmp_path / "out")
+    )
 
     image = Image.open(next((tmp_path / "out").iterdir())).convert("RGB")
     # Along the top edge: how much of it is blue. Solid all of it, the others leave gaps.
-    top_edge = [max((image.getpixel((x, y)) for y in range(96, 105)), key=lambda pixel: pixel[2] - pixel[0]) for x in range(110, 290)]
-    blue_share = sum(blue > 150 and red < 120 for red, green, blue in top_edge) / len(top_edge)
+    top_edge = [
+        max(
+            (cast(tuple, image.getpixel((x, y))) for y in range(96, 105)),
+            key=lambda pixel: pixel[2] - pixel[0],
+        )
+        for x in range(110, 290)
+    ]
+    blue_share = sum(blue > 150 and red < 120 for red, green, blue in top_edge) / len(
+        top_edge
+    )
     if border_style == "solid":
         assert blue_share > 0.95
     else:
@@ -314,8 +396,15 @@ def test_the_settings_are_read_from_the_saved_settings():
     )
 
     assert video_creator.get_video_frame_size() == (720, 1280)
-    assert (video_creator.image_displayed_duration, video_creator.reading_speed_wpm, video_creator.minimum_image_duration) == (4, 200, 2)
-    assert (video_creator.image_pre_tts_audio_delay, video_creator.image_post_tts_audio_delay) == (0.5, 1)
+    assert (
+        video_creator.image_displayed_duration,
+        video_creator.reading_speed_wpm,
+        video_creator.minimum_image_duration,
+    ) == (4, 200, 2)
+    assert (
+        video_creator.image_pre_tts_audio_delay,
+        video_creator.image_post_tts_audio_delay,
+    ) == (0.5, 1)
     assert video_creator.speech_text_parser.reading_direction == "rtl"
 
 
@@ -326,7 +415,9 @@ def test_a_pause_between_the_lines_of_a_panel(tmp_path, monkeypatch):
     tts = TextToSpeech({"azure_break_time_between_text": "1"})
 
     def say(text, output_file):
-        AudioClip(lambda t: 0.1 * numpy.sin(2 * numpy.pi * 440 * t), duration=1, fps=22050).write_audiofile(output_file, logger=None)
+        AudioClip(
+            lambda t: 0.1 * numpy.sin(2 * numpy.pi * 440 * t), duration=1, fps=22050
+        ).write_audiofile(output_file, logger=None)
 
     monkeypatch.setattr(tts, "generate_audio_for_text", say)
     output_file = str(tmp_path / "panel_1.mp3")

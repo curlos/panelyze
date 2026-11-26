@@ -1,6 +1,7 @@
 """
 How long each image stays on screen in Images To Video: a fixed time, the reading speed (words per minute), or the voice-over's length, with a minimum time and pauses before and after the voice. All offline: no Magi, no voice service.
 """
+
 import os
 
 import numpy
@@ -15,7 +16,9 @@ from VideoCreatorFromImages import VideoCreatorFromImages
 def test_reading_speed_gives_each_image_time_for_its_words():
     # 150 words a minute is 2.5 words a second.
     durations = SpeechTextParser().get_images_duration_based_on_wpm(
-        None, 150, essential_text_in_images_matrix=[["one two three"], [], ["a b", "c d e f g"]]
+        None,
+        150,
+        essential_text_in_images_matrix=[["one two three"], [], ["a b", "c d e f g"]],
     )
 
     assert durations == pytest.approx([1.2, 0, 2.8])
@@ -24,7 +27,10 @@ def test_reading_speed_gives_each_image_time_for_its_words():
 def test_reading_speed_line_by_line_gives_each_line_its_own_time():
     # With highlighting, each line gets its own image; an image without text still shows for a second.
     durations = SpeechTextParser().get_images_duration_based_on_wpm(
-        None, 150, one_text_str_at_a_time=True, essential_text_in_images_matrix=[["one two three", "four five"], []]
+        None,
+        150,
+        one_text_str_at_a_time=True,
+        essential_text_in_images_matrix=[["one two three", "four five"], []],
     )
 
     assert durations == pytest.approx([1.2, 0.8, 1])
@@ -80,15 +86,23 @@ def save_voice_over(output_directory, name, seconds):
     """
     path = os.path.join(output_directory, "audio-files", f"{name}.mp3")
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    AudioClip(lambda t: 0.1 * numpy.sin(2 * numpy.pi * 440 * t), duration=seconds, fps=44100).write_audiofile(path, logger=None)
+    AudioClip(
+        lambda t: 0.1 * numpy.sin(2 * numpy.pi * 440 * t), duration=seconds, fps=44100
+    ).write_audiofile(path, logger=None)
     with AudioFileClip(path) as clip:
         return clip.duration
 
 
-def get_clip_durations(video_creator, images, highlighted_folder, durations_by_tts, output_directory):
+def get_clip_durations(
+    video_creator, images, highlighted_folder, durations_by_tts, output_directory
+):
     try:
-        clips = video_creator.get_clips(images, highlighted_folder, [], durations_by_tts, output_directory)
-        return [clip.duration for clip in clips], [clip.audio is not None for clip in clips]
+        clips = video_creator.get_clips(
+            images, highlighted_folder, [], durations_by_tts, output_directory
+        )
+        return [clip.duration for clip in clips], [
+            clip.audio is not None for clip in clips
+        ]
     finally:
         video_creator.close_audio_clips()
 
@@ -104,7 +118,9 @@ def test_the_pauses_before_and_after_the_voice_are_added_to_its_image(tmp_path):
         image_post_tts_audio_delay=1,
     )
 
-    durations, has_audio = get_clip_durations(video_creator, images, None, [voice_length, 0], output_directory)
+    durations, has_audio = get_clip_durations(
+        video_creator, images, None, [voice_length, 0], output_directory
+    )
 
     # panel_1: its voice-over, plus 0.5 s before and 1 s after. panel_2 has no text: the minimum time, no voice.
     assert durations == pytest.approx([voice_length + 1.5, 3])
@@ -116,9 +132,13 @@ def test_an_image_is_never_cut_shorter_than_its_voice_over(tmp_path):
     images = save_images(str(tmp_path / "panels"), ["panel_1"])
     voice_length = save_voice_over(output_directory, "panel_1", 2)
     # The voice-over is 2 s, the minimum time 3 s: the image stays 3 s.
-    video_creator = make_video_creator(use_text_to_speech_azure=True, use_minimum_image_duration=True)
+    video_creator = make_video_creator(
+        use_text_to_speech_azure=True, use_minimum_image_duration=True
+    )
 
-    durations, _ = get_clip_durations(video_creator, images, None, [voice_length], output_directory)
+    durations, _ = get_clip_durations(
+        video_creator, images, None, [voice_length], output_directory
+    )
 
     assert durations == pytest.approx([3])
 
@@ -137,7 +157,11 @@ def test_with_highlighting_the_pauses_go_around_each_panel_not_each_line(tmp_pat
         image_post_tts_audio_delay=1,
     )
 
-    durations, _ = get_clip_durations(video_creator, [], highlighted_folder, lengths, output_directory)
+    durations, _ = get_clip_durations(
+        video_creator, [], highlighted_folder, lengths, output_directory
+    )
 
     # The pause before only on a panel's first line, the pause after only on its last line.
-    assert durations == pytest.approx([lengths[0] + 0.5, lengths[1] + 1, lengths[2] + 0.5 + 1])
+    assert durations == pytest.approx(
+        [lengths[0] + 0.5, lengths[1] + 1, lengths[2] + 0.5 + 1]
+    )

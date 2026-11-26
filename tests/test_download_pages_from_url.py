@@ -1,7 +1,6 @@
 import io
 import os
 import shutil
-from types import SimpleNamespace
 
 import pytest
 from PIL import Image
@@ -78,7 +77,9 @@ def test_an_image_bigger_than_the_limit_is_skipped_and_the_others_are_kept(monke
 
 def test_a_page_bigger_than_the_limit_isn_t_read(monkeypatch):
     monkeypatch.setattr(module, "MAX_PAGE_BYTES", 100)
-    fake_internet(monkeypatch, {"https://example.com/huge": "<html>" + "x" * 200 + "</html>"})
+    fake_internet(
+        monkeypatch, {"https://example.com/huge": "<html>" + "x" * 200 + "</html>"}
+    )
 
     with pytest.raises(RuntimeError, match="This page is bigger than"):
         download_pages_from_url("https://example.com/huge")
@@ -88,14 +89,28 @@ def test_a_page_bigger_than_the_limit_isn_t_read(monkeypatch):
     "encoding, page_bytes",
     [
         # A misspelled charset from the site: read as UTF-8 instead of failing.
-        ("bogus", '<html><head><title>Café chapter one</title></head><body><img src="/a.png"></body></html>'.encode("utf-8")),
+        (
+            "bogus",
+            '<html><head><title>Café chapter one</title></head><body><img src="/a.png"></body></html>'.encode(
+                "utf-8"
+            ),
+        ),
         # No charset at all: guessed from the bytes (here Windows' Western European).
-        (None, '<html><head><title>Café chapter one, where the story begins again</title></head><body><img src="/a.png"></body></html>'.encode("cp1252")),
+        (
+            None,
+            '<html><head><title>Café chapter one, where the story begins again</title></head><body><img src="/a.png"></body></html>'.encode(
+                "cp1252"
+            ),
+        ),
     ],
 )
-def test_the_page_s_text_is_read_even_with_a_wrong_or_missing_charset(monkeypatch, encoding, page_bytes):
+def test_the_page_s_text_is_read_even_with_a_wrong_or_missing_charset(
+    monkeypatch, encoding, page_bytes
+):
     def fake_get(url, headers=None, timeout=None, stream=False):
-        response = FakeResponse(page_bytes if url.endswith("/page") else make_image_bytes(10, 10))
+        response = FakeResponse(
+            page_bytes if url.endswith("/page") else make_image_bytes(10, 10)
+        )
         response.encoding = encoding
         return response
 
@@ -132,10 +147,14 @@ def fake_page_with_an_ad(monkeypatch):
         monkeypatch,
         {
             "https://comics.example.com/preview": PAGE_WITH_AN_AD,
-            "https://comics.example.com/cover.jpg": make_image_bytes(700, 1000, "red", "JPEG"),
+            "https://comics.example.com/cover.jpg": make_image_bytes(
+                700, 1000, "red", "JPEG"
+            ),
             "https://comics.example.com/ad.png": make_image_bytes(300, 250, "yellow"),
             "https://cdn.example.com/page2.png": make_image_bytes(700, 1000, "lime"),
-            "https://comics.example.com/page3-big.png": make_image_bytes(700, 1000, "blue"),
+            "https://comics.example.com/page3-big.png": make_image_bytes(
+                700, 1000, "blue"
+            ),
         },
     )
 
@@ -147,9 +166,18 @@ def test_every_image_on_the_page_is_saved_in_page_order(monkeypatch):
 
     assert os.path.basename(folder) == "DC Preview Absolute Batman #1"
     # The ad too: everything on the page is kept unless a minimum size is asked for.
-    assert [name for name, _ in read_page_colors(folder)] == ["001.jpg", "002.png", "003.png", "004.png"]
+    assert [name for name, _ in read_page_colors(folder)] == [
+        "001.jpg",
+        "002.png",
+        "003.png",
+        "004.png",
+    ]
     # (The first is a JPEG, whose colors are a little off.)
-    assert [color for _, color in read_page_colors(folder)][1:] == [(255, 255, 0), (0, 255, 0), (0, 0, 255)]
+    assert [color for _, color in read_page_colors(folder)][1:] == [
+        (255, 255, 0),
+        (0, 255, 0),
+        (0, 0, 255),
+    ]
     # The same image twice is only downloaded once, and the srcset's small image isn't downloaded at all.
     assert requested_urls.count("https://comics.example.com/cover.jpg") == 1
     assert "https://comics.example.com/page3-small.png" not in requested_urls
@@ -161,19 +189,33 @@ def test_with_a_minimum_size_the_small_images_are_left_out(monkeypatch):
 
     folder = download_pages_from_url("https://comics.example.com/preview", min_side=600)
 
-    assert [name for name, _ in read_page_colors(folder)] == ["001.jpg", "002.png", "003.png"]
-    assert [color for _, color in read_page_colors(folder)][1:] == [(0, 255, 0), (0, 0, 255)]
+    assert [name for name, _ in read_page_colors(folder)] == [
+        "001.jpg",
+        "002.png",
+        "003.png",
+    ]
+    assert [color for _, color in read_page_colors(folder)][1:] == [
+        (0, 255, 0),
+        (0, 0, 255),
+    ]
     shutil.rmtree(os.path.dirname(folder))
 
 
 def test_a_page_without_images_gives_a_clear_error(monkeypatch):
-    fake_internet(monkeypatch, {"https://example.com/": "<title>Example Domain</title><p>No pictures here.</p>"})
+    fake_internet(
+        monkeypatch,
+        {
+            "https://example.com/": "<title>Example Domain</title><p>No pictures here.</p>"
+        },
+    )
 
     with pytest.raises(RuntimeError, match="No images found on this page"):
         download_pages_from_url("https://example.com/")
 
 
-def test_a_page_with_only_small_images_is_saved_unless_a_minimum_size_is_asked_for(monkeypatch):
+def test_a_page_with_only_small_images_is_saved_unless_a_minimum_size_is_asked_for(
+    monkeypatch,
+):
     fake_internet(
         monkeypatch,
         {
@@ -186,7 +228,10 @@ def test_a_page_with_only_small_images_is_saved_unless_a_minimum_size_is_asked_f
     assert os.listdir(folder) == ["001.png"]
     shutil.rmtree(os.path.dirname(folder))
 
-    with pytest.raises(RuntimeError, match="None of the 1 images on this page have a shorter side of at least 600 px"):
+    with pytest.raises(
+        RuntimeError,
+        match="None of the 1 images on this page have a shorter side of at least 600 px",
+    ):
         download_pages_from_url("https://example.com/news", min_side=600)
 
 
@@ -215,7 +260,9 @@ def test_only_web_page_urls_are_opened():
 
 def test_a_long_title_cut_to_100_letters_never_ends_in_a_space():
     # Windows drops a space at the end of a folder name, and then can't find the pages inside it.
-    assert module.get_safe_folder_name("x" * 99 + " Read it online for free") == "x" * 99
+    assert (
+        module.get_safe_folder_name("x" * 99 + " Read it online for free") == "x" * 99
+    )
 
 
 def test_the_largest_srcset_image_is_picked():
@@ -237,25 +284,37 @@ def fake_preview_with_an_ad(monkeypatch):
 
 
 def get_counts(reports):
-    return [(report["pages_done"], report["pages_total"], report["unit"], report["detail"]) for report in reports if "unit" in report]
+    return [
+        (report["pages_done"], report["pages_total"], report["unit"], report["detail"])
+        for report in reports
+        if "unit" in report
+    ]
 
 
 def test_the_images_are_counted_as_progress(monkeypatch):
     reports = []
-    monkeypatch.setattr(module, "report_progress", lambda **fields: reports.append(fields))
+    monkeypatch.setattr(
+        module, "report_progress", lambda **fields: reports.append(fields)
+    )
     fake_preview_with_an_ad(monkeypatch)
 
     folder = download_pages_from_url("https://example.com/preview")
 
     # "Images", not "pages": a web page could have anything on it.
-    assert get_counts(reports) == [(0, 3, "images", None), (1, 3, "images", None), (2, 3, "images", None)]
+    assert get_counts(reports) == [
+        (0, 3, "images", None),
+        (1, 3, "images", None),
+        (2, 3, "images", None),
+    ]
     assert reports[-1] == {"pages_done": 3}
     shutil.rmtree(os.path.dirname(folder))
 
 
 def test_with_a_minimum_size_the_progress_says_how_many_were_kept(monkeypatch):
     reports = []
-    monkeypatch.setattr(module, "report_progress", lambda **fields: reports.append(fields))
+    monkeypatch.setattr(
+        module, "report_progress", lambda **fields: reports.append(fields)
+    )
     fake_preview_with_an_ad(monkeypatch)
 
     folder = download_pages_from_url("https://example.com/preview", min_side=600)
@@ -286,7 +345,13 @@ def test_cancelling_a_page_download_leaves_nothing_behind(monkeypatch):
     )
     made_folders = []
     real_mkdtemp = tempfile.mkdtemp
-    monkeypatch.setattr(module.tempfile, "mkdtemp", lambda *args, **kwargs: made_folders.append(real_mkdtemp(*args, **kwargs)) or made_folders[-1])
+    monkeypatch.setattr(
+        module.tempfile,
+        "mkdtemp",
+        lambda *args, **kwargs: (
+            made_folders.append(real_mkdtemp(*args, **kwargs)) or made_folders[-1]
+        ),
+    )
     # Cancelled after the first image.
     real_get = module.requests.get
 
@@ -305,7 +370,9 @@ def test_cancelling_a_page_download_leaves_nothing_behind(monkeypatch):
     assert made_folders and not os.path.exists(made_folders[0])
 
 
-def test_an_image_that_cannot_be_opened_is_skipped_and_an_error_leaves_nothing_behind(monkeypatch):
+def test_an_image_that_cannot_be_opened_is_skipped_and_an_error_leaves_nothing_behind(
+    monkeypatch,
+):
     import tempfile
 
     fake_internet(
@@ -337,8 +404,18 @@ def test_an_image_that_cannot_be_opened_is_skipped_and_an_error_leaves_nothing_b
     # Any other error: the temporary folder isn't left behind.
     made_folders = []
     real_mkdtemp = tempfile.mkdtemp
-    monkeypatch.setattr(module.tempfile, "mkdtemp", lambda *args, **kwargs: made_folders.append(real_mkdtemp(*args, **kwargs)) or made_folders[-1])
-    monkeypatch.setattr(module, "download_image", lambda image_url, page_url: (_ for _ in ()).throw(MemoryError()))
+    monkeypatch.setattr(
+        module.tempfile,
+        "mkdtemp",
+        lambda *args, **kwargs: (
+            made_folders.append(real_mkdtemp(*args, **kwargs)) or made_folders[-1]
+        ),
+    )
+    monkeypatch.setattr(
+        module,
+        "download_image",
+        lambda image_url, page_url: (_ for _ in ()).throw(MemoryError()),
+    )
 
     with pytest.raises(MemoryError):
         download_pages_from_url("https://example.com/preview")

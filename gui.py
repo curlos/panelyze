@@ -30,7 +30,7 @@ from gui_classes.AppSettingsView import AppSettingsView
 from gui_classes.PipelineView import PipelineView
 from default_settings import DEFAULT_SETTINGS
 from gui_classes.AppOutput import show_all_output_in_app
-from utils import get_all_mangadex_languages
+from utils import add_line_to_terminal_output_list_view, get_all_mangadex_languages
 
 
 # The window opens at the default size. It can't be made smaller than the minimum size (about a phone's width), because the views don't fit in less space.
@@ -55,11 +55,16 @@ class GUI:
         self.window_width = page.width if page.web else page.window.width or page.width
         self.set_window_size()
 
-        self.page.theme_mode = "dark"
+        self.page.theme_mode = ft.ThemeMode.DARK
         self.page.theme = self.page.dark_theme = Nord.get_theme()
         self.page.padding = 0
 
         self.page.title = "Panelyze"
+        # On a Mac, the tabs go up in the title bar next to the red, yellow and green buttons, like in Safari or Notes. Windows keeps its title bar (hiding it would also hide its minimize, maximize and close buttons).
+        self.tabs_in_title_bar = (
+            getattr(page, "platform", None) == ft.PagePlatform.MACOS and not page.web
+        )
+        self.page.window.title_bar_hidden = self.tabs_in_title_bar
         self.page.bgcolor = Nord.BACKGROUND
         self.page.on_resized = self.handle_resized
         self.page.on_keyboard_event = self.handle_keyboard_shortcut
@@ -76,6 +81,7 @@ class GUI:
         # The tab in the app bar that's focused with the keyboard (None when the focus is somewhere else).
         self.focused_tab = None
         self.app_bar_slot = None
+        self.title_bar = None
         self.view_slot = None
         # Holds everything on the page, at "get_content_width" (see "update_content_width").
         self.content_container = None
@@ -126,17 +132,30 @@ class GUI:
             view.set_narrow(self.is_narrow)
 
     def update_content_width(self):
-        if not self.content_container:
+        if not (self.content_container and self.app_bar_slot):
             return
 
         window_width = self.window_width or DEFAULT_WINDOW_WIDTH
         content_width = get_content_width(window_width)
         if self.content_container.width != content_width:
             self.content_container.width = content_width
+            self.app_bar_slot.width = content_width
             self.content_container.update()
+            self.app_bar_slot.update()
 
-        # With margin on both sides, the terminal gets side borders too.
-        self.terminal_output.set_side_borders(window_width > MAX_CONTENT_WIDTH)
+        # The terminal's text lines up with the content.
+        self.terminal_output.set_side_margin(self.get_side_margin())
+
+        if self.tabs_in_title_bar:
+            self.app_bar.set_room_for_title_bar_buttons()
+            self.app_bar.update()
+
+    def get_side_margin(self):
+        """
+        The empty space on each side of the content, on a window wider than "MAX_CONTENT_WIDTH".
+        """
+        window_width = self.window_width or DEFAULT_WINDOW_WIDTH
+        return (window_width - get_content_width(window_width)) / 2
 
     def try_to_start_job(self, job_name):
         """
@@ -149,8 +168,11 @@ class GUI:
                 already_running = False
                 self.is_job_running = True
         if already_running:
-            self.terminal_output.update_terminal_with_error_message(
-                "ERROR: Another job is still running. Please wait for it to finish."
+            # Only in the Raw Output: the Status view keeps showing the job that's running (an error there would mark it as failed).
+            add_line_to_terminal_output_list_view(
+                self.terminal_output.terminal_output_list_view,
+                "ERROR: Another job is still running. Please wait for it to finish.",
+                color=Nord.RED_TEXT,
             )
             return False
         self.set_job_running(True, job_name)
@@ -166,6 +188,7 @@ class GUI:
         self.focused_tab = None
         # A new app bar, with the other tabs faded or back to normal.
         self.app_bar = AppBar(self)
+        assert self.app_bar_slot, "A job started before the app bar was shown."
         self.app_bar_slot.content = self.app_bar
         try:
             self.app_bar_slot.update()
@@ -189,7 +212,11 @@ class GUI:
 
     def handle_keyboard_shortcut(self, e):
         # While a tab is focused, the arrow keys (and Home and End) open the tabs around it.
-        if self.focused_tab and e.key in TAB_LIST_KEYS and not (e.ctrl or e.meta or e.alt or e.shift):
+        if (
+            self.focused_tab
+            and e.key in TAB_LIST_KEYS
+            and not (e.ctrl or e.meta or e.alt or e.shift)
+        ):
             self.app_bar.move_to_tab(e.key)
             return
 
@@ -247,43 +274,43 @@ class GUI:
         self.view_element = self.get_view_element()
 
         # The terminal is added to the page only once and stays on it when switching tabs. Taking it off the page would reset its scroll position. After the first time, only the app bar and the tab's content are swapped.
-        if self.app_bar_slot:
+        if self.app_bar_slot and self.view_slot:
             self.app_bar_slot.content = self.app_bar
             self.view_slot.content = self.view_element
             return
 
-        self.app_bar_slot = ft.Container(content=self.app_bar)
+        content_width = get_content_width(self.window_width or DEFAULT_WINDOW_WIDTH)
+        self.app_bar_slot = ft.Container(content=self.app_bar, width=content_width)
         self.view_slot = ft.Container(content=self.view_element, expand=True)
 
+        # The tab bar's color spans the whole window, like a title bar, and its tabs line up with the content under it.
+        self.title_bar = ft.Container(
+            content=ft.Row(
+                controls=[self.app_bar_slot], alignment=ft.MainAxisAlignment.CENTER
+            ),
+            bgcolor=Nord.SURFACE,
+        )
+        if self.tabs_in_title_bar:
+            # Dragging it moves the window. Double-clicking it doesn't zoom the window: listening for a double-click would make every click on a tab wait about 0.3 seconds, to see if a second click comes.
+            self.title_bar = ft.WindowDragArea(self.title_bar, maximizable=False)
+
         self.content_container = ft.Container(
-            content=ft.Column(
+            content=self.view_slot, width=content_width
+        )
+        # The content is centered between the tab bar and the terminal, which span the whole window.
+        self.page.add(
+            ft.Column(
                 controls=[
-                    self.app_bar_slot,
-                    ft.Container(
-                        content=ft.Column(
-                            controls=[
-                                self.view_slot,
-                                ft.Container(
-                                    content=self.terminal_output,
-                                    alignment=ft.alignment.bottom_left,
-                                ),
-                            ],
-                            expand=True,
-                        ),
+                    self.title_bar,
+                    ft.Row(
+                        controls=[self.content_container],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        vertical_alignment=ft.CrossAxisAlignment.STRETCH,
                         expand=True,
                     ),
+                    self.terminal_output,
                 ],
-                expand=True,
                 spacing=self.page.spacing,
-            ),
-            width=get_content_width(self.window_width or DEFAULT_WINDOW_WIDTH),
-        )
-        # Centered, and as tall as the window.
-        self.page.add(
-            ft.Row(
-                controls=[self.content_container],
-                alignment=ft.MainAxisAlignment.CENTER,
-                vertical_alignment=ft.CrossAxisAlignment.STRETCH,
                 expand=True,
             )
         )
@@ -313,7 +340,8 @@ class GUI:
 
         for setting_key, setting_value in client_storage_default_values.items():
             val = self.page.client_storage.get(setting_key)
-            if not val and val != False:
+            # False and 0 are saved choices, so only a missing value gets the default.
+            if not val and val != False:  # noqa: E712
                 self.page.client_storage.set(setting_key, setting_value)
 
 

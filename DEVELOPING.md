@@ -14,7 +14,7 @@ Tested on macOS with Python 3.12, and from source on Windows 11 with an AMD GPU 
 | `dev` | Start the app and restart it every time a file is saved |
 | `test` | The fast tests (a few seconds) |
 | `test:all` | The fast tests plus the end-to-end tests with the real tools |
-| `self-test` | Check that Magi, waifu2x, video, MangaDex Downloader, text-to-speech, opening comic files (.pdf, .cbz) and the comix.to downloader work, without opening the window |
+| `self-test` | Check that Magi, waifu2x, video, MangaDex Downloader, text-to-speech, opening comic files (.pdf, .cbz), the comix.to downloader and the Best upscaler (spandrel, Core ML) work, without opening the window |
 | `build-mac-app` | Build the downloadable `Panelyze.app` and its zip |
 
 They use the project's `venv`, so set it up first (below).
@@ -60,14 +60,20 @@ Get-Content requirements.txt | Where-Object { $_ -notmatch '^(torch|torchvision)
 - `python gui.py` (with the venv activated).
 - `flet run -r gui.py` restarts the app every time a file in the repo is saved, which also stops a job that's running. For a long job, use `python gui.py` (restart it to pick up code changes).
 - `flet run --web --port 8577 gui.py` opens the app in your web browser instead of a window. Handy for checking how it looks, including at phone sizes (make the browser window narrow). Its settings are separate from the window's.
-- `python gui.py --self-test` checks that Magi, waifu2x, video, MangaDex Downloader, text-to-speech, opening comic files (.pdf, .cbz) and the comix.to downloader all work, without opening the window.
+- `python gui.py --self-test` checks that Magi, waifu2x, video, MangaDex Downloader, text-to-speech, opening comic files (.pdf, .cbz), the comix.to downloader and the Best upscaler (spandrel, Core ML) all work, without opening the window.
 
 ## Tests
 
 ```bash
-python -m pytest          # fast tests (a few seconds), including GUI tests without a window
+python -m pytest          # fast tests (about 45 seconds), including GUI tests without a window
 python -m pytest -m e2e   # end-to-end tests with the real tools (a few minutes, needs the internet and waifu2x)
 ```
+
+The fast tests include a type check (`tests/test_types.py`): it runs [Pyright](https://github.com/microsoft/pyright) (`npx --yes pyright@1.1.414`, settings in `pyproject.toml`) and fails if it finds any type error, listing them. It needs [Node.js](https://nodejs.org) for `npx`, and is skipped without it. VS Code's Python extension (Pylance) shows the same errors in the Problems panel for the files you have open.
+
+They also include a lint check (`tests/test_lint.py`): [Ruff](https://docs.astral.sh/ruff/) (`ruff check .`, installed with requirements.txt, rules in `pyproject.toml`) looks for mistakes like unused imports and variables, undefined names or likely bugs. `ruff check --fix .` fixes most of them. The code is also formatted with `ruff format .` (the same style as Black, 88 characters a line, which VS Code's Black extension uses when saving a file), and the check fails if a file isn't.
+
+GitHub runs the fast tests on every push to `main` (`.github/workflows/tests.yml`, the Actions tab). The slower "Clean Mac check" (`.github/workflows/clean-mac-check.yml`) installs everything on a fresh Mac and builds the app; it's started by hand before a release.
 
 The end-to-end tests that download from MangaDex use Dragon Ball chapter 93 (`https://mangadex.org/chapter/ac33cc50-a1b2-49b0-a388-0d0ee4ebce18/14`) and only fetch its first 3 pages (saved as `00.jpg` for the cover, `01.jpg` and `02.jpg`; the downloader numbers files from 00). The first run saves them in `test-chapter-cache/` (git-ignored), and later runs reuse them. Set `PANELYZE_TEST_MANGADEX_URL` to use a different chapter.
 
@@ -78,6 +84,8 @@ The end-to-end tests that download from MangaDex use Dragon Ball chapter 93 (`ht
 ```
 
 It bundles everything (including waifu2x and the panels-only Magi model) into `dist/Panelyze.app`, runs the self-test on the built app, and zips it to `dist/Panelyze-macOS-AppleSilicon.zip`. Upload that zip to a [GitHub release](https://github.com/curlos/panelyze/releases) for users to download. The app only runs on Apple Silicon Macs (it's built on one).
+
+Before a release, run the **Clean Mac check** on GitHub (`gh workflow run clean-mac-check.yml`, or Actions → Clean Mac check → Run workflow). On a brand-new Mac it installs from `requirements.txt`, runs the fast tests and the self-test (downloading the Magi model for real), and builds and self-tests the app. It takes a while, since the Mac has no GPU.
 
 ## How it works
 
@@ -112,7 +120,7 @@ The "Upscale Model" setting picks one of three:
 ## Text-to-speech
 
 - **edge-tts** is the default. It's free (no API key) but unofficial and needs an internet connection.
-- **Azure Speech** is also available: pick "Azure" as the engine in the Text-To-Speech settings and enter your key and region (or put `AZURE_SUBSCRIPTION_KEY` and `AZURE_REGION` in a `.env` file).
+- **Azure Speech** is also available: pick "Azure" as the engine in the Text-To-Speech settings and enter your key and region. The Azure end-to-end test reads them from the `AZURE_SUBSCRIPTION_KEY` and `AZURE_REGION` environment variables and skips without them.
 - Azure voices can read in a speaking style (cheerful, sad, angry, ...): pick a fixed one, or **Auto**, which reads each line in the style that fits its emotion. Auto downloads a small emotion model (about 330 MB) the first time it's used, and only then. Only some Azure voices have styles; the others just speak normally.
 
 ## Video

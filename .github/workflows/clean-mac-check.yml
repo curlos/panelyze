@@ -1,0 +1,38 @@
+# Checks that Panelyze installs and works on a brand-new Mac (GitHub's macos-15 runner): install from requirements.txt, the fast tests, the self-test (which downloads waifu2x and the 2 GB Magi model for real, like the first time a user runs it), and the app build with its own self-test.
+# Started by hand: "gh workflow run clean-mac-check.yml", or Actions → Clean Mac check → Run workflow. It's slow (no GPU there), so it's a release check, not one for every push.
+name: Clean Mac check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: macos-15
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m venv venv
+          venv/bin/python -m pip install -r requirements.txt
+
+      - name: Fast tests
+        run: venv/bin/python -m pytest -q
+
+      - name: Self-test from source
+        run: venv/bin/python gui.py --self-test
+
+      - name: Build the app and run its self-test
+        run: ./build_mac_app.sh
+
+      - name: Upload the logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: panelyze-logs
+          path: ~/Library/Logs/Panelyze/

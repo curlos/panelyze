@@ -3,21 +3,25 @@ End-to-end tests: the real tools (Magi, waifu2x, edge-tts, MangaDex, MoviePy) dr
 
 Slow (a few minutes) and some need the internet, so they only run with: pytest -m e2e
 """
+
 import os
 import shutil
 import socket
+from typing import cast
 
 import pytest
 from PIL import Image
 
-from tests.fake_gui import fake_event
+from tests.fake_gui import fake_event, get_shown_text
 from utils import get_waifu2x_path
 
 pytestmark = pytest.mark.e2e
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Where the test chapter is saved after the first download, so later runs don't download it again. It only ever holds the Dragon Ball chapter, and it's in ".gitignore".
-TEST_CHAPTER_CACHE_DIR = os.path.join(REPO_DIR, "test-chapter-cache", "dragon-ball-ch-93")
+TEST_CHAPTER_CACHE_DIR = os.path.join(
+    REPO_DIR, "test-chapter-cache", "dragon-ball-ch-93"
+)
 TEST_CHAPTER_PAGE_COUNT = 3
 # The chapter every test download uses: Dragon Ball, chapter 93. Only its first 3 pages are downloaded. The downloader numbers the files from 00, so "00" is the cover (page 1), "01" is page 2 and "02" is page 3.
 MANGADEX_CHAPTER_URL = os.environ.get(
@@ -36,7 +40,9 @@ def has_internet():
 
 needs_internet = pytest.mark.skipif(not has_internet(), reason="No internet connection")
 # On the PATH, or downloaded by the app before.
-needs_waifu2x = pytest.mark.skipif(not get_waifu2x_path(), reason="waifu2x-ncnn-vulkan isn't installed")
+needs_waifu2x = pytest.mark.skipif(
+    not get_waifu2x_path(), reason="waifu2x-ncnn-vulkan isn't installed"
+)
 
 
 @pytest.fixture
@@ -99,14 +105,18 @@ def test_chapter():
     """
     if len(image_files(TEST_CHAPTER_CACHE_DIR)) != TEST_CHAPTER_PAGE_COUNT:
         if not has_internet():
-            pytest.skip("The test chapter isn't saved yet and there's no internet connection")
+            pytest.skip(
+                "The test chapter isn't saved yet and there's no internet connection"
+            )
 
         # Start over so a download that stopped halfway can't leave a partial chapter behind.
         shutil.rmtree(TEST_CHAPTER_CACHE_DIR, ignore_errors=True)
         download_test_chapter(TEST_CHAPTER_CACHE_DIR)
 
     pages = image_files(TEST_CHAPTER_CACHE_DIR)
-    assert len(pages) == TEST_CHAPTER_PAGE_COUNT, f"Couldn't download the test chapter: {pages}"
+    assert len(pages) == TEST_CHAPTER_PAGE_COUNT, (
+        f"Couldn't download the test chapter: {pages}"
+    )
     return TEST_CHAPTER_CACHE_DIR
 
 
@@ -145,10 +155,10 @@ def test_upscale_never_goes_past_4k(gui, tmp_path):
     run_submit(gui.UpscaleImagesView, tmp_path / "Test Manga", tmp_path / "out")
 
     output = tmp_path / "out" / "Test Manga" / "Ch 1"
-    # 1000px x 4 = 4000px, shrunk to 3840px (instead of 16x = 16000px).
-    assert Image.open(output / "wide.png").size == (3840, 2304)
+    # 1000px x 4 = 4000px, shrunk to 3840px (instead of 16x = 16000px). Saved as WebP, the default.
+    assert Image.open(output / "wide.webp").size == (3840, 2304)
     # Already bigger than 4K: denoised only, not upscaled.
-    assert Image.open(output / "already_4k.png").size == (4000, 100)
+    assert Image.open(output / "already_4k.webp").size == (4000, 100)
 
 
 @needs_internet
@@ -188,7 +198,9 @@ def test_images_to_video_makes_a_real_video(gui, tmp_path):
 
 
 @needs_internet
-def test_images_to_video_reads_and_voices_real_pages(gui, tmp_path, test_chapter, capsys):
+def test_images_to_video_reads_and_voices_real_pages(
+    gui, tmp_path, test_chapter, capsys
+):
     """
     The slow, full version: Magi reads the text on the real pages, edge-tts says it out loud, and the video is as long as the voice-over needs.
     """
@@ -198,6 +210,8 @@ def test_images_to_video_reads_and_voices_real_pages(gui, tmp_path, test_chapter
     storage.set("use_text_to_speech_azure", True)
     storage.set("tts_engine", "edge")
     storage.set("video_height", "360")
+    # Kept to check them (deleted after the video by default).
+    storage.set("clean_up_tts_audio_files_folder", False)
 
     run_submit(gui.ImagesToVideoView, test_chapter, tmp_path / "out")
 
@@ -254,17 +268,33 @@ def test_mangadex_downloads_a_range_of_chapters(tmp_path):
     storage.values.update(DEFAULT_SETTINGS)
     # Dragon Ball (Official Colored), chapters 1 and 2, only their first 2 pages each.
     storage.values.update(
-        use_start_and_end_chapters=True, start_chapter="1", end_chapter="2",
-        use_start_and_end_pages=True, start_page="1", end_page="2",
+        use_start_and_end_chapters=True,
+        start_chapter="1",
+        end_chapter="2",
+        use_start_and_end_pages=True,
+        start_page="1",
+        end_page="2",
     )
 
-    download_from_mangadex("https://mangadex.org/title/af0527c1-8734-4498-b128-7090340bc10d", str(tmp_path / "download"), None, storage)
+    download_from_mangadex(
+        "https://mangadex.org/title/af0527c1-8734-4498-b128-7090340bc10d",
+        str(tmp_path / "download"),
+        None,
+        storage,
+    )
 
     series = tmp_path / "download" / "Dragon Ball (Official Colored)"
     # A whole-series download also saves the series' cover next to the chapters.
     assert (series / "cover.jpg").exists()
-    chapter_pages = [path for path in image_paths(series) if os.path.dirname(path) != str(series)]
-    assert sorted({os.path.basename(os.path.dirname(path)).split(" - ")[0] for path in chapter_pages}) == ["Vol. 1 Ch. 1", "Vol. 1 Ch. 2"]
+    chapter_pages = [
+        path for path in image_paths(series) if os.path.dirname(path) != str(series)
+    ]
+    assert sorted(
+        {
+            os.path.basename(os.path.dirname(path)).split(" - ")[0]
+            for path in chapter_pages
+        }
+    ) == ["Vol. 1 Ch. 1", "Vol. 1 Ch. 2"]
     assert len(chapter_pages) == 4
 
 
@@ -285,15 +315,22 @@ def test_a_real_fast_upscale_with_a_custom_height(gui, tmp_path):
     run_submit(gui.UpscaleImagesView, tmp_path / "Test Manga", tmp_path / "out")
 
     # waifu2x makes it 600x400, then it's made 300 px tall.
-    assert Image.open(tmp_path / "out" / "Test Manga" / "Ch 1" / "panel_1.webp").size == (450, 300)
+    assert Image.open(
+        tmp_path / "out" / "Test Manga" / "Ch 1" / "panel_1.webp"
+    ).size == (450, 300)
 
 
 def test_a_real_best_upscale_of_a_color_panel(gui, tmp_path):
     # Uses the GPU, and downloads the color model (IllustrationJaNai) the first time ("Best" doesn't use waifu2x at 2x).
     from janai import COLOR_MODEL_FILE, MODELS_FOLDER
 
-    if not os.path.exists(os.path.join(MODELS_FOLDER, COLOR_MODEL_FILE)) and not has_internet():
-        pytest.skip("The color model isn't downloaded yet and there's no internet connection")
+    if (
+        not os.path.exists(os.path.join(MODELS_FOLDER, COLOR_MODEL_FILE))
+        and not has_internet()
+    ):
+        pytest.skip(
+            "The color model isn't downloaded yet and there's no internet connection"
+        )
     chapter = tmp_path / "Test Manga" / "Ch 1"
     chapter.mkdir(parents=True)
     panel = Image.new("RGB", (160, 120), "white")
@@ -310,7 +347,7 @@ def test_a_real_best_upscale_of_a_color_panel(gui, tmp_path):
     upscaled = Image.open(tmp_path / "out" / "Test Manga" / "Ch 1" / "panel_1.webp")
     assert upscaled.size == (320, 240)
     # Still in color (a black and white panel would go to MangaJaNai instead).
-    red, green, blue = upscaled.convert("RGB").getpixel((100, 120))
+    red, green, blue = cast(tuple, upscaled.convert("RGB").getpixel((100, 120)))
     assert red > 150 and green < 100 and blue < 100
 
 
@@ -327,13 +364,20 @@ def test_the_pipeline_downloads_from_comix_to_and_splits_the_panels(gui, tmp_pat
     for step, checkbox in pipeline.step_checkboxes.items():
         checkbox.value = step in ("Download", "Panel-By-Panel")
     # Slam Dunk ch. 1, the VIZ Media upload: 35 pages (about a minute to download).
-    pipeline.mangadex_url_text_field.value = "https://comix.to/title/w25zn-slam-dunk/9071380-chapter-1"
+    pipeline.mangadex_url_text_field.value = (
+        "https://comix.to/title/w25zn-slam-dunk/9071380-chapter-1"
+    )
     pipeline.output_directory = str(tmp_path / "out")
 
     pipeline.handle_run_pipeline(fake_event())
 
-    terminal_lines = [control.value for control in gui.terminal_output.terminal_output_list_view.controls]
-    assert any("Pipeline finished" in line for line in terminal_lines), terminal_lines[-5:]
+    terminal_lines = [
+        get_shown_text(control)
+        for control in gui.terminal_output.terminal_output_list_view.controls
+    ]
+    assert any("Pipeline finished" in line for line in terminal_lines), terminal_lines[
+        -5:
+    ]
     assert len(image_files(tmp_path / "out" / "1-download")) == 35
     assert image_files(tmp_path / "out" / "2-panel-by-panel")
 
@@ -365,9 +409,12 @@ def test_pipeline_runs_every_step_on_a_real_page(gui, tmp_path):
     pipeline.handle_run_pipeline(fake_event())
 
     terminal_lines = [
-        control.value for control in gui.terminal_output.terminal_output_list_view.controls
+        get_shown_text(control)
+        for control in gui.terminal_output.terminal_output_list_view.controls
     ]
-    assert any("Pipeline finished" in line for line in terminal_lines), terminal_lines[-5:]
+    assert any("Pipeline finished" in line for line in terminal_lines), terminal_lines[
+        -5:
+    ]
     # The cover has no panels, but pages 2 and 3 are story pages.
     assert image_files(tmp_path / "out" / "2-panel-by-panel")
     assert image_files(tmp_path / "out" / "3-upscale-images")
@@ -383,13 +430,12 @@ def test_pipeline_runs_every_step_on_a_real_page(gui, tmp_path):
 @needs_internet
 def test_azure_reads_each_line_in_the_style_of_its_emotion(tmp_path):
     """
-    Needs a real Azure key in ".env" (AZURE_SUBSCRIPTION_KEY and AZURE_REGION). Also downloads the emotion model (about 330 MB) the first time.
+    Needs a real Azure key in the AZURE_SUBSCRIPTION_KEY and AZURE_REGION environment variables. Also downloads the emotion model (about 330 MB) the first time.
     """
-    from dotenv import load_dotenv
-
-    load_dotenv(os.path.join(REPO_DIR, ".env"))
-    if not (os.getenv("AZURE_SUBSCRIPTION_KEY") and os.getenv("AZURE_REGION")):
-        pytest.skip("No Azure key in .env")
+    subscription_key = os.getenv("AZURE_SUBSCRIPTION_KEY")
+    region = os.getenv("AZURE_REGION")
+    if not (subscription_key and region):
+        pytest.skip("No AZURE_SUBSCRIPTION_KEY and AZURE_REGION environment variables")
 
     from EmotionAnalyzer import get_emotion_analyzer
     from TextToSpeech import TextToSpeech
@@ -397,7 +443,13 @@ def test_azure_reads_each_line_in_the_style_of_its_emotion(tmp_path):
 
     # Aria has many styles. The emotion model should pick different ones for these lines.
     tts = TextToSpeech(
-        {"tts_engine": "azure", "azure_voice_name": "en-US-AriaNeural", "azure_voice_style": "auto"}
+        {
+            "tts_engine": "azure",
+            "azure_voice_name": "en-US-AriaNeural",
+            "azure_voice_style": "auto",
+            "azure_subscription_key": subscription_key,
+            "azure_region": region,
+        }
     )
     analyzer = get_emotion_analyzer()
     happy_emotion, _ = analyzer.get_emotion("I'm so happy to see you!")
@@ -406,6 +458,8 @@ def test_azure_reads_each_line_in_the_style_of_its_emotion(tmp_path):
     assert angry_emotion == "anger"
 
     output_file = str(tmp_path / "styled.mp3")
-    tts.generate_audio(["I'm so happy to see you!", "Get out of my sight right now!"], output_file)
+    tts.generate_audio(
+        ["I'm so happy to see you!", "Get out of my sight right now!"], output_file
+    )
 
     assert get_audio_duration(output_file) > 2

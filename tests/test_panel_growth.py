@@ -37,19 +37,26 @@ def test_a_character_that_would_take_too_much_of_another_panel_is_left_out():
     # Reaching 50 px into the bottom panel (50% of it).
     character = [20, 10, 80, 160]
 
-    assert get_grown_panels([TOP_PANEL, BOTTOM_PANEL], [], [character]) == [TOP_PANEL, BOTTOM_PANEL]
+    assert get_grown_panels([TOP_PANEL, BOTTOM_PANEL], [], [character]) == [
+        TOP_PANEL,
+        BOTTOM_PANEL,
+    ]
 
 
 def test_show_full_characters_always_fits_the_whole_character():
     character = [20, 10, 80, 160]
 
-    grown = get_grown_panels([TOP_PANEL, BOTTOM_PANEL], [], [character], character_growth_limit=None)
+    grown = get_grown_panels(
+        [TOP_PANEL, BOTTOM_PANEL], [], [character], character_growth_limit=None
+    )
 
     assert grown == [[0, 0, 100, 160], BOTTOM_PANEL]
 
 
 def test_text_and_characters_inside_their_panel_change_nothing():
-    grown = get_grown_panels([TOP_PANEL, BOTTOM_PANEL], [[10, 10, 50, 30]], [[10, 120, 60, 200]])
+    grown = get_grown_panels(
+        [TOP_PANEL, BOTTOM_PANEL], [[10, 10, 50, 30]], [[10, 120, 60, 200]]
+    )
 
     assert grown == [TOP_PANEL, BOTTOM_PANEL]
 
@@ -103,6 +110,12 @@ def test_a_split_speech_bubble_follows_the_reading_direction():
     manga_order = [right_panel, left_panel]
 
     # Manga: the right panel is read first, so it shows the bubble.
-    assert get_grown_panels(manga_order, [bubble], [], reading_direction="rtl") == [[48, 0, 210, 200], left_panel]
+    assert get_grown_panels(manga_order, [bubble], [], reading_direction="rtl") == [
+        [48, 0, 210, 200],
+        left_panel,
+    ]
     # Comics: the left panel is read first.
-    assert get_grown_panels(manga_order, [bubble], [], reading_direction="ltr") == [right_panel, [0, 0, 162, 200]]
+    assert get_grown_panels(manga_order, [bubble], [], reading_direction="ltr") == [
+        right_panel,
+        [0, 0, 162, 200],
+    ]

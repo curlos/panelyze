@@ -7,7 +7,17 @@ class AppBarButton(ft.Container):
     A tab at the top. The selected one has the main area's color and a line under it, like a tab in VS Code. When "show_text" is False, only the icon is shown (the name is in the tooltip).
     """
 
-    def __init__(self, text, icon, shortcut, current_view, change_view, show_text, on_focus_change, running_job_name=""):
+    def __init__(
+        self,
+        text,
+        icon,
+        shortcut,
+        current_view,
+        change_view,
+        show_text,
+        on_focus_change,
+        running_job_name="",
+    ):
         super().__init__()
         is_selected = current_view == text
         # While a job runs, only its own tab can be open.
@@ -16,7 +26,9 @@ class AppBarButton(ft.Container):
 
         self.bgcolor = Nord.BACKGROUND if is_selected else None
         self.border = ft.border.only(
-            bottom=ft.border.BorderSide(2, Nord.ACCENT if is_selected else ft.Colors.TRANSPARENT)
+            bottom=ft.border.BorderSide(
+                2, Nord.ACCENT if is_selected else ft.Colors.TRANSPARENT
+            )
         )
         style = ft.ButtonStyle(
             color=Nord.TEXT_BRIGHT if is_selected else Nord.TEXT_MUTED,
@@ -27,7 +39,9 @@ class AppBarButton(ft.Container):
         button_class = ft.TextButton if show_text else ft.IconButton
         # A tooltip only when it says something the tab doesn't: why it can't be opened, or the name when only the icon shows.
         if is_waiting:
-            tooltip = Nord.tooltip(f'Wait for "{running_job_name}" to finish (only one job runs at a time)')
+            tooltip = Nord.tooltip(
+                f'Wait for "{running_job_name}" to finish (only one job runs at a time)'
+            )
         elif not show_text:
             tooltip = Nord.tooltip(f"{text} ({shortcut})")
         else:
@@ -74,6 +88,10 @@ SHORTCUT_KEYS = {
 }
 
 
+# How wide the Mac's red, yellow and green window buttons are, with their margins (the tabs start after them).
+TITLE_BAR_BUTTONS_WIDTH = 78
+
+
 def get_shortcut_label(page, view_name):
     is_mac = getattr(page, "platform", None) == ft.PagePlatform.MACOS
     return ("⌘" if is_mac else "Ctrl+") + SHORTCUT_KEYS[view_name]
@@ -97,16 +115,22 @@ class AppBar(ft.Container):
                 change_view=self.change_view,
                 show_text=show_text,
                 on_focus_change=self.handle_tab_focus_change,
-                running_job_name=self.parent_gui.running_job_name if self.parent_gui.is_job_running else "",
+                running_job_name=self.parent_gui.running_job_name
+                if self.parent_gui.is_job_running
+                else "",
             )
 
         self.buttons = {
-            tab_name: get_button(tab_name, TAB_ICONS[tab_name], show_text=not self.parent_gui.is_narrow)
+            tab_name: get_button(
+                tab_name, TAB_ICONS[tab_name], show_text=not self.parent_gui.is_narrow
+            )
             for tab_name in TAB_NAMES
         }
-        self.buttons["Settings"] = get_button("Settings", ft.Icons.SETTINGS, show_text=False)
+        self.buttons["Settings"] = get_button(
+            "Settings", ft.Icons.SETTINGS, show_text=False
+        )
 
-        self.content = ft.Row(
+        tabs_row = ft.Row(
             controls=[
                 # The tabs go onto another line when the window is too narrow for all of them, like on a web page. When it's very narrow (like a phone), they only show their icons.
                 ft.Row(
@@ -121,6 +145,16 @@ class AppBar(ft.Container):
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             expand=True,
         )
+        self.content = tabs_row
+        if self.parent_gui.tabs_in_title_bar:
+            self.set_room_for_title_bar_buttons()
+
+    def set_room_for_title_bar_buttons(self):
+        """
+        Room on the left for the Mac's window buttons. On a window wider than the content, they're partly or fully in the margin on its left, so less room (or none) is needed.
+        """
+        margin = self.parent_gui.get_side_margin()
+        self.padding = ft.padding.only(left=max(0, TITLE_BAR_BUTTONS_WIDTH - margin))
 
     def handle_tab_focus_change(self, tab_name, is_focused):
         if is_focused:

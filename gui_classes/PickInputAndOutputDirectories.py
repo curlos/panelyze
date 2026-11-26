@@ -1,5 +1,6 @@
 import os
 import threading
+from collections.abc import Callable
 import shutil
 import flet as ft
 from gui_classes import Nord
@@ -19,9 +20,11 @@ from gui_classes.ResponsiveColumns import ResponsiveColumns
 
 
 # Shown under the input buttons, so it's clear what a comic file is.
-COMIC_FILES_HELP_TEXT = "Comic files: .cbz, .cbr, .zip, .epub or .pdf. Each file becomes a chapter."
+COMIC_FILES_HELP_TEXT = (
+    "Comic files: .cbz, .cbr, .zip, .epub or .pdf. Each file becomes a chapter."
+)
 NO_OUTPUT_FOLDER_TEXT = "No output folder picked"
-# The Clear and main buttons don't stretch with the window. Two of them still fit side by side on a phone-size window.
+# The Clear and main buttons don't stretch with a wide window. On a narrow one, they share its width instead (see "set_narrow").
 ACTION_BUTTON_WIDTH = 170
 
 
@@ -39,7 +42,12 @@ def save_input_to_temporary_folder(comic_paths=(), image_paths=()):
 
 class PickInputAndOutputDirectories(ft.Container):
     def __init__(
-        self, on_submit, parent_gui, settings_container, output_setting_key=None, submit_text="Submit"
+        self,
+        on_submit,
+        parent_gui,
+        settings_container,
+        output_setting_key=None,
+        submit_text="Submit",
     ):
         super().__init__()
 
@@ -54,7 +62,9 @@ class PickInputAndOutputDirectories(ft.Container):
         self.output_setting_key = output_setting_key
         self.on_submit = on_submit
         # Something the tab adds to the line under a picked folder (e.g. "2 already split (kept)"), or "" (see "refresh_input_summary").
-        self.get_extra_input_summary = lambda input_directory, output_directory: ""
+        self.get_extra_input_summary: Callable[[str, str], str] = (
+            lambda input_directory, output_directory: ""
+        )
 
         self.parent_gui = parent_gui
         self.page = self.parent_gui.page
@@ -90,35 +100,62 @@ class PickInputAndOutputDirectories(ft.Container):
                             ft.TextButton(
                                 text="Pick Input Folder",
                                 icon=ft.Icons.FOLDER_OPEN,
-                                style=ft.ButtonStyle(color=Nord.TEXT, shape=Nord.SQUARE, side=Nord.get_focus_border()),
+                                style=ft.ButtonStyle(
+                                    color=Nord.TEXT,
+                                    shape=Nord.SQUARE,
+                                    side=Nord.get_focus_border(),
+                                ),
                                 on_click=self.open_input_files_picker_dialog,
                             ),
                             ft.Text("or", color=Nord.TEXT, size=14),
                             ft.TextButton(
                                 text="Pick Input Image(s)",
                                 icon=ft.Icons.IMAGE,
-                                style=ft.ButtonStyle(color=Nord.TEXT, shape=Nord.SQUARE, side=Nord.get_focus_border()),
-                                on_click=lambda e: self.pick_input_images_dialog.pick_files(
-                                    allow_multiple=True,
-                                    file_type=ft.FilePickerFileType.CUSTOM,
-                                    allowed_extensions=[extension.lstrip(".") for extension in IMAGE_EXTENSIONS],
+                                style=ft.ButtonStyle(
+                                    color=Nord.TEXT,
+                                    shape=Nord.SQUARE,
+                                    side=Nord.get_focus_border(),
+                                ),
+                                on_click=lambda e: (
+                                    self.pick_input_images_dialog.pick_files(
+                                        allow_multiple=True,
+                                        file_type=ft.FilePickerFileType.CUSTOM,
+                                        allowed_extensions=[
+                                            extension.lstrip(".")
+                                            for extension in IMAGE_EXTENSIONS
+                                        ],
+                                    )
                                 ),
                             ),
                             ft.TextButton(
                                 text="Pick Comic File(s)",
                                 icon=ft.Icons.MENU_BOOK,
-                                style=ft.ButtonStyle(color=Nord.TEXT, shape=Nord.SQUARE, side=Nord.get_focus_border()),
-                                on_click=lambda e: self.pick_input_comic_files_dialog.pick_files(
-                                    allow_multiple=True,
-                                    file_type=ft.FilePickerFileType.CUSTOM,
-                                    allowed_extensions=[extension.lstrip(".") for extension in COMIC_FILE_EXTENSIONS],
+                                style=ft.ButtonStyle(
+                                    color=Nord.TEXT,
+                                    shape=Nord.SQUARE,
+                                    side=Nord.get_focus_border(),
+                                ),
+                                on_click=lambda e: (
+                                    self.pick_input_comic_files_dialog.pick_files(
+                                        allow_multiple=True,
+                                        file_type=ft.FilePickerFileType.CUSTOM,
+                                        allowed_extensions=[
+                                            extension.lstrip(".")
+                                            for extension in COMIC_FILE_EXTENSIONS
+                                        ],
+                                    )
                                 ),
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.CENTER,
                         wrap=True,
                     ),
-                    ft.Text(COMIC_FILES_HELP_TEXT, color=Nord.TEXT_MUTED, size=12, text_align=ft.TextAlign.CENTER),
+                    ft.Text(
+                        COMIC_FILES_HELP_TEXT,
+                        color=Nord.TEXT_MUTED,
+                        size=12,
+                        text_align=ft.TextAlign.CENTER,
+                    ),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             )
@@ -134,7 +171,10 @@ class PickInputAndOutputDirectories(ft.Container):
                 controls=[
                     ft.Icon(ft.Icons.FILE_OPEN, color=Nord.TEXT),
                     ft.Column(
-                        controls=[self.input_directory_row_text, self.input_summary_text],
+                        controls=[
+                            self.input_directory_row_text,
+                            self.input_summary_text,
+                        ],
                         spacing=2,
                         expand=True,
                     ),
@@ -197,16 +237,18 @@ class PickInputAndOutputDirectories(ft.Container):
 
         # Shown instead of Clear while a job runs (see "handle_submit"). The job checks "cancel_event" as it goes, and "on_cancel" (set by the tab) can stop what's running right away.
         self.cancel_event = threading.Event()
-        self.on_cancel = None
+        self.on_cancel: Callable[[], None] | None = None
         # What the Status view says as soon as Cancel is clicked (e.g. "Cancelling after the chapter being split into panels...").
-        self.get_cancel_message = lambda: "Cancelling..."
+        self.get_cancel_message: Callable[[], str] = lambda: "Cancelling..."
         self.cancel_button = ft.FilledTonalButton(
             style=Nord.button_style("danger"),
             text="Cancel",
             width=ACTION_BUTTON_WIDTH,
             visible=False,
         )
-        set_cancel_click(self.cancel_button, self.handle_cancel, lambda: self.get_cancel_message())
+        set_cancel_click(
+            self.cancel_button, self.handle_cancel, lambda: self.get_cancel_message()
+        )
 
         self.clear_button = ft.FilledTonalButton(
             style=Nord.button_style("secondary"),
@@ -221,7 +263,13 @@ class PickInputAndOutputDirectories(ft.Container):
                     self.pick_input_directory_column,
                     self.selected_input_directory_row,
                     self.selected_output_directory_row,
-                    ft.Row(controls=[self.clear_button, self.cancel_button, self.submit_button]),
+                    ft.Row(
+                        controls=[
+                            self.clear_button,
+                            self.cancel_button,
+                            self.submit_button,
+                        ]
+                    ),
                 ],
                 spacing=14,
                 alignment=ft.MainAxisAlignment.START,
@@ -235,6 +283,12 @@ class PickInputAndOutputDirectories(ft.Container):
         )
         self.content = self.responsive_columns
 
+    def set_narrow(self, is_narrow):
+        self.responsive_columns.set_narrow(is_narrow)
+        # Two buttons at their normal width don't fit a phone-size window, so on a narrow one they share its width and never go past its edge.
+        for button in (self.clear_button, self.cancel_button, self.submit_button):
+            button.width = None if is_narrow else ACTION_BUTTON_WIDTH
+            button.expand = is_narrow
 
     def set_locked(self, locked):
         """
@@ -303,18 +357,24 @@ class PickInputAndOutputDirectories(ft.Container):
                 )
                 return
 
-            temporary_input_folder = save_input_to_temporary_folder(input_comic_paths, input_image_paths)
+            temporary_input_folder = save_input_to_temporary_folder(
+                input_comic_paths, input_image_paths
+            )
             if temporary_input_folder:
                 input_directory = temporary_input_folder
 
             self.on_submit(input_directory, output_directory)
         except Exception as error:
             # e.g. a comic file that couldn't be opened.
-            self.parent_gui.terminal_output.update_terminal_with_error_message(f"ERROR: {error}")
+            self.parent_gui.terminal_output.update_terminal_with_error_message(
+                f"ERROR: {error}"
+            )
         finally:
             # Only ever delete the temporary folder made just above.
             if temporary_input_folder:
-                shutil.rmtree(os.path.dirname(temporary_input_folder), ignore_errors=True)
+                shutil.rmtree(
+                    os.path.dirname(temporary_input_folder), ignore_errors=True
+                )
 
             self.parent_gui.set_job_running(False)
             # So a Pipeline that runs this tab's job later doesn't find a Cancel left over.
@@ -368,7 +428,9 @@ class PickInputAndOutputDirectories(ft.Container):
         if not self.input_directory or self.input_image_paths or self.input_comic_paths:
             return
         summary = get_input_summary(self.input_directory)
-        extra = self.get_extra_input_summary(self.input_directory, self.output_directory)
+        extra = self.get_extra_input_summary(
+            self.input_directory, self.output_directory
+        )
         self.input_summary_text.value = f"{summary} · {extra}" if extra else summary
         if update:
             # This tab might not be on screen.
@@ -446,14 +508,20 @@ class PickInputAndOutputDirectories(ft.Container):
 
     def set_output_directory(self, output_directory):
         if self.output_setting_key:
-            self.page.client_storage.set(self.output_setting_key, output_directory)
+            self.parent_gui.page.client_storage.set(
+                self.output_setting_key, output_directory
+            )
 
         self.show_output_directory(output_directory)
 
     def show_output_directory(self, output_directory):
         self.output_directory = output_directory
-        self.output_directory_row_text.value = self.output_directory or NO_OUTPUT_FOLDER_TEXT
-        self.output_directory_row_text.color = Nord.PATH if self.output_directory else Nord.TEXT
+        self.output_directory_row_text.value = (
+            self.output_directory or NO_OUTPUT_FOLDER_TEXT
+        )
+        self.output_directory_row_text.color = (
+            Nord.PATH if self.output_directory else Nord.TEXT
+        )
         self.output_directory_row_text.update()
         # What's already done can be different in another output folder.
         self.refresh_input_summary()
@@ -470,9 +538,11 @@ class PickInputAndOutputDirectories(ft.Container):
     def handle_clear_output_directory(self, e):
         # With a default output folder, clearing goes back to it.
         if self.output_setting_key:
-            self.page.client_storage.set(self.output_setting_key, "")
+            self.parent_gui.page.client_storage.set(self.output_setting_key, "")
             self.show_output_directory(
-                get_output_directory(self.page.client_storage, self.output_setting_key)
+                get_output_directory(
+                    self.parent_gui.page.client_storage, self.output_setting_key
+                )
             )
             return
 

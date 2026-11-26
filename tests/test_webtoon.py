@@ -4,7 +4,15 @@ import numpy
 import pytest
 
 from tests.fake_pages import drawn_page
-from magi import Magi, get_webtoon_safety_net, join_webtoon_strip, looks_like_webtoon, remove_junk_panels, remove_repeated_webtoon_panels, split_tall_panel
+from magi import (
+    Magi,
+    get_webtoon_safety_net,
+    join_webtoon_strip,
+    looks_like_webtoon,
+    remove_junk_panels,
+    remove_repeated_webtoon_panels,
+    split_tall_panel,
+)
 
 
 def blank(height, width):
@@ -42,7 +50,7 @@ def fake_magi_that_sees(strip, true_panels):
             )
         return results
 
-    magi.find_panels = find_panels
+    setattr(magi, "find_panels", find_panels)
     return magi
 
 
@@ -53,7 +61,9 @@ def test_each_panel_is_found_once_from_the_window_that_sees_it_whole():
     for x0, y0, x1, y1 in true_panels:
         strip[y0:y1, x0:x1] = drawn_page(y1 - y0, x1 - x0)
 
-    panels = fake_magi_that_sees(strip, true_panels).find_webtoon_panels(strip)["panels"]
+    panels = fake_magi_that_sees(strip, true_panels).find_webtoon_panels(strip)[
+        "panels"
+    ]
 
     assert panels == true_panels
 
@@ -63,7 +73,9 @@ def test_a_panel_taller_than_a_window_step_is_joined_back_together():
     # 290 px tall: every window cuts it off.
     tall_panel = [10, 300, 90, 590]
 
-    panels = fake_magi_that_sees(strip, [tall_panel]).find_webtoon_panels(strip)["panels"]
+    panels = fake_magi_that_sees(strip, [tall_panel]).find_webtoon_panels(strip)[
+        "panels"
+    ]
 
     assert panels == [tall_panel]
 
@@ -109,7 +121,9 @@ def test_plain_backgrounds_and_specks_are_not_panels(background):
     assert get_webtoon_safety_net(strip, []) == []
 
 
-def test_panel_by_panel_joins_a_webtoon_chapter_and_leaves_the_text_to_the_video(tmp_path, monkeypatch):
+def test_panel_by_panel_joins_a_webtoon_chapter_and_leaves_the_text_to_the_video(
+    tmp_path, monkeypatch
+):
     magi = Magi()
     pages_seen = []
 
@@ -118,10 +132,18 @@ def test_panel_by_panel_joins_a_webtoon_chapter_and_leaves_the_text_to_the_video
         return [{"panels": [[0, 0, 100, 100], [0, 300, 100, 500]]}]
 
     monkeypatch.setattr(magi, "predict_panels", predict_panels)
-    monkeypatch.setattr(magi, "get_per_page_results", lambda chapter_pages: pytest.fail("the text shouldn't be read"))
+    monkeypatch.setattr(
+        magi,
+        "get_per_page_results",
+        lambda chapter_pages: pytest.fail("the text shouldn't be read"),
+    )
 
     magi.get_panels_using_local_cpu(
-        [drawn_page(300, 100), drawn_page(300, 100)], "Series/Ch 1", str(tmp_path), reading_direction="webtoon", read_text=True
+        [drawn_page(300, 100), drawn_page(300, 100)],
+        "Series/Ch 1",
+        str(tmp_path),
+        reading_direction="webtoon",
+        read_text=True,
     )
 
     assert pages_seen == [(600, 100, 3)]
@@ -159,21 +181,34 @@ def test_a_webtoon_picked_as_manga_is_still_split_as_a_webtoon(tmp_path, monkeyp
 
     monkeypatch.setattr(magi, "predict_panels", predict_panels)
 
-    magi.get_panels_using_local_cpu([blank(9000, 700), blank(9000, 700)], "Series/Ch 1", str(tmp_path), reading_direction="rtl")
+    magi.get_panels_using_local_cpu(
+        [blank(9000, 700), blank(9000, 700)],
+        "Series/Ch 1",
+        str(tmp_path),
+        reading_direction="rtl",
+    )
 
     assert directions == ["webtoon"]
 
 
 @pytest.mark.parametrize("split_tall_panels", [True, False])
-def test_a_webtoon_s_tall_panel_is_split_only_with_split_tall_panels_on(tmp_path, monkeypatch, split_tall_panels):
+def test_a_webtoon_s_tall_panel_is_split_only_with_split_tall_panels_on(
+    tmp_path, monkeypatch, split_tall_panels
+):
     # A webtoon is joined into one strip first; a panel many phone screens tall is then cut into pieces, or kept whole.
     magi = Magi()
     magi.split_tall_panels = split_tall_panels
-    monkeypatch.setattr(magi, "predict_panels", lambda chapter_pages, reading_direction: [{"panels": [[0, 0, 700, 6000]]}])
+    monkeypatch.setattr(
+        magi,
+        "predict_panels",
+        lambda chapter_pages, reading_direction: [{"panels": [[0, 0, 700, 6000]]}],
+    )
     # Two 700 px wide strips with art and quiet gaps (see "tall_page" below).
     page = tall_page(9000).repeat(7, axis=1)
 
-    magi.get_panels_using_local_cpu([page, page], "Series/Ch 1", str(tmp_path), reading_direction="webtoon")
+    magi.get_panels_using_local_cpu(
+        [page, page], "Series/Ch 1", str(tmp_path), reading_direction="webtoon"
+    )
 
     panels = os.listdir(tmp_path / "Series" / "Ch 1")
     assert (len(panels) > 1) if split_tall_panels else (len(panels) == 1)
@@ -183,7 +218,9 @@ def test_a_webtoon_s_tall_panel_is_split_only_with_split_tall_panels_on(tmp_path
 def tall_page(height):
     page = blank(height, 100)
     # Art everywhere, with quiet white gaps at 300 and 600, like panel borders.
-    page[:, :, :] = numpy.tile(numpy.arange(100, dtype=numpy.uint8)[None, :, None] * 2, (height, 1, 3))
+    page[:, :, :] = numpy.tile(
+        numpy.arange(100, dtype=numpy.uint8)[None, :, None] * 2, (height, 1, 3)
+    )
     page[290:310] = 255
     page[590:610] = 255
     return page
@@ -202,7 +239,9 @@ def test_a_very_tall_panel_is_split_at_its_quiet_rows_and_nothing_is_lost():
 
     # 900 px is about 4.1 screens, so 5 pieces, cut in the white gaps where possible, covering the whole panel.
     assert pieces[0][1] == 0 and pieces[-1][3] == 900
-    assert all(piece[3] == next_piece[1] for piece, next_piece in zip(pieces, pieces[1:]))
+    assert all(
+        piece[3] == next_piece[1] for piece, next_piece in zip(pieces, pieces[1:])
+    )
     cuts = [piece[3] for piece in pieces[:-1]]
     assert any(290 <= cut <= 310 for cut in cuts)
 
@@ -246,11 +285,23 @@ def faint_petal(x):
 
 def test_blank_panels_and_repeated_watermarks_are_left_out_but_faint_art_stays():
     # Page 1: a black box, a real panel, and a watermark. Page 2: two more copies of the watermark and two different petals.
-    page_1 = numpy.concatenate([numpy.zeros((80, 80, 3), numpy.uint8), drawn_page(80, 80), faint_watermark()], axis=1)
-    page_2 = numpy.concatenate([faint_watermark(), faint_watermark(), faint_petal(5), faint_petal(45)], axis=1)
+    page_1 = numpy.concatenate(
+        [numpy.zeros((80, 80, 3), numpy.uint8), drawn_page(80, 80), faint_watermark()],
+        axis=1,
+    )
+    page_2 = numpy.concatenate(
+        [faint_watermark(), faint_watermark(), faint_petal(5), faint_petal(45)], axis=1
+    )
     results = [
         {"panels": [[0, 0, 80, 80], [80, 0, 160, 80], [160, 0, 240, 80]]},
-        {"panels": [[0, 0, 80, 80], [80, 0, 160, 80], [160, 0, 240, 80], [240, 0, 320, 80]]},
+        {
+            "panels": [
+                [0, 0, 80, 80],
+                [80, 0, 160, 80],
+                [160, 0, 240, 80],
+                [240, 0, 320, 80],
+            ]
+        },
     ]
 
     kept = remove_junk_panels(results, [page_1, page_2])
@@ -268,7 +319,9 @@ def test_a_sliver_showing_only_what_another_panel_shows_is_left_out():
     sliver = [280, 80, 320, 420]
     text = [200, 150, 290, 200]
 
-    assert remove_repeated_webtoon_panels(strip, [big_panel, sliver], [text]) == [big_panel]
+    assert remove_repeated_webtoon_panels(strip, [big_panel, sliver], [text]) == [
+        big_panel
+    ]
 
 
 def test_a_panel_with_text_no_other_panel_shows_is_kept():
@@ -279,7 +332,9 @@ def test_a_panel_with_text_no_other_panel_shows_is_kept():
     bubble = [310, 450, 390, 520]
     text = [320, 460, 380, 510]
 
-    assert sorted(remove_repeated_webtoon_panels(strip, [big_panel, bubble], [text])) == sorted([big_panel, bubble])
+    assert sorted(
+        remove_repeated_webtoon_panels(strip, [big_panel, bubble], [text])
+    ) == sorted([big_panel, bubble])
 
 
 def test_a_full_size_panel_inside_a_bigger_one_is_kept():
@@ -288,7 +343,9 @@ def test_a_full_size_panel_inside_a_bigger_one_is_kept():
     big_slice = [0, 100, 400, 700]
     panel_inside = [20, 200, 380, 500]
 
-    assert sorted(remove_repeated_webtoon_panels(strip, [big_slice, panel_inside], [])) == sorted([big_slice, panel_inside])
+    assert sorted(
+        remove_repeated_webtoon_panels(strip, [big_slice, panel_inside], [])
+    ) == sorted([big_slice, panel_inside])
 
 
 def test_soft_art_no_other_panel_shows_is_kept():
@@ -299,4 +356,6 @@ def test_soft_art_no_other_panel_shows_is_kept():
     petal = [320, 500, 380, 700]
     strip[520:680, 330:370] = 235
 
-    assert sorted(remove_repeated_webtoon_panels(strip, [big_panel, petal], [])) == sorted([big_panel, petal])
+    assert sorted(
+        remove_repeated_webtoon_panels(strip, [big_panel, petal], [])
+    ) == sorted([big_panel, petal])

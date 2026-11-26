@@ -102,14 +102,19 @@ def make_pipeline_view(tmp_path, monkeypatch, ran_steps, upscale_saves_images=Tr
 
 def get_step_statuses(view):
     # Each row is an icon, the step's name, and its time when it's done.
-    return [(row.controls[1].value, row.controls[0].name) for row in view.step_status_column.controls]
+    return [
+        (row.controls[1].value, row.controls[0].name)
+        for row in view.step_status_column.controls
+    ]
 
 
 def test_each_step_reads_the_folder_the_step_before_it_saved_to(tmp_path, monkeypatch):
     ran_steps = []
     view, error_messages = make_pipeline_view(tmp_path, monkeypatch, ran_steps)
 
-    view.run_pipeline(["Panel-By-Panel", "Upscale Images", "Images To Video"], view.input_directory)
+    view.run_pipeline(
+        ["Panel-By-Panel", "Upscale Images", "Images To Video"], view.input_directory
+    )
 
     output = tmp_path / "output"
     assert ran_steps == [
@@ -123,8 +128,13 @@ def test_each_step_reads_the_folder_the_step_before_it_saved_to(tmp_path, monkey
     assert (output / "3-upscale-images" / "One Piece" / "Ch 1" / "page_1.png").exists()
     assert error_messages == []
     # Every step is ticked under the Run button, with its time.
-    assert get_step_statuses(view) == [(step, "check_circle") for step in ("Panel-By-Panel", "Upscale Images", "Images To Video")]
-    assert all(row.controls[2].value.endswith("s") for row in view.step_status_column.controls)
+    assert get_step_statuses(view) == [
+        (step, "check_circle")
+        for step in ("Panel-By-Panel", "Upscale Images", "Images To Video")
+    ]
+    assert all(
+        row.controls[2].value.endswith("s") for row in view.step_status_column.controls
+    )
 
 
 def test_pipeline_stops_when_a_step_saves_nothing(tmp_path, monkeypatch):
@@ -137,21 +147,33 @@ def test_pipeline_stops_when_a_step_saves_nothing(tmp_path, monkeypatch):
 
     assert [step for step, _ in ran_steps] == ["Upscale Images"]
     assert "didn't save any images" in error_messages[-1]
-    assert get_step_statuses(view) == [("Upscale Images", "cancel"), ("Images To Video", "radio_button_unchecked")]
+    assert get_step_statuses(view) == [
+        ("Upscale Images", "cancel"),
+        ("Images To Video", "radio_button_unchecked"),
+    ]
     assert view.step_status_column.controls[0].controls[2].value == "no images saved"
 
 
 def test_pipeline_stops_when_a_step_fails(tmp_path, monkeypatch):
     ran_steps = []
     view, error_messages = make_pipeline_view(tmp_path, monkeypatch, ran_steps)
-    view.parent_gui.MagiPanelByPanelView.start_job = lambda input_directory, output_directory: False
+    view.parent_gui.MagiPanelByPanelView.start_job = (
+        lambda input_directory, output_directory: False
+    )
+    raw_output = SimpleNamespace(controls=[], update=lambda: None)
+    view.parent_gui.terminal_output.terminal_output_list_view = raw_output
 
     view.run_pipeline(["Panel-By-Panel", "Upscale Images"], view.input_directory)
 
     assert ran_steps == []
-    assert 'Pipeline stopped. "Panel-By-Panel" failed' in error_messages[-1]
+    # The step's tab already showed its error in the Status view, so this only goes in the Raw Output.
+    assert error_messages == []
+    assert 'Pipeline stopped. "Panel-By-Panel" failed' in raw_output.controls[-1].value
     # Under the Run button: the step that failed, and the one that never ran.
-    assert get_step_statuses(view) == [("Panel-By-Panel", "cancel"), ("Upscale Images", "radio_button_unchecked")]
+    assert get_step_statuses(view) == [
+        ("Panel-By-Panel", "cancel"),
+        ("Upscale Images", "radio_button_unchecked"),
+    ]
 
 
 def run_pipeline_and_get_opened_folders(tmp_path, monkeypatch, steps, chapters):
@@ -166,8 +188,12 @@ def run_pipeline_and_get_opened_folders(tmp_path, monkeypatch, steps, chapters):
     return opened_folders
 
 
-def test_one_chapter_opens_the_pipeline_folder_and_the_chapter_folder(tmp_path, monkeypatch):
-    opened_folders = run_pipeline_and_get_opened_folders(tmp_path, monkeypatch, ["Panel-By-Panel"], [])
+def test_one_chapter_opens_the_pipeline_folder_and_the_chapter_folder(
+    tmp_path, monkeypatch
+):
+    opened_folders = run_pipeline_and_get_opened_folders(
+        tmp_path, monkeypatch, ["Panel-By-Panel"], []
+    )
 
     output = tmp_path / "output"
     assert opened_folders == [
@@ -176,7 +202,9 @@ def test_one_chapter_opens_the_pipeline_folder_and_the_chapter_folder(tmp_path, 
     ]
 
 
-def test_several_chapters_open_the_pipeline_folder_and_the_last_step_folder(tmp_path, monkeypatch):
+def test_several_chapters_open_the_pipeline_folder_and_the_last_step_folder(
+    tmp_path, monkeypatch
+):
     opened_folders = run_pipeline_and_get_opened_folders(
         tmp_path, monkeypatch, ["Panel-By-Panel", "Upscale Images"], ["Ch 2"]
     )
@@ -221,18 +249,32 @@ def test_settings_review_only_lists_the_selected_steps():
     "url, expected",
     [
         # MangaDex uses every Download setting.
-        ("https://mangadex.org/title/x", "from MangaDex, language French, chapters 1 to 3, pages 2 to last, first upload of each chapter"),
+        (
+            "https://mangadex.org/title/x",
+            "from MangaDex, language French, chapters 1 to 3, pages 2 to last, first upload of each chapter",
+        ),
         # comix.to only uses the chapters.
         ("https://comix.to/title/w25zn-slam-dunk", "from comix.to, chapters 1 to 3"),
         ("https://archive.org/details/x", "from the Internet Archive"),
         # A web page only uses "Only keep bigger images".
-        ("https://example.com/chapter-1", "from the web page, only images at least 600px on the shorter side"),
+        (
+            "https://example.com/chapter-1",
+            "from the web page, only images at least 600px on the shorter side",
+        ),
         # No link yet (or not a link): the MangaDex settings, marked as such.
-        ("", "language French (MangaDex only), chapters 1 to 3, pages 2 to last, first upload of each chapter"),
-        ("not a link", "language French (MangaDex only), chapters 1 to 3, pages 2 to last, first upload of each chapter"),
+        (
+            "",
+            "language French (MangaDex only), chapters 1 to 3, pages 2 to last, first upload of each chapter",
+        ),
+        (
+            "not a link",
+            "language French (MangaDex only), chapters 1 to 3, pages 2 to last, first upload of each chapter",
+        ),
     ],
 )
-def test_settings_review_only_lists_the_download_settings_the_links_site_uses(url, expected):
+def test_settings_review_only_lists_the_download_settings_the_links_site_uses(
+    url, expected
+):
     storage = {
         "language": {"name": "French"},
         "use_start_and_end_chapters": True,
@@ -266,7 +308,13 @@ def test_the_settings_review_changes_as_the_link_is_typed(make_gui):
 
 @pytest.mark.parametrize("limit_to_4k", [True, False])
 def test_the_settings_review_says_when_upscaling_stops_at_4k(limit_to_4k):
-    storage = {"upscale_ratio": 32, "noise_level": 0, "image_format": "webp", "upscale_model": "best", "limit_upscale_to_4k": limit_to_4k}
+    storage = {
+        "upscale_ratio": 32,
+        "noise_level": 0,
+        "image_format": "webp",
+        "upscale_model": "best",
+        "limit_upscale_to_4k": limit_to_4k,
+    }
 
     details = dict(get_settings_review(storage, ["Upscale Images"]))["Upscale Images"]
 
@@ -278,24 +326,36 @@ def test_ticking_download_shows_the_link_box_instead_of_the_input_folder(make_gu
     from tests.fake_gui import fake_event
 
     pipeline = make_gui().PipelineView
-    assert pipeline.input_column.visible and not pipeline.mangadex_url_text_field.visible
+    assert (
+        pipeline.input_column.visible and not pipeline.mangadex_url_text_field.visible
+    )
 
     pipeline.step_checkboxes["Download"].value = True
     pipeline.handle_steps_change(fake_event())
-    assert pipeline.mangadex_url_text_field.visible and not pipeline.input_column.visible
+    assert (
+        pipeline.mangadex_url_text_field.visible and not pipeline.input_column.visible
+    )
 
     pipeline.step_checkboxes["Download"].value = False
     pipeline.handle_steps_change(fake_event())
-    assert pipeline.input_column.visible and not pipeline.mangadex_url_text_field.visible
+    assert (
+        pipeline.input_column.visible and not pipeline.mangadex_url_text_field.visible
+    )
 
 
 def test_settings_review_says_where_the_reading_direction_comes_from():
     def panel_by_panel_review(storage, steps):
         return dict(get_settings_review(storage, steps))["Panel-By-Panel"]
 
-    assert "Automatic (from MangaDex or comix.to)" in panel_by_panel_review({}, ["Download", "Panel-By-Panel"])
-    assert "Automatic (from the images" in panel_by_panel_review({"reading_direction": "auto"}, ["Panel-By-Panel"])
-    assert "Left to right (Comics)" in panel_by_panel_review({"reading_direction": "ltr"}, ["Download", "Panel-By-Panel"])
+    assert "Automatic (from MangaDex or comix.to)" in panel_by_panel_review(
+        {}, ["Download", "Panel-By-Panel"]
+    )
+    assert "Automatic (from the images" in panel_by_panel_review(
+        {"reading_direction": "auto"}, ["Panel-By-Panel"]
+    )
+    assert "Left to right (Comics)" in panel_by_panel_review(
+        {"reading_direction": "ltr"}, ["Download", "Panel-By-Panel"]
+    )
 
 
 def test_old_images_from_a_previous_run_are_not_used(tmp_path, monkeypatch):
@@ -304,7 +364,9 @@ def test_old_images_from_a_previous_run_are_not_used(tmp_path, monkeypatch):
         tmp_path, monkeypatch, ran_steps, upscale_saves_images=False
     )
     # Leftover from an earlier run.
-    save_image(str(tmp_path / "output" / "3-upscale-images" / "One Piece" / "Ch 1" / "old.png"))
+    save_image(
+        str(tmp_path / "output" / "3-upscale-images" / "One Piece" / "Ch 1" / "old.png")
+    )
 
     view.run_pipeline(["Upscale Images", "Images To Video"], view.input_directory)
 
@@ -317,13 +379,15 @@ def get_review_texts(gui):
     import flet as ft
 
     return [
-        control.value
+        control.value or ""
         for control in get_all_controls(gui.PipelineView.review_column)
         if isinstance(control, ft.Text)
     ]
 
 
-def test_the_review_has_labelled_sections_for_the_steps_the_settings_and_the_final_result(make_gui):
+def test_the_review_has_labelled_sections_for_the_steps_the_settings_and_the_final_result(
+    make_gui,
+):
     gui = make_gui()
     pipeline = gui.PipelineView
     pipeline.step_checkboxes["Panel-By-Panel"].value = True
@@ -360,15 +424,18 @@ def test_the_review_asks_for_a_step_when_none_is_picked(make_gui):
     assert get_review_texts(gui) == ["Pick at least one step."]
 
 
-def test_panel_by_panel_reads_the_text_only_when_the_video_will_use_it(tmp_path, monkeypatch):
+def test_panel_by_panel_reads_the_text_only_when_the_video_will_use_it(
+    tmp_path, monkeypatch
+):
     ran_steps = []
     view, _ = make_pipeline_view(tmp_path, monkeypatch, ran_steps)
     panel_by_panel = view.parent_gui.MagiPanelByPanelView
     read_text_when_run = []
     run_panel_by_panel = panel_by_panel.start_job
-    panel_by_panel.start_job = lambda *args: read_text_when_run.append(
-        panel_by_panel.read_text_for_video
-    ) or run_panel_by_panel(*args)
+    panel_by_panel.start_job = lambda *args: (
+        read_text_when_run.append(panel_by_panel.read_text_for_video)
+        or run_panel_by_panel(*args)
+    )
     storage = view.parent_gui.page.client_storage
     steps = ["Panel-By-Panel", "Images To Video"]
 
@@ -394,7 +461,9 @@ def test_the_review_says_when_panel_by_panel_reads_the_text():
     assert review["Panel-By-Panel"].endswith(", also reads the text for the video")
 
 
-def test_upscaling_keeps_the_text_panel_by_panel_read_with_the_images(make_gui, tmp_path, monkeypatch):
+def test_upscaling_keeps_the_text_panel_by_panel_read_with_the_images(
+    make_gui, tmp_path, monkeypatch
+):
     import shutil
 
     import gui_classes.UpscaleImagesView as upscale_module
@@ -406,10 +475,14 @@ def test_upscaling_keeps_the_text_panel_by_panel_read_with_the_images(make_gui, 
     monkeypatch.setattr(
         upscale_module,
         "upscale_with_waifu2x",
-        lambda input_image, output_image, **kwargs: shutil.copytree(input_image, output_image, dirs_exist_ok=True),
+        lambda input_image, output_image, **kwargs: shutil.copytree(
+            input_image, output_image, dirs_exist_ok=True
+        ),
     )
     monkeypatch.setattr(
-        upscale_module, "ProcessManager", lambda: SimpleNamespace(process=SimpleNamespace(returncode=0))
+        upscale_module,
+        "ProcessManager",
+        lambda: SimpleNamespace(process=SimpleNamespace(returncode=0)),
     )
     chapter = tmp_path / "panels" / "Ch 1"
     save_image(str(chapter / "panel_1.png"))
@@ -419,7 +492,10 @@ def test_upscaling_keeps_the_text_panel_by_panel_read_with_the_images(make_gui, 
 
     def upscale():
         gui.UpscaleImagesView.process_image_folder(
-            str(chapter), [{"name": "panel_1.png"}], str(tmp_path / "panels"), str(tmp_path / "upscaled")
+            str(chapter),
+            [{"name": "panel_1.png"}],
+            str(tmp_path / "panels"),
+            str(tmp_path / "upscaled"),
         )
 
     upscale()
@@ -448,7 +524,9 @@ def run_panel_by_panel_on_picked_input(gui, tmp_path, monkeypatch):
         given_folders.append(input_directory)
         for directory, _, file_names in os.walk(input_directory):
             for file_name in sorted(file_names):
-                given_pages.append(os.path.relpath(os.path.join(directory, file_name), input_directory))
+                given_pages.append(
+                    os.path.relpath(os.path.join(directory, file_name), input_directory)
+                )
         save_image(os.path.join(output_directory, "x", "1.png"))
         return True
 
@@ -473,12 +551,19 @@ def test_picked_comic_files_flow_into_panel_by_panel(make_gui, tmp_path, monkeyp
         cbz.writestr("2.png", b"2")
         cbz.writestr("1.png", b"1")
     gui.PipelineView.handle_comic_files_picked(
-        fake_event(files=[SimpleNamespace(path=str(cbz_path)), SimpleNamespace(path=str(tmp_path / "notes.txt"))])
+        fake_event(
+            files=[
+                SimpleNamespace(path=str(cbz_path)),
+                SimpleNamespace(path=str(tmp_path / "notes.txt")),
+            ]
+        )
     )
 
     assert gui.PipelineView.input_comic_paths == [str(cbz_path)]
-    assert run_panel_by_panel_on_picked_input(gui, tmp_path, monkeypatch) == ["001.png", "002.png"]
-
+    assert run_panel_by_panel_on_picked_input(gui, tmp_path, monkeypatch) == [
+        "001.png",
+        "002.png",
+    ]
 
 
 def test_picking_one_input_clears_the_others(make_gui, tmp_path):
@@ -487,12 +572,18 @@ def test_picking_one_input_clears_the_others(make_gui, tmp_path):
     gui = make_gui()
     pipeline = gui.PipelineView
 
-    pipeline.handle_comic_files_picked(fake_event(files=[SimpleNamespace(path=str(tmp_path / "a.cbz"))]))
-    pipeline.handle_images_picked(fake_event(files=[SimpleNamespace(path=str(tmp_path / "1.png"))]))
+    pipeline.handle_comic_files_picked(
+        fake_event(files=[SimpleNamespace(path=str(tmp_path / "a.cbz"))])
+    )
+    pipeline.handle_images_picked(
+        fake_event(files=[SimpleNamespace(path=str(tmp_path / "1.png"))])
+    )
     assert pipeline.input_comic_paths == []
 
     pipeline.handle_directory_picked(fake_event(path=str(tmp_path)), "input")
-    assert pipeline.input_image_paths == [] and pipeline.input_directory == str(tmp_path)
+    assert pipeline.input_image_paths == [] and pipeline.input_directory == str(
+        tmp_path
+    )
 
 
 @pytest.mark.parametrize(
@@ -502,22 +593,36 @@ def test_picking_one_input_clears_the_others(make_gui, tmp_path):
         ("https://mangadex.org/chapter/abc", "MangaDex"),
     ],
 )
-def test_the_download_step_uses_the_site_the_link_is_from(make_gui, tmp_path, monkeypatch, url, expected_downloader):
+def test_the_download_step_uses_the_site_the_link_is_from(
+    make_gui, tmp_path, monkeypatch, url, expected_downloader
+):
     from tests.fake_gui import fake_event
 
     used = []
 
     def fake_downloader(name):
-        def download(url, output_directory, terminal_output_list_view, storage, cancel_button=None):
+        def download(
+            url,
+            output_directory,
+            terminal_output_list_view,
+            storage,
+            cancel_button=None,
+        ):
             used.append((name, url))
-            save_image(os.path.join(output_directory, "Slam Dunk", "Chapter_1", "001.png"))
+            save_image(
+                os.path.join(output_directory, "Slam Dunk", "Chapter_1", "001.png")
+            )
 
         return download
 
     from gui_classes import MangaDexDownloaderView
 
-    monkeypatch.setattr(MangaDexDownloaderView, "download_from_comix", fake_downloader("comix.to"))
-    monkeypatch.setattr(MangaDexDownloaderView, "download_from_mangadex", fake_downloader("MangaDex"))
+    monkeypatch.setattr(
+        MangaDexDownloaderView, "download_from_comix", fake_downloader("comix.to")
+    )
+    monkeypatch.setattr(
+        MangaDexDownloaderView, "download_from_mangadex", fake_downloader("MangaDex")
+    )
     gui = make_gui()
     pipeline = gui.PipelineView
     pipeline.step_checkboxes["Download"].value = True
@@ -527,15 +632,21 @@ def test_the_download_step_uses_the_site_the_link_is_from(make_gui, tmp_path, mo
     pipeline.handle_run_pipeline(fake_event())
 
     assert used == [(expected_downloader, url)]
-    assert (tmp_path / "out" / "1-download" / "Slam Dunk" / "Chapter_1" / "001.png").exists()
+    assert (
+        tmp_path / "out" / "1-download" / "Slam Dunk" / "Chapter_1" / "001.png"
+    ).exists()
 
 
-def test_the_pipeline_refuses_download_text_that_is_not_a_link(make_gui, tmp_path, monkeypatch):
+def test_the_pipeline_refuses_download_text_that_is_not_a_link(
+    make_gui, tmp_path, monkeypatch
+):
     from tests.fake_gui import fake_event
 
     gui = make_gui()
     errors = []
-    monkeypatch.setattr(gui.terminal_output, "update_terminal_with_error_message", errors.append)
+    monkeypatch.setattr(
+        gui.terminal_output, "update_terminal_with_error_message", errors.append
+    )
     pipeline = gui.PipelineView
     pipeline.step_checkboxes["Download"].value = True
     pipeline.mangadex_url_text_field.value = "slam dunk"
@@ -543,7 +654,9 @@ def test_the_pipeline_refuses_download_text_that_is_not_a_link(make_gui, tmp_pat
 
     pipeline.handle_run_pipeline(fake_event())
 
-    assert errors == ["ERROR: Not a web link (it should start with https://): slam dunk"]
+    assert errors == [
+        "ERROR: Not a web link (it should start with https://): slam dunk"
+    ]
     assert not (tmp_path / "out").exists()
 
 
@@ -553,14 +666,20 @@ def test_after_a_download_the_next_steps_start_from_the_series_folder(tmp_path):
     downloads = tmp_path / "1-download"
     (downloads / "Shachou to Sake to Hoshi" / "Ch 8").mkdir(parents=True)
     # So the next steps save to "2-panel-by-panel/Shachou to Sake to Hoshi", not "2-panel-by-panel/1-download/Shachou to Sake to Hoshi".
-    assert get_next_step_input_directory("Download", "", str(downloads)) == str(downloads / "Shachou to Sake to Hoshi")
+    assert get_next_step_input_directory("Download", "", str(downloads)) == str(
+        downloads / "Shachou to Sake to Hoshi"
+    )
 
     # A MangaDex list of several series: the whole folder.
     (downloads / "Bleach").mkdir()
-    assert get_next_step_input_directory("Download", "", str(downloads)) == str(downloads)
+    assert get_next_step_input_directory("Download", "", str(downloads)) == str(
+        downloads
+    )
 
 
-def test_cancel_stops_the_step_that_is_running_and_the_steps_after_it(make_gui, tmp_path, monkeypatch):
+def test_cancel_stops_the_step_that_is_running_and_the_steps_after_it(
+    make_gui, tmp_path, monkeypatch
+):
     from tests.fake_gui import fake_event
 
     gui = make_gui()
@@ -580,15 +699,24 @@ def test_cancel_stops_the_step_that_is_running_and_the_steps_after_it(make_gui, 
         pipeline.cancel_button.on_click(fake_event())
         seen.append((pipeline.cancel_button.text, pipeline.cancel_button.disabled))
 
-    monkeypatch.setattr(gui.MagiPanelByPanelView, "process_image_folder", split_and_click_cancel)
-    monkeypatch.setattr(gui.UpscaleImagesView, "start_job", lambda *args: pytest.fail("Upscale shouldn't start"))
+    monkeypatch.setattr(
+        gui.MagiPanelByPanelView, "process_image_folder", split_and_click_cancel
+    )
+    monkeypatch.setattr(
+        gui.UpscaleImagesView,
+        "start_job",
+        lambda *args: pytest.fail("Upscale shouldn't start"),
+    )
 
     pipeline.handle_run_pipeline(fake_event())
 
     # Shown and clickable while it runs, "Cancelling..." once clicked, and the chapter after the current one isn't split.
     assert seen == [(True, False), ("Cancelling...", True)]
     assert split == ["Ch 1"]
-    assert get_step_statuses(pipeline) == [("Panel-By-Panel", "do_not_disturb_on"), ("Upscale Images", "radio_button_unchecked")]
+    assert get_step_statuses(pipeline) == [
+        ("Panel-By-Panel", "do_not_disturb_on"),
+        ("Upscale Images", "radio_button_unchecked"),
+    ]
     # Shown as cancelled (with its timer), not as an error.
     panel = gui.terminal_output.progress_panel
     assert panel.title.startswith('Pipeline cancelled at "Panel-By-Panel"')
@@ -602,30 +730,46 @@ def test_cancel_stops_the_download_step(make_gui, tmp_path, monkeypatch):
     from tests.fake_gui import fake_event
     from utils import DownloadCancelled, get_cancel_event
 
-    def download_until_cancelled(url, output_directory, terminal_output_list_view, storage, cancel_button=None):
+    def download_until_cancelled(
+        url, output_directory, terminal_output_list_view, storage, cancel_button=None
+    ):
         # Like the real downloaders: Cancel now sets their own flag.
         cancel_event = get_cancel_event(cancel_button)
+        assert cancel_button is not None
         cancel_button.on_click(fake_event())
         assert cancel_event.is_set()
         raise DownloadCancelled("Download cancelled")
 
-    monkeypatch.setattr(MangaDexDownloaderView, "download_from_mangadex", download_until_cancelled)
+    monkeypatch.setattr(
+        MangaDexDownloaderView, "download_from_mangadex", download_until_cancelled
+    )
     gui = make_gui()
     pipeline = gui.PipelineView
     pipeline.step_checkboxes["Download"].value = True
     pipeline.step_checkboxes["Panel-By-Panel"].value = True
     pipeline.mangadex_url_text_field.value = "https://mangadex.org/chapter/abc"
     pipeline.output_directory = str(tmp_path / "out")
-    monkeypatch.setattr(gui.MagiPanelByPanelView, "start_job", lambda *args: pytest.fail("Panel-By-Panel shouldn't start"))
+    monkeypatch.setattr(
+        gui.MagiPanelByPanelView,
+        "start_job",
+        lambda *args: pytest.fail("Panel-By-Panel shouldn't start"),
+    )
 
     pipeline.handle_run_pipeline(fake_event())
 
-    assert get_step_statuses(pipeline) == [("Download", "do_not_disturb_on"), ("Panel-By-Panel", "radio_button_unchecked")]
+    assert get_step_statuses(pipeline) == [
+        ("Download", "do_not_disturb_on"),
+        ("Panel-By-Panel", "radio_button_unchecked"),
+    ]
     assert gui.terminal_output.progress_panel.state == "cancelled"
-    assert not pipeline.cancel_button.visible and pipeline.cancel_button.text == "Cancel"
+    assert (
+        not pipeline.cancel_button.visible and pipeline.cancel_button.text == "Cancel"
+    )
 
 
-def test_a_step_that_finishes_after_cancel_still_stops_the_next_one(make_gui, tmp_path, monkeypatch):
+def test_a_step_that_finishes_after_cancel_still_stops_the_next_one(
+    make_gui, tmp_path, monkeypatch
+):
     from tests.fake_gui import fake_event
 
     gui = make_gui()
@@ -641,9 +785,99 @@ def test_a_step_that_finishes_after_cancel_still_stops_the_next_one(make_gui, tm
         pipeline.cancel_button.on_click(fake_event())
         save_image(os.path.join(output_directory, "One Piece", "Ch 1", "panel_1.png"))
 
-    monkeypatch.setattr(gui.MagiPanelByPanelView, "process_image_folder", split_and_click_cancel)
-    monkeypatch.setattr(gui.UpscaleImagesView, "start_job", lambda *args: pytest.fail("Upscale shouldn't start"))
+    monkeypatch.setattr(
+        gui.MagiPanelByPanelView, "process_image_folder", split_and_click_cancel
+    )
+    monkeypatch.setattr(
+        gui.UpscaleImagesView,
+        "start_job",
+        lambda *args: pytest.fail("Upscale shouldn't start"),
+    )
 
     pipeline.handle_run_pipeline(fake_event())
 
-    assert get_step_statuses(pipeline) == [("Panel-By-Panel", "check_circle"), ("Upscale Images", "do_not_disturb_on")]
+    assert get_step_statuses(pipeline) == [
+        ("Panel-By-Panel", "check_circle"),
+        ("Upscale Images", "do_not_disturb_on"),
+    ]
+
+
+def test_the_pipeline_refuses_an_input_inside_a_step_folder_it_would_clear(
+    make_gui, tmp_path, monkeypatch
+):
+    from tests.fake_gui import fake_event
+
+    gui = make_gui()
+    errors = []
+    monkeypatch.setattr(
+        gui.terminal_output, "update_terminal_with_error_message", errors.append
+    )
+    pipeline = gui.PipelineView
+    # Upscaled panels from an earlier run, picked as the input of a new run whose Upscale step clears "3-upscale-images".
+    picked = (
+        tmp_path / "out" / get_step_output_directory("", "Upscale Images") / "One Piece"
+    )
+    picked.mkdir(parents=True)
+    (picked / "panel_1.png").write_bytes(b"hours of upscaling")
+    for step in ("Panel-By-Panel", "Upscale Images"):
+        pipeline.step_checkboxes[step].value = True
+    pipeline.input_directory = str(picked)
+    pipeline.output_directory = str(tmp_path / "out")
+    ran = []
+    monkeypatch.setattr(pipeline, "run_pipeline", lambda *args: ran.append(args))
+
+    pipeline.handle_run_pipeline(fake_event())
+
+    assert ran == []
+    assert len(errors) == 1 and "the Pipeline clears" in errors[0]
+    assert (picked / "panel_1.png").read_bytes() == b"hours of upscaling"
+    assert gui.is_job_running is False
+
+
+def test_when_a_step_fails_the_status_keeps_its_own_error(
+    make_gui, tmp_path, monkeypatch
+):
+    from tests.fake_gui import fake_event
+
+    gui = make_gui()
+    pipeline = gui.PipelineView
+    pipeline.step_checkboxes["Upscale Images"].value = True
+    save_image(str(tmp_path / "One Piece" / "Ch 1" / "panel_1.png"))
+    pipeline.input_directory = str(tmp_path / "One Piece")
+    pipeline.output_directory = str(tmp_path / "out")
+
+    def fail_like_upscale(*args):
+        # What the Upscale tab shows when waifu2x is missing.
+        gui.terminal_output.update_terminal_with_error_message(
+            'ERROR: "waifu2x-ncnn-vulkan" was not found.'
+        )
+        return False
+
+    monkeypatch.setattr(gui.UpscaleImagesView, "start_job", fail_like_upscale)
+
+    pipeline.handle_run_pipeline(fake_event())
+
+    panel = gui.terminal_output.progress_panel
+    assert (
+        panel.state == "failed"
+        and panel.detail == '"waifu2x-ncnn-vulkan" was not found.'
+    )
+    terminal_lines = gui.terminal_output.terminal_output_list_view.controls
+    assert 'Pipeline stopped. "Upscale Images" failed' in terminal_lines[-1].value
+
+
+def test_picked_comic_files_inside_a_step_folder_are_fine_since_they_are_copied_first(
+    make_gui, tmp_path
+):
+    gui = make_gui()
+    pipeline = gui.PipelineView
+    step_folder = tmp_path / "out" / get_step_output_directory("", "Upscale Images")
+    step_folder.mkdir(parents=True)
+    (step_folder / "Ch 1.cbz").write_bytes(b"comic")
+    for step in ("Upscale Images", "Images To Video"):
+        pipeline.step_checkboxes[step].value = True
+    pipeline.input_comic_paths = [str(step_folder / "Ch 1.cbz")]
+    pipeline.input_directory = str(step_folder)
+    pipeline.output_directory = str(tmp_path / "out")
+
+    assert pipeline.get_error_before_running(pipeline.get_selected_steps()) is None

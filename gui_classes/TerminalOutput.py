@@ -15,10 +15,29 @@ class RawOutputListView(ft.ListView):
     The lines of the Raw Output. While there are none, "empty_message" is shown instead (see "update").
     """
 
+    # How close to the bottom counts as "at the bottom" (about 3 lines).
+    BOTTOM_MARGIN = 60
+
     def __init__(self, empty_message, **kwargs):
         super().__init__(**kwargs)
         self.empty_message = empty_message
         self.sync_empty_message()
+        self.on_scroll = self.follow_new_lines_only_at_the_bottom
+
+    def follow_new_lines_only_at_the_bottom(self, e):
+        """
+        New lines scroll the Raw Output to the bottom only while it's already there, so someone reading older lines isn't pulled away from them.
+        """
+        if e.event_type != "end":
+            return
+        at_bottom = e.pixels >= e.max_scroll_extent - self.BOTTOM_MARGIN
+        if self.auto_scroll != at_bottom:
+            self.auto_scroll = at_bottom
+            try:
+                self.update()
+            except Exception:
+                # Not on the page.
+                pass
 
     def sync_empty_message(self):
         self.empty_message.visible = not self.controls
@@ -43,21 +62,29 @@ class TerminalOutput(ft.Container):
         # The height to go back to when the terminal is expanded again. Changed by dragging the blue line at the top.
         self.expanded_height = DEFAULT_TERMINAL_HEIGHT
 
-        # Drag the blue line at the top of the terminal up or down to resize it.
+        # Drag the top edge of the terminal up or down to resize it. Like in VS Code, a blue line shows up there only while the mouse is over it.
+        self.resize_line = ft.Container(height=6)
+        self.show_resize_line(False)
         self.resize_handle = ft.GestureDetector(
-            content=ft.Container(
-                height=6,
-                border=ft.border.only(top=ft.border.BorderSide(2, Nord.BLUE)),
-            ),
+            content=self.resize_line,
             mouse_cursor=ft.MouseCursor.RESIZE_UP_DOWN,
             on_vertical_drag_update=self.handle_resize_drag,
             drag_interval=20,
+            on_enter=lambda e: self.show_resize_line(True),
+            on_exit=lambda e: self.show_resize_line(False),
         )
 
         # The raw output and the progress panel are stacked on top of each other, and the progress panel is shown or hidden. The raw output always stays on the page, so switching tabs never resets its scroll position.
-        self.raw_output_empty_text = ft.Text(RAW_OUTPUT_EMPTY_TEXT, color=Nord.TEXT_MUTED, left=0, top=0, right=0)
+        self.raw_output_empty_text = ft.Text(
+            RAW_OUTPUT_EMPTY_TEXT, color=Nord.TEXT_MUTED, left=0, top=0, right=0
+        )
         self.terminal_output_list_view = RawOutputListView(
-            self.raw_output_empty_text, auto_scroll=True, left=0, top=0, right=0, bottom=0
+            self.raw_output_empty_text,
+            auto_scroll=True,
+            left=0,
+            top=0,
+            right=0,
+            bottom=0,
         )
         self.progress_panel = ProgressPanel()
         self.progress_panel.left = 0
@@ -65,7 +92,11 @@ class TerminalOutput(ft.Container):
         self.progress_panel.right = 0
         self.progress_panel.bottom = 0
         self.output_area = ft.Stack(
-            controls=[self.terminal_output_list_view, self.raw_output_empty_text, self.progress_panel],
+            controls=[
+                self.terminal_output_list_view,
+                self.raw_output_empty_text,
+                self.progress_panel,
+            ],
             expand=True,
         )
         self.progress_tab_button = ft.TextButton(
@@ -79,7 +110,9 @@ class TerminalOutput(ft.Container):
             ft.Icons.KEYBOARD_ARROW_DOWN,
             on_click=self.toggle_terminal_visibility,
             tooltip=Nord.tooltip("Show or hide the terminal"),
-            style=ft.ButtonStyle(shape=Nord.SQUARE, side=Nord.get_focus_border(), padding=1),
+            style=ft.ButtonStyle(
+                shape=Nord.SQUARE, side=Nord.get_focus_border(), padding=1
+            ),
         )
 
         self.title_text = ft.Text(
@@ -87,33 +120,39 @@ class TerminalOutput(ft.Container):
         )
         self.command_text = ft.Text(value="", color=Nord.TEXT_MUTED, visible=False)
         self.progress_ring = ft.ProgressRing(width=14, height=14, visible=False)
-        self.success_icon = ft.Icon(ft.Icons.CHECK_CIRCLE, color=Nord.GREEN, visible=False)
+        self.success_icon = ft.Icon(
+            ft.Icons.CHECK_CIRCLE, color=Nord.GREEN, visible=False
+        )
 
+        self.output_container = ft.Container(
+            content=self.get_header_and_output_column(),
+            padding=ft.padding.only(left=10, right=10, bottom=10),
+            expand=True,
+        )
         self.content = ft.Column(
-            controls=[
-                self.resize_handle,
-                ft.Container(
-                    content=self.get_header_and_output_column(),
-                    padding=ft.padding.only(left=10, right=10, bottom=10),
-                    expand=True,
-                ),
-            ],
-            spacing=0,
+            controls=[self.resize_handle, self.output_container], spacing=0
         )
         self.bgcolor = Nord.SURFACE
         self.height = DEFAULT_TERMINAL_HEIGHT
-        self.side_borders_shown = False
 
-    def set_side_borders(self, shown):
+    def show_resize_line(self, shown):
+        color = Nord.BLUE if shown else ft.Colors.TRANSPARENT
+        self.resize_line.border = ft.border.only(top=ft.BorderSide(2, color))
+        try:
+            self.resize_line.update()
+        except Exception:
+            # Not on the page yet.
+            pass
+
+    def set_side_margin(self, margin):
         """
-        Blue borders on the left and right, for when the window is wider than the content: the terminal is then a box with margin on both sides, like the input cards. In a narrower window it touches the window's edges, so it has none.
+        The terminal spans the whole window, like the tab bar. On a window wider than the content, its text still lines up with the content, "margin" in from each side.
         """
-        if shown == self.side_borders_shown:
+        padding = ft.padding.only(left=10 + margin, right=10 + margin, bottom=10)
+        if self.output_container.padding == padding:
             return
 
-        self.side_borders_shown = shown
-        border_side = ft.BorderSide(1, Nord.BLUE)
-        self.border = ft.border.only(left=border_side, right=border_side) if shown else None
+        self.output_container.padding = padding
         self.update()
 
     def get_header_and_output_column(self):
@@ -159,13 +198,16 @@ class TerminalOutput(ft.Container):
             # The selected tab is the bright one.
             button.style = ft.ButtonStyle(
                 color=Nord.ACCENT if is_selected else Nord.TEXT_MUTED,
-                text_style=ft.TextStyle(weight=ft.FontWeight.BOLD if is_selected else None),
+                text_style=ft.TextStyle(
+                    weight=ft.FontWeight.BOLD if is_selected else None
+                ),
                 shape=Nord.SQUARE,
                 side=Nord.get_focus_border(),
             )
 
     def handle_resize_drag(self, e):
         # Dragging up (negative "delta_y") makes the terminal taller. Keep some room for the view above it.
+        assert self.page, "The terminal was resized before it was shown."
         max_height = max(DEFAULT_TERMINAL_HEIGHT, (self.page.height or 800) - 150)
         new_height = min(max(self.height - e.delta_y, MIN_TERMINAL_HEIGHT), max_height)
 
@@ -239,6 +281,7 @@ class TerminalOutput(ft.Container):
             self.height = MIN_TERMINAL_HEIGHT
             self.terminal_arrow_icon.icon = ft.Icons.KEYBOARD_ARROW_UP
 
+        assert self.page, "The terminal was toggled before it was shown."
         self.page.update()  # Refresh the UI to reflect changes
 
     def update_terminal_with_error_message(self, error_message):

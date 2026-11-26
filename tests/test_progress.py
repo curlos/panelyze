@@ -10,6 +10,7 @@ from download_from_mangadex import (
 )
 from gui_classes import Nord
 from gui_classes.ProgressPanel import ProgressPanel, report_progress
+from tests.fake_gui import get_shown_text
 
 
 @pytest.fixture(autouse=True)
@@ -20,7 +21,9 @@ def sizes_counted_like_finder(monkeypatch):
 
 # Real lines from mangadex-downloader.
 PAGE_LINE = "[INFO] Downloading [Setsu Scans & Les Poroïniens] Volume. 6 Chapter. 42 - Boss and His Best Friend page 7\n"
-FINISHED_LINE = '[INFO] Finished download chapter 42 from manga "Shachou to Sake to Hoshi"\n'
+FINISHED_LINE = (
+    '[INFO] Finished download chapter 42 from manga "Shachou to Sake to Hoshi"\n'
+)
 
 
 def test_mangadex_lines_are_understood():
@@ -34,7 +37,7 @@ def test_mangadex_lines_are_understood():
 
 def test_other_mangadex_lines_are_ignored():
     for line in [
-        "[INFO] Found chapter 42 from manga \"Shachou to Sake to Hoshi\"\n",
+        '[INFO] Found chapter 42 from manga "Shachou to Sake to Hoshi"\n',
         "File sizes: 100%|████| 546k/546k [00:00<00:00, 17.3MB/s]\n",
         "[INFO] Downloading file 'cover.jpg'\n",
         "",
@@ -47,7 +50,10 @@ def test_mangadex_reporter_shows_the_page_and_counts_finished_chapters():
     report_line = get_mangadex_progress_reporter()
 
     report_line(PAGE_LINE)
-    assert "Downloading Volume. 6 Chapter. 42 - Boss and His Best Friend, page 7" in panel.status_text.value
+    assert (
+        "Downloading Volume. 6 Chapter. 42 - Boss and His Best Friend, page 7"
+        in str(panel.status_text.value)
+    )
 
     report_line(FINISHED_LINE)
     assert panel.status_text.value == "1 chapter(s) downloaded"
@@ -81,13 +87,14 @@ def test_the_status_view_says_where_the_ai_model_runs_only_for_that_job():
 
     report_progress(device="AMD Radeon RX 6700 XT")
     assert panel.device_text.visible
-    assert "".join(span.text for span in panel.device_text.spans) == "Running on the AMD Radeon RX 6700 XT"
+    assert get_shown_text(panel.device_text) == "Running on the AMD Radeon RX 6700 XT"
     # The GPU's name stands out.
     assert panel.device_text.spans[1].text == "AMD Radeon RX 6700 XT"
-    assert panel.device_text.spans[1].style.color == Nord.DEVICE
+    style = panel.device_text.spans[1].style
+    assert style is not None and style.color == Nord.DEVICE
 
     panel.finish("Done.")
-    assert "".join(span.text for span in panel.device_text.spans) == "Ran on the AMD Radeon RX 6700 XT"
+    assert get_shown_text(panel.device_text) == "Ran on the AMD Radeon RX 6700 XT"
 
     # The next job (e.g. a download) doesn't use an AI model.
     panel.start("Downloading...")
@@ -97,7 +104,10 @@ def test_the_status_view_says_where_the_ai_model_runs_only_for_that_job():
 def test_the_status_view_scrolls_when_the_terminal_is_too_small_for_it():
     panel = ProgressPanel()
 
-    assert panel.content.scroll == ft.ScrollMode.ALWAYS
+    assert (
+        isinstance(panel.content, ft.Column)
+        and panel.content.scroll == ft.ScrollMode.ALWAYS
+    )
 
 
 def test_a_single_folder_is_not_called_chapter_1_of_1():
@@ -158,7 +168,9 @@ def test_a_job_reports_each_chapter(make_gui, tmp_path):
         )
     )
 
-    finished = gui.MagiPanelByPanelView.start_job(str(tmp_path / "Manga"), str(tmp_path / "out"))
+    finished = gui.MagiPanelByPanelView.start_job(
+        str(tmp_path / "Manga"), str(tmp_path / "out")
+    )
 
     assert finished is True
     assert seen == ["Chapter 1 of 3", "Chapter 2 of 3", "Chapter 3 of 3"]
@@ -204,7 +216,14 @@ def test_upscaling_counts_images_and_folders_not_pages_and_chapters():
     panel = ProgressPanel()
     panel.start("Upscaling images...")
 
-    report_progress(chapter=2, chapters=5, group_label="Folder", pages_done=3, pages_total=12, unit="images")
+    report_progress(
+        chapter=2,
+        chapters=5,
+        group_label="Folder",
+        pages_done=3,
+        pages_total=12,
+        unit="images",
+    )
 
     assert panel.status_text.value == "Folder 2 of 5 · 3 of 12 images"
 
@@ -244,20 +263,28 @@ def test_the_upscale_job_reports_folders_and_images(make_gui, tmp_path, monkeypa
     assert seen == ["Folder 1 of 2", "Folder 2 of 2"]
 
 
-def test_an_error_before_anything_ran_shows_in_the_status_view_and_the_raw_output(make_gui):
+def test_an_error_before_anything_ran_shows_in_the_status_view_and_the_raw_output(
+    make_gui,
+):
     terminal_output = make_gui().terminal_output
     panel = terminal_output.progress_panel
 
-    terminal_output.update_terminal_with_error_message("ERROR: Not a web link (it should start with https://): aaa")
+    terminal_output.update_terminal_with_error_message(
+        "ERROR: Not a web link (it should start with https://): aaa"
+    )
 
     assert panel.state == "failed"
     assert panel.title_text.value == "Something went wrong"
     # Without the "ERROR:" prefix, and with a pointer to the Raw Output.
-    assert panel.status_text.value == "Not a web link (it should start with https://): aaa"
+    assert (
+        panel.status_text.value == "Not a web link (it should start with https://): aaa"
+    )
     assert panel.error_hint_text.visible
     assert panel.status_icon.name == ft.Icons.ERROR
     assert not panel.progress_bar.visible
-    raw_lines = [control.value for control in terminal_output.terminal_output_list_view.controls]
+    raw_lines = [
+        control.value for control in terminal_output.terminal_output_list_view.controls
+    ]
     assert "ERROR: Not a web link (it should start with https://): aaa" in raw_lines
 
 
@@ -266,10 +293,15 @@ def test_an_error_in_the_middle_of_a_job_goes_under_the_title_that_says_what_fai
     panel.start("Downloading from comix.to...")
     panel.finish("Download from comix.to failed.", success=False)
 
-    panel.show_error("ERROR: Downloading from comix.to needs Google Chrome or Microsoft Edge installed.")
+    panel.show_error(
+        "ERROR: Downloading from comix.to needs Google Chrome or Microsoft Edge installed."
+    )
 
     assert panel.title_text.value == "Download from comix.to failed."
-    assert panel.status_text.value == "Downloading from comix.to needs Google Chrome or Microsoft Edge installed."
+    assert (
+        panel.status_text.value
+        == "Downloading from comix.to needs Google Chrome or Microsoft Edge installed."
+    )
 
 
 def test_an_old_failure_does_not_give_a_new_error_its_title():
@@ -282,7 +314,9 @@ def test_an_old_failure_does_not_give_a_new_error_its_title():
     panel.show_error("ERROR: Not a web link (it should start with https://): aaa")
 
     assert panel.title_text.value == "Something went wrong"
-    assert panel.status_text.value == "Not a web link (it should start with https://): aaa"
+    assert (
+        panel.status_text.value == "Not a web link (it should start with https://): aaa"
+    )
 
 
 def test_a_new_job_clears_the_error():
@@ -302,11 +336,16 @@ def test_an_error_opens_a_collapsed_terminal_and_shows_the_status_view(make_gui)
     terminal_output.show_tab("raw_output")
     assert not terminal_output.output_area.visible
 
-    terminal_output.update_terminal_with_error_message("ERROR: Please pick an input directory.")
+    terminal_output.update_terminal_with_error_message(
+        "ERROR: Please pick an input directory."
+    )
 
     assert terminal_output.output_area.visible
     assert terminal_output.progress_panel.visible
-    assert terminal_output.progress_panel.status_text.value == "Please pick an input directory."
+    assert (
+        terminal_output.progress_panel.status_text.value
+        == "Please pick an input directory."
+    )
 
 
 def test_the_status_tab_is_called_status(make_gui):
@@ -349,7 +388,9 @@ def test_the_raw_output_says_it_is_empty_until_there_is_a_line(make_gui):
     assert empty_message.visible
     assert empty_message.value.startswith("Nothing here yet")
 
-    add_line_to_terminal_output_list_view(terminal_output.terminal_output_list_view, "Opening the page")
+    add_line_to_terminal_output_list_view(
+        terminal_output.terminal_output_list_view, "Opening the page"
+    )
     assert not empty_message.visible
 
     # And it comes back if the lines are cleared.
@@ -369,17 +410,32 @@ def test_an_error_also_takes_the_empty_message_away(make_gui):
 def test_a_duration_is_written_as_days_hours_minutes_and_seconds():
     from gui_classes.ProgressPanel import format_duration
 
-    assert [format_duration(seconds) for seconds in (0, 42, 185, 3600, 3723, 3 * 3600 + 41 * 60, 93784)] == [
-        "0s", "42s", "3m5s", "1h0m0s", "1h2m3s", "3h41m0s", "1d2h3m4s",
+    assert [
+        format_duration(seconds)
+        for seconds in (0, 42, 185, 3600, 3723, 3 * 3600 + 41 * 60, 93784)
+    ] == [
+        "0s",
+        "42s",
+        "3m5s",
+        "1h0m0s",
+        "1h2m3s",
+        "3h41m0s",
+        "1d2h3m4s",
     ]
 
 
-def test_the_timer_runs_while_a_job_runs_and_says_how_long_it_took_when_it_is_over(monkeypatch):
+def test_the_timer_runs_while_a_job_runs_and_says_how_long_it_took_when_it_is_over(
+    monkeypatch,
+):
     from gui_classes import ProgressPanel as progress_module
 
     now = [100.0]
     monkeypatch.setattr(progress_module.time, "monotonic", lambda: now[0])
-    monkeypatch.setattr(progress_module.threading, "Thread", lambda **kwargs: type("Thread", (), {"start": lambda self: None})())
+    monkeypatch.setattr(
+        progress_module.threading,
+        "Thread",
+        lambda **kwargs: type("Thread", (), {"start": lambda self: None})(),
+    )
     panel = progress_module.ProgressPanel()
     assert panel.get_timer_text() == ""
 
@@ -397,12 +453,23 @@ def test_the_timer_runs_while_a_job_runs_and_says_how_long_it_took_when_it_is_ov
 def test_a_size_is_written_the_way_finder_shows_it():
     from gui_classes.ProgressPanel import format_size
 
-    assert [format_size(size) for size in (0, 512, 5300, 412_000_000, 1_234_000_000, 3_000_000_000_000)] == [
-        "0 B", "512 B", "5.3 KB", "412 MB", "1.2 GB", "3.0 TB",
+    assert [
+        format_size(size)
+        for size in (0, 512, 5300, 412_000_000, 1_234_000_000, 3_000_000_000_000)
+    ] == [
+        "0 B",
+        "512 B",
+        "5.3 KB",
+        "412 MB",
+        "1.2 GB",
+        "3.0 TB",
     ]
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="File Explorer's sizes are written by Windows itself")
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="File Explorer's sizes are written by Windows itself",
+)
 def test_a_size_is_written_the_way_file_explorer_shows_it_on_windows(monkeypatch):
     from gui_classes.ProgressPanel import format_size
 
@@ -410,17 +477,29 @@ def test_a_size_is_written_the_way_file_explorer_shows_it_on_windows(monkeypatch
     # Slam Dunk ch. 1 from comix.to: 70,413,414 bytes is 67.1 MB in File Explorer (70.4 MB in Finder). Explorer counts 1 KB as 1024 bytes, keeps 3 digits without rounding up, and goes to the next unit at 1000.
     # These are English Windows' texts: Windows writes them in the user's language and number format (e.g. "67,1 MB" in German), as Explorer does.
     assert format_size(70_413_414) == "67.1 MB"
-    assert [format_size(size) for size in (512, 1023, 5300, 1_024_000, 1_234_000_000)] == [
-        "512 bytes", "1023 bytes", "5.17 KB", "0.97 MB", "1.14 GB",
+    assert [
+        format_size(size) for size in (512, 1023, 5300, 1_024_000, 1_234_000_000)
+    ] == [
+        "512 bytes",
+        "1023 bytes",
+        "5.17 KB",
+        "0.97 MB",
+        "1.14 GB",
     ]
 
 
-def test_the_status_view_shows_how_much_the_job_has_saved_as_it_reports_progress(monkeypatch, tmp_path):
+def test_the_status_view_shows_how_much_the_job_has_saved_as_it_reports_progress(
+    monkeypatch, tmp_path
+):
     from gui_classes import ProgressPanel as progress_module
 
     now = [100.0]
     monkeypatch.setattr(progress_module.time, "monotonic", lambda: now[0])
-    monkeypatch.setattr(progress_module.threading, "Thread", lambda **kwargs: type("Thread", (), {"start": lambda self: None})())
+    monkeypatch.setattr(
+        progress_module.threading,
+        "Thread",
+        lambda **kwargs: type("Thread", (), {"start": lambda self: None})(),
+    )
     (tmp_path / "old.png").write_bytes(b"x" * 5000)
     panel = progress_module.ProgressPanel()
     panel.start("Upscaling images...")
@@ -447,7 +526,11 @@ def test_the_status_view_shows_how_much_the_job_has_saved_as_it_reports_progress
 def test_the_size_says_how_much_of_it_is_comic_files(monkeypatch, tmp_path):
     from gui_classes import ProgressPanel as progress_module
 
-    monkeypatch.setattr(progress_module.threading, "Thread", lambda **kwargs: type("Thread", (), {"start": lambda self: None})())
+    monkeypatch.setattr(
+        progress_module.threading,
+        "Thread",
+        lambda **kwargs: type("Thread", (), {"start": lambda self: None})(),
+    )
     (tmp_path / "Ch 1").mkdir()
     (tmp_path / "Ch 1.cbz").write_bytes(b"x" * 9000)
     panel = progress_module.ProgressPanel()
@@ -459,13 +542,19 @@ def test_the_size_says_how_much_of_it_is_comic_files(monkeypatch, tmp_path):
     (tmp_path / "Ch 2.cbz").write_bytes(b"x" * 157_000)
     panel.finish("Downloaded")
 
-    assert panel.get_timer_text().endswith(" · 237 KB (80.0 KB images + 157 KB .cbz files)")
+    assert panel.get_timer_text().endswith(
+        " · 237 KB (80.0 KB images + 157 KB .cbz files)"
+    )
 
 
 def test_a_video_s_size_says_how_much_is_the_video_and_its_audio(monkeypatch, tmp_path):
     from gui_classes import ProgressPanel as progress_module
 
-    monkeypatch.setattr(progress_module.threading, "Thread", lambda **kwargs: type("Thread", (), {"start": lambda self: None})())
+    monkeypatch.setattr(
+        progress_module.threading,
+        "Thread",
+        lambda **kwargs: type("Thread", (), {"start": lambda self: None})(),
+    )
     panel = progress_module.ProgressPanel()
     panel.start("Creating the video...")
     panel.watch_output_folder(str(tmp_path))
@@ -478,13 +567,19 @@ def test_a_video_s_size_says_how_much_is_the_video_and_its_audio(monkeypatch, tm
     (tmp_path / "Ch 1" / "transcript.txt").write_bytes(b"x" * 10)
     panel.finish("Done")
 
-    assert panel.get_timer_text().endswith(" · 850 KB (400 KB video + 380 KB audio + 70.0 KB other)")
+    assert panel.get_timer_text().endswith(
+        " · 850 KB (400 KB video + 380 KB audio + 70.0 KB other)"
+    )
 
 
 def test_one_kind_of_file_isn_t_split(monkeypatch, tmp_path):
     from gui_classes import ProgressPanel as progress_module
 
-    monkeypatch.setattr(progress_module.threading, "Thread", lambda **kwargs: type("Thread", (), {"start": lambda self: None})())
+    monkeypatch.setattr(
+        progress_module.threading,
+        "Thread",
+        lambda **kwargs: type("Thread", (), {"start": lambda self: None})(),
+    )
     panel = progress_module.ProgressPanel()
     panel.start("Downloading...")
     panel.watch_output_folder(str(tmp_path))
@@ -500,21 +595,48 @@ def test_one_kind_of_file_isn_t_split(monkeypatch, tmp_path):
 def test_a_video_shows_its_stages(monkeypatch):
     from gui_classes import ProgressPanel as progress_module
 
-    monkeypatch.setattr(progress_module.threading, "Thread", lambda **kwargs: type("Thread", (), {"start": lambda self: None})())
+    monkeypatch.setattr(
+        progress_module.threading,
+        "Thread",
+        lambda **kwargs: type("Thread", (), {"start": lambda self: None})(),
+    )
     panel = progress_module.ProgressPanel()
     panel.start("Creating the video...")
     assert not panel.stages_text.visible
 
     stages = ("Reading the text", "Making the voice-over", "Writing the video")
     panel.update_progress(stages=stages, stage="Reading the text")
-    assert panel.stages_text.value == "● Reading the text   ○ Making the voice-over   ○ Writing the video"
-    panel.update_progress(stage="Making the voice-over", pages_done=3, pages_total=40, unit="images")
-    assert panel.stages_text.value == "✓ Reading the text   ● Making the voice-over   ○ Writing the video"
+    assert (
+        panel.stages_text.value
+        == "● Reading the text   ○ Making the voice-over   ○ Writing the video"
+    )
+    panel.update_progress(
+        stage="Making the voice-over", pages_done=3, pages_total=40, unit="images"
+    )
+    assert (
+        panel.stages_text.value
+        == "✓ Reading the text   ● Making the voice-over   ○ Writing the video"
+    )
     assert panel.status_text.value == "3 of 40 images"
 
     panel.finish("Video has been created!")
-    assert panel.stages_text.value == "✓ Reading the text   ✓ Making the voice-over   ✓ Writing the video"
+    assert (
+        panel.stages_text.value
+        == "✓ Reading the text   ✓ Making the voice-over   ✓ Writing the video"
+    )
 
     # The next job doesn't have stages.
     panel.start("Upscaling images...")
     assert not panel.stages_text.visible
+
+
+def test_a_link_in_an_error_can_be_clicked_in_the_status_view():
+    panel = ProgressPanel()
+
+    panel.show_error(
+        "ERROR: Couldn't download the Magi model. It comes from https://huggingface.co/ragavsachdeva/magiv2"
+    )
+
+    assert [span.text for span in panel.status_text.spans or [] if span.on_click] == [
+        "https://huggingface.co/ragavsachdeva/magiv2"
+    ]

@@ -6,7 +6,10 @@ import flet as ft
 from gui_classes import Nord
 from default_settings import can_pick_output_folders, get_output_directory
 from download_from_comix import download_from_comix, is_comix_url
-from download_from_internet_archive import download_internet_archive_item, is_internet_archive_url
+from download_from_internet_archive import (
+    download_internet_archive_item,
+    is_internet_archive_url,
+)
 from download_from_mangadex import download_from_mangadex
 from download_pages_from_url import download_pages_from_url, get_min_image_side
 from gui_classes.ProgressPanel import report_output_folder, report_progress
@@ -66,7 +69,9 @@ def save_downloads_as_comic_files(folder, size):
         and not is_comic_file_up_to_date(chapter_folder)
     ]
     for number, chapter_folder in enumerate(chapter_folders, start=1):
-        report_progress(detail=f"Saving comic files: {number} of {len(chapter_folders)}")
+        report_progress(
+            detail=f"Saving comic files: {number} of {len(chapter_folders)}"
+        )
         save_folder_as_cbz(chapter_folder, size=size)
 
 
@@ -75,7 +80,8 @@ def is_comic_file_up_to_date(chapter_folder):
     if not os.path.exists(comic_file):
         return False
     newest_page = max(
-        os.path.getmtime(os.path.join(chapter_folder, name)) for name in os.listdir(chapter_folder)
+        os.path.getmtime(os.path.join(chapter_folder, name))
+        for name in os.listdir(chapter_folder)
     )
     return os.path.getmtime(comic_file) >= newest_page
 
@@ -85,29 +91,52 @@ def copy_earlier_download(output_directory, storage, replacing, **match):
     When saving somewhere other than the Download tab's folder (a Pipeline's Download step), an earlier download of this link that's still all there in the Download tab's folder is copied into "output_directory" instead of downloaded again. Returns the copy's (folder, info), or None.
     """
     library_directory = get_library_directory(output_directory, storage)
-    found = None if replacing or not library_directory else find_downloaded_folder(library_directory, **match)
+    found = (
+        None
+        if replacing or not library_directory
+        else find_downloaded_folder(library_directory, **match)
+    )
     if not found:
         return None
     return copy_from_library(found[0], library_directory, output_directory), found[1]
 
 
-def download_web_page(url, output_directory, terminal_output_list_view=None, flet_page_client_storage=None, cancel_button=None):
+def download_web_page(
+    url,
+    output_directory,
+    terminal_output_list_view=None,
+    flet_page_client_storage=None,
+    cancel_button=None,
+):
     """
     Saves the page's images into "output_directory/<page title>" (only the bigger ones with the "Only keep bigger images" setting), and returns what was saved in one line. A web page could have anything on it, so they're called images.
     """
     min_side = get_min_image_side(flet_page_client_storage)
     # The same page with the same minimum size, downloaded before and still all there, isn't downloaded again.
-    earlier_download = find_downloaded_folder(output_directory, only_if_intact=False, source=url, min_side=min_side)
-    replacing = bool(flet_page_client_storage and flet_page_client_storage.get("replace_existing_manga"))
+    earlier_download = find_downloaded_folder(
+        output_directory, only_if_intact=False, source=url, min_side=min_side
+    )
+    replacing = bool(
+        flet_page_client_storage
+        and flet_page_client_storage.get("replace_existing_manga")
+    )
     if earlier_download and not replacing and is_download_intact(*earlier_download):
         earlier_folder, info = earlier_download
         return DownloadSummary(
-            f"Already downloaded: {pluralize(info['pages'], 'image')} from {urlparse(url).hostname}", earlier_folder
+            f"Already downloaded: {pluralize(info['pages'], 'image')} from {urlparse(url).hostname}",
+            earlier_folder,
         )
-    copied = copy_earlier_download(output_directory, flet_page_client_storage, replacing, source=url, min_side=min_side)
+    copied = copy_earlier_download(
+        output_directory,
+        flet_page_client_storage,
+        replacing,
+        source=url,
+        min_side=min_side,
+    )
     if copied:
         return DownloadSummary(
-            f"Already downloaded (copied): {pluralize(copied[1]['pages'], 'image')} from {urlparse(url).hostname}", copied[0]
+            f"Already downloaded (copied): {pluralize(copied[1]['pages'], 'image')} from {urlparse(url).hostname}",
+            copied[0],
         )
 
     folder = download_pages_from_url(url, get_cancel_event(cancel_button), min_side)
@@ -115,29 +144,47 @@ def download_web_page(url, output_directory, terminal_output_list_view=None, fle
         # Replacing it (or it has lost pages): the old folder goes once the new download worked.
         shutil.rmtree(earlier_download[0], ignore_errors=True)
     destination = move_into_folder(folder, output_directory)
-    write_download_info(destination, source=url, min_side=min_side, pages=count_images(destination))
+    write_download_info(
+        destination, source=url, min_side=min_side, pages=count_images(destination)
+    )
     return DownloadSummary(
-        f"Downloaded {pluralize(count_images(destination), 'image')} from {urlparse(url).hostname}", destination
+        f"Downloaded {pluralize(count_images(destination), 'image')} from {urlparse(url).hostname}",
+        destination,
     )
 
 
-def download_from_internet_archive(url, output_directory, terminal_output_list_view=None, flet_page_client_storage=None, cancel_button=None):
+def download_from_internet_archive(
+    url,
+    output_directory,
+    terminal_output_list_view=None,
+    flet_page_client_storage=None,
+    cancel_button=None,
+):
     """
     Saves the comic's pages into "output_directory/<item title>" (public domain only), and returns what was saved in one line.
     """
     # The item, whichever way its link is written ("/details/<item>/page/n5" is the same item).
     source = f"https://archive.org/details/{get_item_identifier(url)}"
-    earlier_download = find_downloaded_folder(output_directory, only_if_intact=False, source=source)
-    replacing = bool(flet_page_client_storage and flet_page_client_storage.get("replace_existing_manga"))
+    earlier_download = find_downloaded_folder(
+        output_directory, only_if_intact=False, source=source
+    )
+    replacing = bool(
+        flet_page_client_storage
+        and flet_page_client_storage.get("replace_existing_manga")
+    )
     if earlier_download and not replacing and is_download_intact(*earlier_download):
         earlier_folder, info = earlier_download
         return DownloadSummary(
-            f"Already downloaded: {os.path.basename(earlier_folder)}: {pluralize(info['pages'], 'page')}", earlier_folder
+            f"Already downloaded: {os.path.basename(earlier_folder)}: {pluralize(info['pages'], 'page')}",
+            earlier_folder,
         )
-    copied = copy_earlier_download(output_directory, flet_page_client_storage, replacing, source=source)
+    copied = copy_earlier_download(
+        output_directory, flet_page_client_storage, replacing, source=source
+    )
     if copied:
         return DownloadSummary(
-            f"Already downloaded (copied): {os.path.basename(copied[0])}: {pluralize(copied[1]['pages'], 'page')}", copied[0]
+            f"Already downloaded (copied): {os.path.basename(copied[0])}: {pluralize(copied[1]['pages'], 'page')}",
+            copied[0],
         )
 
     folder = download_internet_archive_item(url, get_cancel_event(cancel_button))
@@ -147,7 +194,8 @@ def download_from_internet_archive(url, output_directory, terminal_output_list_v
     destination = move_into_folder(folder, output_directory)
     write_download_info(destination, source=source, pages=count_images(destination))
     return DownloadSummary(
-        f"Downloaded {os.path.basename(destination)}: {pluralize(count_images(destination), 'page')}", destination
+        f"Downloaded {os.path.basename(destination)}: {pluralize(count_images(destination), 'page')}",
+        destination,
     )
 
 
@@ -178,7 +226,9 @@ class MangaDexDownloaderView(ft.Container):
 
         self.parent_gui = parent_gui
         self.page = self.parent_gui.page
-        self.pick_files_dialog = ft.FilePicker(on_result=self.pick_output_directory_result)
+        self.pick_files_dialog = ft.FilePicker(
+            on_result=self.pick_output_directory_result
+        )
         self.page.overlay.append(self.pick_files_dialog)
 
         # Downloads go to the saved output folder (the default one unless it was changed).
@@ -263,7 +313,12 @@ class MangaDexDownloaderView(ft.Container):
         """
         While a download runs (here or in a Pipeline), nothing but Cancel can be changed: the link, the output folder and the settings. What's on screen then says what's being downloaded.
         """
-        for control in (self.mangadex_url_text_field, self.output_row, self.settings, self.download_button):
+        for control in (
+            self.mangadex_url_text_field,
+            self.output_row,
+            self.settings,
+            self.download_button,
+        ):
             control.disabled = locked
 
         # This tab might not be on screen (a Pipeline runs this tab's job from its own tab).
@@ -285,9 +340,11 @@ class MangaDexDownloaderView(ft.Container):
 
     def set_output_directory(self, output_directory):
         # An empty one means the default folder.
-        self.page.client_storage.set("output_directory_mangadex", output_directory)
+        self.parent_gui.page.client_storage.set(
+            "output_directory_mangadex", output_directory
+        )
         self.output_directory_text.value = get_output_directory(
-            self.page.client_storage, "output_directory_mangadex"
+            self.parent_gui.page.client_storage, "output_directory_mangadex"
         )
         self.output_directory_text.update()
 
@@ -297,16 +354,21 @@ class MangaDexDownloaderView(ft.Container):
         """
         if downloaded_folder and is_inside(downloaded_folder, output_directory):
             downloaded_manga_directory = os.path.join(
-                output_directory, os.path.relpath(downloaded_folder, output_directory).split(os.sep)[0]
+                output_directory,
+                os.path.relpath(downloaded_folder, output_directory).split(os.sep)[0],
             )
         else:
             downloaded_manga_directory = get_newest_subfolder(output_directory)
-        picker = self.parent_gui.MagiPanelByPanelView.pick_input_output_directories_container
+        picker = (
+            self.parent_gui.MagiPanelByPanelView.pick_input_output_directories_container
+        )
 
         if downloaded_manga_directory and (
             not picker.input_directory or picker.input_was_filled_in_by_app
         ):
-            picker.set_input_directory(downloaded_manga_directory, filled_in_by_app=True)
+            picker.set_input_directory(
+                downloaded_manga_directory, filled_in_by_app=True
+            )
         else:
             # A folder the user picked there is kept, but it may have new chapters now.
             picker.refresh_input_summary()
@@ -320,7 +382,9 @@ class MangaDexDownloaderView(ft.Container):
 
     def handle_download(self, e):
         # A link pasted with a space before or after it is the same link.
-        mangadex_url_to_download_from = (self.mangadex_url_text_field.value or "").strip()
+        mangadex_url_to_download_from = (
+            self.mangadex_url_text_field.value or ""
+        ).strip()
         if not mangadex_url_to_download_from:
             self.parent_gui.terminal_output.update_terminal_with_error_message(
                 "ERROR: The URL must not be empty."
@@ -330,11 +394,13 @@ class MangaDexDownloaderView(ft.Container):
         try:
             source, download = get_downloader(mangadex_url_to_download_from)
         except ValueError as error:
-            self.parent_gui.terminal_output.update_terminal_with_error_message(f"ERROR: {error}")
+            self.parent_gui.terminal_output.update_terminal_with_error_message(
+                f"ERROR: {error}"
+            )
             return
 
         output_directory = get_output_directory(
-            self.page.client_storage, "output_directory_mangadex"
+            self.parent_gui.page.client_storage, "output_directory_mangadex"
         )
 
         # Only one job can run at a time (see "GUI.try_to_start_job").
@@ -363,7 +429,7 @@ class MangaDexDownloaderView(ft.Container):
                 self.cancel_button,
             )
             downloaded_folder = getattr(summary, "folder", None)
-            comic_file_size = self.page.client_storage.get("save_as_cbz")
+            comic_file_size = self.parent_gui.page.client_storage.get("save_as_cbz")
             # Not when it's the whole Downloads folder (a MangaDex list of several series): every chapter in it would get one.
             if (
                 comic_file_size
@@ -380,18 +446,30 @@ class MangaDexDownloaderView(ft.Container):
                     # The download itself worked, so it's still shown as a success.
                     print(f"Couldn't save the comic files: {error}")
             # What was downloaded, e.g. "Downloaded Slam Dunk: 3 chapters · 77 pages". The counts of what was looked at on the way ("20 of 20 images") would only confuse next to it.
-            report_progress(chapter=None, chapters=None, pages_done=None, pages_total=None, detail=None)
-            terminal_output.hide_loading_text(summary or f"Download from {source} ended.")
+            report_progress(
+                chapter=None,
+                chapters=None,
+                pages_done=None,
+                pages_total=None,
+                detail=None,
+            )
+            terminal_output.hide_loading_text(
+                summary or f"Download from {source} ended."
+            )
             self.fill_in_panel_by_panel_input(output_directory, downloaded_folder)
             # Show the files, whatever the link was. (Not for a download that was cancelled or failed.)
             if downloaded_folder and os.path.isdir(downloaded_folder):
                 open_directory(downloaded_folder)
         except DownloadCancelled as cancelled:
             terminal_output.hide_loading_text(
-                str(cancelled) or f"Download from {source} cancelled.", success=False, cancelled=True
+                str(cancelled) or f"Download from {source} cancelled.",
+                success=False,
+                cancelled=True,
             )
         except Exception as error:
-            terminal_output.hide_loading_text(f"Download from {source} failed.", success=False)
+            terminal_output.hide_loading_text(
+                f"Download from {source} failed.", success=False
+            )
             # comix.to stops with a clear message (e.g. no browser found), shown here instead of only in the log.
             terminal_output.update_terminal_with_error_message(f"ERROR: {error}")
         finally:

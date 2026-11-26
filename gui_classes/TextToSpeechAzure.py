@@ -38,7 +38,6 @@ class TextToSpeechAzure(SettingsBase):
             "image_post_tts_audio_delay",
         )
 
-
         self.radio_use_text_to_speech_azure = ft.Radio(
             label="Use Text-To-Speech (needs internet)",
             value="use_text_to_speech_azure",
@@ -96,10 +95,12 @@ class TextToSpeechAzure(SettingsBase):
                         for style, label in AZURE_VOICE_STYLE_OPTIONS.items()
                     ],
                     value=self.get_setting_value("azure_voice_style"),
-                    on_change=lambda e: self.change_setting("azure_voice_style", e.data),
+                    on_change=lambda e: self.change_setting(
+                        "azure_voice_style", e.data
+                    ),
                 ),
                 ft.Text(
-                    'Auto reads each line in a style that fits its emotion. The emotion model (about 330 MB) downloads automatically the first time it\'s used.',
+                    "Auto reads each line in a style that fits its emotion. The emotion model (about 330 MB) downloads automatically the first time it's used.",
                     size=12,
                     color=Nord.TEXT,
                 ),
@@ -111,7 +112,9 @@ class TextToSpeechAzure(SettingsBase):
                     divisions=6,
                     label="{value}",
                     round=2,
-                    on_change_end=lambda e: self.change_setting("azure_voice_style_degree", e.data),
+                    on_change_end=lambda e: self.change_setting(
+                        "azure_voice_style_degree", e.data
+                    ),
                     height=20,
                 ),
             ],
@@ -240,7 +243,7 @@ class TextToSpeechAzure(SettingsBase):
             border_radius=0,
             label=label,
             border_color=Nord.BLUE,
-            value=self.page.client_storage.get(setting_key) or "",
+            value=self.client_storage.get(setting_key) or "",
             password=password,
             can_reveal_password=password,
             on_change=lambda e: self.change_setting(setting_key, e.data.strip()),

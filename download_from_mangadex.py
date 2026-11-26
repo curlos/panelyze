@@ -55,7 +55,6 @@ def get_additional_terminal_options(flet_page_client_storage):
 
         print(f"{key}: {storage_value}")
 
-
         if key == "language":
             additional_terminal_options.extend(["--language", storage_value["code"]])
         elif key == "start_page" and storage_value:
@@ -72,13 +71,20 @@ def get_additional_terminal_options(flet_page_client_storage):
                 additional_terminal_options.extend(["--end-chapter", storage_value])
         elif key == "upload_choice":
             # By default, the downloader takes the newest upload of each chapter.
-            preferred_group = (flet_page_client_storage.get("preferred_group") or "").strip()
+            preferred_group = (
+                flet_page_client_storage.get("preferred_group") or ""
+            ).strip()
             if storage_value == "first":
                 additional_terminal_options.extend(["--order", "oldest"])
             elif storage_value == "group" and preferred_group:
                 # This group's upload of each chapter, or the newest when that group skipped the chapter.
                 additional_terminal_options.extend(
-                    ["--group", preferred_group, "--group-nomatch-behaviour", "fallback"]
+                    [
+                        "--group",
+                        preferred_group,
+                        "--group-nomatch-behaviour",
+                        "fallback",
+                    ]
                 )
         elif storage_value:
             if isinstance(terminal_command, list):
@@ -155,7 +161,9 @@ def get_mangadex_progress_reporter():
 
         _, chapter_name, page_number = progress
         done_text = (
-            f"{chapters_downloaded} chapter(s) downloaded · " if chapters_downloaded else ""
+            f"{chapters_downloaded} chapter(s) downloaded · "
+            if chapters_downloaded
+            else ""
         )
         report_progress(
             detail=f"{done_text}Downloading {chapter_name}, page {page_number}"
@@ -168,8 +176,13 @@ def get_reading_direction_from_manga(manga_attributes):
     """
     The reading direction of a series, from its MangaDex attributes: "webtoon" for the "Long Strip" tag, "4koma" for the "4-Koma" tag (or "ltr" if it wasn't first made in a right-to-left language), otherwise "rtl" or "ltr" from its original language. Translating a series only changes its text, not how its pages are laid out, so the chapter's own language doesn't matter.
     """
-    tag_names = {tag["attributes"]["name"].get("en") for tag in manga_attributes.get("tags") or []}
-    is_right_to_left = manga_attributes.get("originalLanguage") in RIGHT_TO_LEFT_LANGUAGES
+    tag_names = {
+        tag["attributes"]["name"].get("en")
+        for tag in manga_attributes.get("tags") or []
+    }
+    is_right_to_left = (
+        manga_attributes.get("originalLanguage") in RIGHT_TO_LEFT_LANGUAGES
+    )
 
     if "Long Strip" in tag_names:
         return "webtoon"
@@ -189,14 +202,28 @@ def get_reading_direction_from_mangadex(mangadex_url):
     kind, mangadex_id = match.groups()
     try:
         if kind == "chapter":
-            chapter = requests.get(f"{MANGADEX_API_URL}/chapter/{mangadex_id}", timeout=10).json()
+            chapter = requests.get(
+                f"{MANGADEX_API_URL}/chapter/{mangadex_id}", timeout=10
+            ).json()
             mangadex_id = next(
-                relationship["id"] for relationship in chapter["data"]["relationships"] if relationship["type"] == "manga"
+                relationship["id"]
+                for relationship in chapter["data"]["relationships"]
+                if relationship["type"] == "manga"
             )
-        manga = requests.get(f"{MANGADEX_API_URL}/manga/{mangadex_id}", timeout=10).json()
+        manga = requests.get(
+            f"{MANGADEX_API_URL}/manga/{mangadex_id}", timeout=10
+        ).json()
         return get_reading_direction_from_manga(manga["data"]["attributes"])
-    except (requests.RequestException, ValueError, KeyError, TypeError, StopIteration) as error:
-        print(f"Couldn't get the reading direction from MangaDex ({error}). It will be guessed from the images.")
+    except (
+        requests.RequestException,
+        ValueError,
+        KeyError,
+        TypeError,
+        StopIteration,
+    ) as error:
+        print(
+            f"Couldn't get the reading direction from MangaDex ({error}). It will be guessed from the images."
+        )
         return None
 
 
@@ -206,7 +233,9 @@ def get_changed_chapter_folders(output_directory, chapter_folders_before):
     """
     return [
         chapter_directory
-        for chapter_directory, changed_at in get_chapter_folders(output_directory).items()
+        for chapter_directory, changed_at in get_chapter_folders(
+            output_directory
+        ).items()
         if chapter_folders_before.get(chapter_directory) != changed_at
     ]
 
@@ -238,15 +267,23 @@ def save_reading_direction(output_directory, reading_direction, chapter_folders_
     """
     for chapter_directory, changed_at in get_chapter_folders(output_directory).items():
         if chapter_folders_before.get(chapter_directory) != changed_at:
-            with open(os.path.join(chapter_directory, READING_DIRECTION_FILE_NAME), "w", encoding="utf-8") as file:
+            with open(
+                os.path.join(chapter_directory, READING_DIRECTION_FILE_NAME),
+                "w",
+                encoding="utf-8",
+            ) as file:
                 file.write(reading_direction)
 
 
-def get_download_summary(output_directory, chapter_folders_before, series_name=None, chapter_name=None):
+def get_download_summary(
+    output_directory, chapter_folders_before, series_name=None, chapter_name=None
+):
     """
     The result of a download in one line, like "Downloaded Slam Dunk Vol. 1 Ch. 3 - Blood · 20 pages" or "Downloaded Slam Dunk: 3 chapters · 77 pages". It's worked out from the chapter folders that are new or changed since "chapter_folders_before" (see "get_chapter_folders"), or None when there are none. "series_name" and "chapter_name" are used instead of the folders' names, if given.
     """
-    changed_folders = get_changed_chapter_folders(output_directory, chapter_folders_before)
+    changed_folders = get_changed_chapter_folders(
+        output_directory, chapter_folders_before
+    )
     if not changed_folders:
         return None
 
@@ -257,13 +294,22 @@ def get_download_summary(output_directory, chapter_folders_before, series_name=N
         if is_image_file(file_name)
     )
     if not series_name:
-        series_names = {os.path.basename(os.path.dirname(folder)) for folder in changed_folders}
-        series_name = next(iter(series_names)) if len(series_names) == 1 else pluralize(len(series_names), "series")
+        series_names = {
+            os.path.basename(os.path.dirname(folder)) for folder in changed_folders
+        }
+        series_name = (
+            next(iter(series_names))
+            if len(series_names) == 1
+            else pluralize(len(series_names), "series")
+        )
 
     if len(changed_folders) == 1:
-        chapter_name = chapter_name or get_tidy_chapter_folder_name(os.path.basename(changed_folders[0]))
+        chapter_name = chapter_name or get_tidy_chapter_folder_name(
+            os.path.basename(changed_folders[0])
+        )
         return DownloadSummary(
-            f"Downloaded {series_name} {chapter_name} · {pluralize(page_count, 'page')}", changed_folders[0]
+            f"Downloaded {series_name} {chapter_name} · {pluralize(page_count, 'page')}",
+            changed_folders[0],
         )
     return DownloadSummary(
         f"Downloaded {series_name}: {pluralize(len(changed_folders), 'chapter')} · {pluralize(page_count, 'page')}",
@@ -274,7 +320,7 @@ def get_download_summary(output_directory, chapter_folders_before, series_name=N
 def download_from_mangadex(
     mangadex_url_to_download_from: str = "",
     output_directory: str = "",
-    terminal_output_list_view: ft.ListView = None,
+    terminal_output_list_view: ft.ListView | None = None,
     flet_page_client_storage=None,
     cancel_process_button=None,
 ) -> str:
@@ -299,7 +345,11 @@ def download_from_mangadex(
     chapter_folders_before = get_chapter_folders(output_directory)
 
     if cancel_process_button:
-        set_cancel_click(cancel_process_button, process_manager.cancel_process, "Stopping the download...")
+        set_cancel_click(
+            cancel_process_button,
+            process_manager.cancel_process,
+            "Stopping the download...",
+        )
 
     # No output folder is given, so it doesn't open Finder by itself: the Download tab opens the folder that was downloaded, for every kind of link.
     report_line = get_mangadex_progress_reporter()
@@ -315,7 +365,9 @@ def download_from_mangadex(
         if verified_match:
             verified_chapters.append(verified_match.group(1))
 
-    process_manager.monitor_terminal_output(terminal_command, terminal_output_list_view, on_line=on_line)
+    process_manager.monitor_terminal_output(
+        terminal_command, terminal_output_list_view, on_line=on_line
+    )
 
     if process_manager.cancelled:
         raise DownloadCancelled("Download cancelled")
@@ -329,19 +381,33 @@ def download_from_mangadex(
     )
     if reading_direction:
         print(f"Reading direction from MangaDex: {reading_direction}")
-        save_reading_direction(output_directory, reading_direction, chapter_folders_before)
+        save_reading_direction(
+            output_directory, reading_direction, chapter_folders_before
+        )
 
     summary = get_download_summary(output_directory, chapter_folders_before)
     if summary is None and process and process.returncode != 0:
         raise RuntimeError(
             "MangaDex couldn't download anything from that link. Check the link, and see Raw Output for details."
         )
+    if summary and process and process.returncode != 0:
+        # E.g. the internet went away during a chapter: what was saved is still kept and used.
+        return DownloadSummary(
+            f"{summary} · stopped early, so the last chapter may be incomplete (see Raw Output)",
+            summary.folder,
+        )
     if summary:
         return summary
     # The chapter's folder for one chapter, the series' folder otherwise (only one that's really there).
     # A MangaDex list of several series: the folder they're all in.
     series_folder = os.path.commonpath(series_folders) if series_folders else None
-    folders = [os.path.join(series_folder, verified_chapters[0])] if series_folder and len(verified_chapters) == 1 else []
+    folders = (
+        [os.path.join(series_folder, verified_chapters[0])]
+        if series_folder and len(verified_chapters) == 1
+        else []
+    )
     folders += [series_folder] if series_folder else []
     folder = next((folder for folder in folders if os.path.isdir(folder)), None)
-    return DownloadSummary("Nothing new to download: it's already in the folder.", folder)
+    return DownloadSummary(
+        "Nothing new to download: it's already in the folder.", folder
+    )

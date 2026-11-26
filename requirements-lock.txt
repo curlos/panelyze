@@ -90,6 +90,7 @@ repath==0.9.0
 requests==2.32.3
 requests-doh==1.0.0
 rich==15.0.0
+ruff==0.17.6
 safetensors==0.4.5
 scipy==1.14.1
 shapely==2.0.6

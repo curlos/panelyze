@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="/assets/no-face.png" alt="Panelyze logo" width="96" height="96">
+  <img src="/assets/panelyze-icon.svg" alt="Panelyze logo" width="96" height="96">
 
   <h1 align="center">Panelyze</h1>
-  <p align="center">Turn manga pages into easy-to-read panels, upscale them, and make videos from them. All on your Mac, no terminal needed.</p>
+  <p align="center">Panelyze: a manga toolkit for Mac and Windows. Download, split into panels, upscale and make videos.</p>
 
   <p align="center">
     <a href="https://github.com/curlos/panelyze/releases/latest"><b>⬇ Download for Mac (Apple Silicon)</b></a>

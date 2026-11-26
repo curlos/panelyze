@@ -19,7 +19,9 @@ from PIL.PngImagePlugin import PngInfo
 
 from utils import download_file
 
-MODELS_FOLDER = os.path.expanduser("~/Library/Application Support/Panelyze/upscale-models")
+MODELS_FOLDER = os.path.expanduser(
+    "~/Library/Application Support/Panelyze/upscale-models"
+)
 
 # MangaJaNai has a model for each of the most common page heights of digital manga. The one closest to the page's height restores the halftone dots at the right size.
 MANGA_MODEL_FILES = {
@@ -32,6 +34,8 @@ MANGA_MODEL_FILES = {
     2048: "2x_MangaJaNai_2048p_V1_ESRGAN_95k.pth",
 }
 MANGA_MODELS_ZIP_URL = "https://github.com/the-database/MangaJaNai/releases/download/1.0.0/MangaJaNai_V1_ModelsOnly.zip"
+# Where the models come from, shown when they're downloaded (and when that fails), so the user knows what's being downloaded and can check the page.
+MODELS_PAGE_URL = "https://github.com/the-database/MangaJaNai/releases"
 COLOR_MODEL_FILE = "2x_IllustrationJaNai_V2standard_FDAT_M_unshuffle_40k.safetensors"
 COLOR_MODEL_ZIP_URL = "https://github.com/the-database/MangaJaNai/releases/download/2.0.0/4x_IllustrationJaNai_V2standard_ModelsOnly.zip"
 
@@ -66,7 +70,9 @@ def get_page_height(image):
 
 
 def get_manga_model_height(page_height):
-    return min(MANGA_MODEL_FILES, key=lambda model_height: abs(model_height - page_height))
+    return min(
+        MANGA_MODEL_FILES, key=lambda model_height: abs(model_height - page_height)
+    )
 
 
 def is_color_image(image):
@@ -89,23 +95,48 @@ def download_model_file(file_name, zip_url, report=print):
 
     os.makedirs(MODELS_FOLDER, exist_ok=True)
     zip_path = os.path.join(MODELS_FOLDER, "download.zip.tmp")
-    report(f"Downloading the upscale model {file_name} (one time only)...")
-    download_file(zip_url, zip_path)
+    report(
+        f"Downloading the Best upscale model {file_name} (one time only) from {MODELS_PAGE_URL}..."
+    )
+    try:
+        download_file(zip_url, zip_path)
+    except OSError as error:
+        # Still an "OSError", which stops the job.
+        raise OSError(
+            f"Couldn't download the Best upscale model {file_name} (check your internet connection): {error}. It comes from {MODELS_PAGE_URL}"
+        ) from error
 
     try:
+        # Not a zip, e.g. an error page saved instead. An "OSError" stops the job (like no internet does), instead of downloading it again for every image.
+        if not zipfile.is_zipfile(zip_path):
+            raise OSError(
+                f"The download of the Best upscale model {file_name} is broken (it wasn't the model). Check that {MODELS_PAGE_URL} opens in your browser, then try again."
+            )
         with zipfile.ZipFile(zip_path) as models_zip:
             # Keep every 2x model from the zip (e.g. MangaJaNai's other page heights), so it never has to be downloaded again.
             for member in models_zip.namelist():
                 member_name = os.path.basename(member)
-                if member_name.startswith("2x_") and member_name.endswith((".pth", ".safetensors")):
-                    with models_zip.open(member) as source, open(os.path.join(MODELS_FOLDER, f"{member_name}.tmp"), "wb") as target:
+                if member_name.startswith("2x_") and member_name.endswith(
+                    (".pth", ".safetensors")
+                ):
+                    with (
+                        models_zip.open(member) as source,
+                        open(
+                            os.path.join(MODELS_FOLDER, f"{member_name}.tmp"), "wb"
+                        ) as target,
+                    ):
                         shutil.copyfileobj(source, target)
-                    os.replace(os.path.join(MODELS_FOLDER, f"{member_name}.tmp"), os.path.join(MODELS_FOLDER, member_name))
+                    os.replace(
+                        os.path.join(MODELS_FOLDER, f"{member_name}.tmp"),
+                        os.path.join(MODELS_FOLDER, member_name),
+                    )
     finally:
         os.remove(zip_path)
 
     if not os.path.exists(path):
-        raise RuntimeError(f"The download didn't have the upscale model {file_name}.")
+        raise OSError(
+            f"The download didn't have the Best upscale model {file_name}. It comes from {MODELS_PAGE_URL}"
+        )
 
     return path
 
@@ -146,10 +177,14 @@ def get_coreml_upscale_function(model_path, use_neural_engine, report=print):
         import torch
 
         report("Getting the upscale model ready for this Mac (one time only)...")
-        traced_model = torch.jit.trace(load_pytorch_model(model_path), torch.rand(1, 3, COREML_TILE, COREML_TILE))
+        traced_model = torch.jit.trace(
+            load_pytorch_model(model_path), torch.rand(1, 3, COREML_TILE, COREML_TILE)
+        )
         coreml_model = ct.convert(
             traced_model,
-            inputs=[ct.TensorType(name="image", shape=(1, 3, COREML_TILE, COREML_TILE))],
+            inputs=[
+                ct.TensorType(name="image", shape=(1, 3, COREML_TILE, COREML_TILE))
+            ],
             outputs=[ct.TensorType(name="upscaled")],
             compute_precision=ct.precision.FLOAT16,
             minimum_deployment_target=ct.target.macOS13,
@@ -158,12 +193,16 @@ def get_coreml_upscale_function(model_path, use_neural_engine, report=print):
         # Saved under a temporary name first, so quitting halfway can't leave a broken model behind. Core ML needs the name to end in ".mlpackage".
         temporary_path = f"{os.path.splitext(coreml_path)[0]}-unfinished.mlpackage"
         shutil.rmtree(temporary_path, ignore_errors=True)
-        coreml_model.save(temporary_path)
+        coreml_model.save(temporary_path)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
         os.replace(temporary_path, coreml_path)
 
-    compute_units = ct.ComputeUnit.ALL if use_neural_engine else ct.ComputeUnit.CPU_AND_GPU
+    compute_units = (
+        ct.ComputeUnit.ALL if use_neural_engine else ct.ComputeUnit.CPU_AND_GPU
+    )
     coreml_model = ct.models.MLModel(coreml_path, compute_units=compute_units)
-    return lambda tile: coreml_model.predict({"image": tile[None].astype(numpy.float32)})["upscaled"][0]
+    return lambda tile: coreml_model.predict(
+        {"image": tile[None].astype(numpy.float32)}
+    )["upscaled"][0]
 
 
 def get_pytorch_upscale_function(model_path):
@@ -208,25 +247,37 @@ def upscale_in_tiles(upscale_tile, image, scale, tile_size, fixed_tile_size):
                 break
             if fixed_tile_size:
                 tile_y, tile_x = get_tile_start(y, height), get_tile_start(x, width)
-                tile = image[:, tile_y:tile_y + tile_size, tile_x:tile_x + tile_size]
+                tile = image[
+                    :, tile_y : tile_y + tile_size, tile_x : tile_x + tile_size
+                ]
                 tile = numpy.pad(
                     tile,
-                    ((0, 0), (0, tile_size - tile.shape[1]), (0, tile_size - tile.shape[2])),
+                    (
+                        (0, 0),
+                        (0, tile_size - tile.shape[1]),
+                        (0, tile_size - tile.shape[2]),
+                    ),
                     mode="edge",
                 )
             else:
                 tile_y, tile_x = max(y - TILE_OVERLAP, 0), max(x - TILE_OVERLAP, 0)
-                tile = image[:, tile_y:min(y + step + TILE_OVERLAP, height), tile_x:min(x + step + TILE_OVERLAP, width)]
+                tile = image[
+                    :,
+                    tile_y : min(y + step + TILE_OVERLAP, height),
+                    tile_x : min(x + step + TILE_OVERLAP, width),
+                ]
 
             end_y = height if reaches_edge(y, height) else min(y + step, height)
             end_x = width if reaches_edge(x, width) else min(x + step, width)
             upscaled_tile = upscale_tile(numpy.ascontiguousarray(tile))
             # Only the middle of each tile is kept. Its edges are covered by the tiles next to it.
-            result[:, y * scale:end_y * scale, x * scale:end_x * scale] = upscaled_tile[
-                :,
-                (y - tile_y) * scale:(end_y - tile_y) * scale,
-                (x - tile_x) * scale:(end_x - tile_x) * scale,
-            ]
+            result[:, y * scale : end_y * scale, x * scale : end_x * scale] = (
+                upscaled_tile[
+                    :,
+                    (y - tile_y) * scale : (end_y - tile_y) * scale,
+                    (x - tile_x) * scale : (end_x - tile_x) * scale,
+                ]
+            )
 
     return result
 
@@ -240,15 +291,20 @@ def get_upscaler(model_path, use_neural_engine, report=print):
 
     key = (model_path, use_neural_engine)
     if key not in _loaded_upscalers:
-        upscale_tile = None
+        upscale_tile, device_name = None, None
+        tile_size, fixed_tile_size = PYTORCH_TILE, False
         if can_use_coreml():
             try:
-                upscale_tile = get_coreml_upscale_function(model_path, use_neural_engine, report)
+                upscale_tile = get_coreml_upscale_function(
+                    model_path, use_neural_engine, report
+                )
                 tile_size, fixed_tile_size = COREML_TILE, True
                 # Core ML runs on the Mac's chip (its GPU and Neural Engine).
                 device_name = get_mac_chip_name()
             except Exception as error:
-                report(f"Couldn't use Core ML for the upscale model ({error}). Using PyTorch instead (slower).")
+                report(
+                    f"Couldn't use Core ML for the upscale model ({error}). Using PyTorch instead (slower)."
+                )
 
         if upscale_tile is None:
             import torch
@@ -259,7 +315,9 @@ def get_upscaler(model_path, use_neural_engine, report=print):
             tile_size, fixed_tile_size = PYTORCH_TILE, torch.version.hip is not None
 
         _loaded_upscalers[key] = (
-            lambda image: upscale_in_tiles(upscale_tile, image, 2, tile_size, fixed_tile_size),
+            lambda image: upscale_in_tiles(
+                upscale_tile, image, 2, tile_size, fixed_tile_size
+            ),
             device_name,
         )
 
@@ -268,31 +326,63 @@ def get_upscaler(model_path, use_neural_engine, report=print):
     return upscale
 
 
+def get_8_bit_rgb_image(image):
+    """
+    The image as 8-bit RGB, which the models take.
+    """
+    # 16-bit grayscale scans: "convert" would cut every value above 255 to white.
+    if image.mode in ("I", "I;16", "I;16B", "I;16L"):
+        gray = numpy.asarray(image, dtype=numpy.float32)
+        # Some 32-bit images only hold 0-255.
+        if gray.max() > 255:
+            gray = gray / 257
+        gray = gray.clip(0, 255).round().astype(numpy.uint8)
+        return Image.fromarray(gray).convert("RGB")
+    # Transparent parts become white, like a page (they'd turn black).
+    if image.mode in ("RGBA", "LA", "PA") or "transparency" in image.info:
+        image = image.convert("RGBA")
+        return Image.alpha_composite(
+            Image.new("RGBA", image.size, "white"), image
+        ).convert("RGB")
+    return image.convert("RGB")
+
+
 def upscale_image_with_janai(input_image, output_image, upscale_ratio, report=print):
     """
     Upscale one image by "upscale_ratio" (2, 4, 8, ...: the models make images 2x bigger, so 4x is two times 2x) with MangaJaNai, or IllustrationJaNai for a color image. Saved in the format of "output_image"'s extension.
     """
     with Image.open(input_image) as image:
         page_height = get_page_height(image)
-        is_color = is_color_image(image)
-        array = numpy.asarray(image.convert("RGB"), dtype=numpy.float32).transpose(2, 0, 1) / 255
+        rgb_image = get_8_bit_rgb_image(image)
+        is_color = is_color_image(rgb_image)
+        array = numpy.asarray(rgb_image, dtype=numpy.float32).transpose(2, 0, 1) / 255
 
     for upscale_pass in range(int(math.log2(int(upscale_ratio)))):
         if is_color:
-            model_path = download_model_file(COLOR_MODEL_FILE, COLOR_MODEL_ZIP_URL, report)
+            model_path = download_model_file(
+                COLOR_MODEL_FILE, COLOR_MODEL_ZIP_URL, report
+            )
             upscale = get_upscaler(model_path, use_neural_engine=False, report=report)
         else:
             # The page is twice as tall after each pass.
-            model_file = MANGA_MODEL_FILES[get_manga_model_height(page_height * 2**upscale_pass)]
+            model_file = MANGA_MODEL_FILES[
+                get_manga_model_height(page_height * 2**upscale_pass)
+            ]
             model_path = download_model_file(model_file, MANGA_MODELS_ZIP_URL, report)
             upscale = get_upscaler(model_path, use_neural_engine=True, report=report)
 
         array = numpy.clip(upscale(array), 0, 1)
 
-    result = Image.fromarray((array.transpose(1, 2, 0) * 255).round().astype(numpy.uint8))
+    result = Image.fromarray(
+        (array.transpose(1, 2, 0) * 255).round().astype(numpy.uint8)
+    )
     # Black and white stays black and white (and the file is about 3x smaller).
     if not is_color:
         result = result.convert("L")
 
-    save_options = {"quality": 95} if output_image.lower().endswith((".jpg", ".jpeg", ".webp")) else {}
+    save_options: dict = (
+        {"quality": 95}
+        if output_image.lower().endswith((".jpg", ".jpeg", ".webp"))
+        else {}
+    )
     result.save(output_image, **save_options)

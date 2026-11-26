@@ -6,7 +6,15 @@ EMOTION_MODEL_NAME = "j-hartmann/emotion-english-distilroberta-base"
 AZURE_STYLES_BY_EMOTION = {
     "anger": ["angry", "shouting", "disgruntled", "unfriendly", "envious"],
     "disgust": ["disgruntled", "unfriendly", "embarrassed", "envious"],
-    "fear": ["terrified", "fearful", "shouting", "sorry", "shy", "whispering", "envious"],
+    "fear": [
+        "terrified",
+        "fearful",
+        "shouting",
+        "sorry",
+        "shy",
+        "whispering",
+        "envious",
+    ],
     "joy": [
         "cheerful",
         "excited",
@@ -62,7 +70,11 @@ def load_emotion_pipeline():
     from magi import get_device
 
     print("Loading the emotion model (the first time, this downloads about 330 MB)...")
-    return pipeline("text-classification", model=EMOTION_MODEL_NAME, device=get_emotion_model_device(get_device()))
+    return pipeline(
+        "text-classification",
+        model=EMOTION_MODEL_NAME,
+        device=get_emotion_model_device(get_device()),
+    )
 
 
 class EmotionAnalyzer:

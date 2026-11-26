@@ -1,5 +1,6 @@
 import os
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 import torch
@@ -41,10 +42,16 @@ def set_gpus(monkeypatch, gpus):
     Fake GPUs, each as (does PyTorch run on it, compute units, and optionally its name).
     """
     monkeypatch.setattr(torch.cuda, "device_count", lambda: len(gpus))
-    monkeypatch.setattr(torch.cuda, "get_device_name", lambda index=0: (gpus[index] + (f"GPU {index}",))[2])
+    monkeypatch.setattr(
+        torch.cuda,
+        "get_device_name",
+        lambda index=0: (gpus[index] + (f"GPU {index}",))[2],
+    )
     monkeypatch.setattr(magi_module, "gpu_works", lambda index: gpus[index][0])
     monkeypatch.setattr(
-        torch.cuda, "get_device_properties", lambda index: SimpleNamespace(multi_processor_count=gpus[index][1])
+        torch.cuda,
+        "get_device_properties",
+        lambda index: SimpleNamespace(multi_processor_count=gpus[index][1]),
     )
 
 
@@ -65,7 +72,9 @@ def test_the_most_powerful_gpu_that_works_is_used(monkeypatch):
     assert get_device_now() == "cpu"
 
 
-def test_settings_and_the_log_say_which_gpu_is_used_and_which_is_skipped(monkeypatch, capsys):
+def test_settings_and_the_log_say_which_gpu_is_used_and_which_is_skipped(
+    monkeypatch, capsys
+):
     monkeypatch.setattr(torch.backends.mps, "is_available", lambda: False)
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
 
@@ -79,15 +88,25 @@ def test_settings_and_the_log_say_which_gpu_is_used_and_which_is_skipped(monkeyp
         return text
 
     # Like this PC.
-    assert sentence([(False, 1, "AMD Radeon(TM) Graphics"), (True, 20, "AMD Radeon RX 6700 XT")]) == (
+    assert sentence(
+        [(False, 1, "AMD Radeon(TM) Graphics"), (True, 20, "AMD Radeon RX 6700 XT")]
+    ) == (
         "The AI models run on the AMD Radeon RX 6700 XT. Not used: the AMD Radeon(TM) Graphics (PyTorch can't run on it)."
     )
     # Printed too, so it's in the log.
     assert "The AI models run on the AMD Radeon RX 6700 XT." in capsys.readouterr().out
-    assert sentence([(True, 40, "NVIDIA GeForce RTX 4090"), (True, 20, "NVIDIA GeForce RTX 3060")]) == (
+    assert sentence(
+        [(True, 40, "NVIDIA GeForce RTX 4090"), (True, 20, "NVIDIA GeForce RTX 3060")]
+    ) == (
         "The AI models run on the NVIDIA GeForce RTX 4090 (the most powerful of the 2 GPUs)."
     )
-    assert sentence([(False, 1, "Intel(R) UHD Graphics"), (False, 1, "AMD Radeon(TM) Graphics"), (True, 20, "AMD Radeon RX 6700 XT")]) == (
+    assert sentence(
+        [
+            (False, 1, "Intel(R) UHD Graphics"),
+            (False, 1, "AMD Radeon(TM) Graphics"),
+            (True, 20, "AMD Radeon RX 6700 XT"),
+        ]
+    ) == (
         "The AI models run on the AMD Radeon RX 6700 XT. Not used: the Intel(R) UHD Graphics, the AMD Radeon(TM) Graphics (PyTorch can't run on them)."
     )
     assert sentence([(False, 1, "AMD Radeon(TM) Graphics")]) == (
@@ -96,7 +115,10 @@ def test_settings_and_the_log_say_which_gpu_is_used_and_which_is_skipped(monkeyp
 
 
 def test_device_names_come_from_the_computer(monkeypatch):
-    set_gpus(monkeypatch, [(True, 20, "AMD Radeon RX 6700 XT"), (True, 40, "NVIDIA GeForce RTX 4070")])
+    set_gpus(
+        monkeypatch,
+        [(True, 20, "AMD Radeon RX 6700 XT"), (True, 40, "NVIDIA GeForce RTX 4070")],
+    )
     assert magi_module.get_device_name("cuda:1") == "NVIDIA GeForce RTX 4070"
     assert magi_module.get_device_name(torch.device("cuda")) == "AMD Radeon RX 6700 XT"
     assert magi_module.get_device_name("cpu") == "CPU"
@@ -112,7 +134,13 @@ def test_device_names_come_from_the_computer(monkeypatch):
     magi_module.get_mac_chip_name.cache_clear()
 
     # An Intel Mac: macOS names the Intel CPU, not the GPU.
-    monkeypatch.setattr(magi_module.subprocess, "run", lambda command, **kwargs: SimpleNamespace(stdout="Intel(R) Core(TM) i7-8559U CPU @ 2.70GHz"))
+    monkeypatch.setattr(
+        magi_module.subprocess,
+        "run",
+        lambda command, **kwargs: SimpleNamespace(
+            stdout="Intel(R) Core(TM) i7-8559U CPU @ 2.70GHz"
+        ),
+    )
     assert magi_module.get_device_name("mps") == "Mac GPU"
     magi_module.get_mac_chip_name.cache_clear()
 
@@ -128,10 +156,16 @@ def test_the_status_view_shows_where_magi_runs(monkeypatch):
     from gui_classes import ProgressPanel
 
     reported = []
-    monkeypatch.setattr(ProgressPanel, "report_progress", lambda **fields: reported.append(fields))
-    monkeypatch.setattr(magi_module, "get_device_name", lambda device: f"name of {torch.device(device).type}")
+    monkeypatch.setattr(
+        ProgressPanel, "report_progress", lambda **fields: reported.append(fields)
+    )
+    monkeypatch.setattr(
+        magi_module,
+        "get_device_name",
+        lambda device: f"name of {torch.device(device).type}",
+    )
 
-    get_magi_with_model(FakeModel()).full_model
+    assert get_magi_with_model(FakeModel()).full_model is not None
 
     assert reported == [{"device": "name of mps"}]
 
@@ -169,7 +203,10 @@ class FakeModel:
 
         # "page 1" has text. Any other page has none.
         return [
-            {"texts": [[0, 0, 1, 1], [1, 1, 2, 2], [2, 2, 3, 3]], "is_essential_text": [True, False, True]}
+            {
+                "texts": [[0, 0, 1, 1], [1, 1, 2, 2], [2, 2, 3, 3]],
+                "is_essential_text": [True, False, True],
+            }
             if page == "page 1"
             else {"texts": [], "is_essential_text": []}
             for page in pages
@@ -177,7 +214,10 @@ class FakeModel:
 
     def predict_ocr(self, pages, boxes, **kwargs):
         self.boxes_read.append(boxes)
-        return [[f"line {index + 1}" for index in range(len(page_boxes))] for page_boxes in boxes]
+        return [
+            [f"line {index + 1}" for index in range(len(page_boxes))]
+            for page_boxes in boxes
+        ]
 
 
 def get_magi_with_model(model):
@@ -204,7 +244,9 @@ def test_the_text_used_for_the_video_is_only_the_dialogue():
 
     results = get_magi_with_model(FakeModel()).get_per_page_results(["page 1"])
 
-    assert SpeechTextParser().get_essential_text_list_from_magi_data(results) == [["line 1", "line 2"]]
+    assert SpeechTextParser().get_essential_text_list_from_magi_data(results) == [
+        ["line 1", "line 2"]
+    ]
 
 
 def test_if_the_gpu_fails_magi_runs_again_on_the_cpu_and_stays_there(capsys):
@@ -214,7 +256,7 @@ def test_if_the_gpu_fails_magi_runs_again_on_the_cpu_and_stays_there(capsys):
     results = magi.get_per_page_results(["page 1"])
 
     assert results[0]["ocr"] == ["line 1", "", "line 2"]
-    assert magi._full_model.device.type == "cpu"
+    assert magi._full_model is not None and magi._full_model.device.type == "cpu"
     assert "Running it on the CPU instead" in capsys.readouterr().out
 
 
@@ -229,10 +271,17 @@ def test_a_failure_on_the_cpu_is_not_hidden():
 
 def test_finding_panels_also_falls_back_to_the_cpu(monkeypatch):
     magi = Magi()
-    magi._panels_model = SimpleNamespace(device=torch.device("mps"), to=lambda device: SimpleNamespace(device=torch.device(device)))
+    magi._panels_model = cast(
+        Any,
+        SimpleNamespace(
+            device=torch.device("mps"),
+            to=lambda device: SimpleNamespace(device=torch.device(device)),
+        ),
+    )
     attempts = []
 
     def find_panels(pages, reading_direction="rtl"):
+        assert magi._panels_model is not None
         attempts.append(magi._panels_model.device.type)
         if magi._panels_model.device.type != "cpu":
             raise RuntimeError("MPS backend out of memory")
@@ -292,56 +341,94 @@ def test_a_bubble_outside_every_panel_goes_to_the_closest_one():
     ]
 
 
-def test_panel_by_panel_saves_the_text_for_each_saved_panel_in_order(tmp_path, monkeypatch):
+def test_panel_by_panel_saves_the_text_for_each_saved_panel_in_order(
+    tmp_path, monkeypatch
+):
     import json
-
-    import numpy
 
     magi = Magi()
     pages = [drawn_page() for _ in range(2)]
     # The middle panel on page 1 is outside the page, so it's skipped and isn't saved.
-    panels = [{"panels": [RIGHT_PANEL, [200, 200, 300, 300], LEFT_PANEL]}, {"panels": [[0, 0, 100, 100]]}]
+    panels = [
+        {"panels": [RIGHT_PANEL, [200, 200, 300, 300], LEFT_PANEL]},
+        {"panels": [[0, 0, 100, 100]]},
+    ]
     page_text = [
-        make_page_text(([10, 10, 40, 30], "Left.", True), ([60, 10, 90, 30], "Right.", True)),
+        make_page_text(
+            ([10, 10, 40, 30], "Left.", True), ([60, 10, 90, 30], "Right.", True)
+        ),
         make_page_text(([10, 10, 40, 30], "Page two.", True)),
     ]
-    monkeypatch.setattr(magi, "predict_panels", lambda chapter_pages, reading_direction: panels)
+    monkeypatch.setattr(
+        magi, "predict_panels", lambda chapter_pages, reading_direction: panels
+    )
     monkeypatch.setattr(magi, "get_per_page_results", lambda chapter_pages: page_text)
 
     magi.get_panels_using_local_cpu(pages, "Series/Ch 1", str(tmp_path), read_text=True)
 
     chapter = tmp_path / "Series" / "Ch 1"
-    assert sorted(os.listdir(chapter)) == ["panel-text.json", "panel_1.png", "panel_2.png", "panel_3.png"]
-    assert json.loads((chapter / "panel-text.json").read_text()) == [["Right."], ["Left."], ["Page two."]]
+    assert sorted(os.listdir(chapter)) == [
+        "panel-text.json",
+        "panel_1.png",
+        "panel_2.png",
+        "panel_3.png",
+    ]
+    assert json.loads((chapter / "panel-text.json").read_text()) == [
+        ["Right."],
+        ["Left."],
+        ["Page two."],
+    ]
 
 
-def test_panel_by_panel_that_reads_the_text_shows_the_text_stages_too(tmp_path, monkeypatch):
+def test_panel_by_panel_that_reads_the_text_shows_the_text_stages_too(
+    tmp_path, monkeypatch
+):
     import gui_classes.ProgressPanel as progress_module
 
     reported = []
-    monkeypatch.setattr(progress_module, "report_progress", lambda **fields: reported.append(fields))
-    magi = Magi()
-    monkeypatch.setattr(magi, "predict_panels", lambda chapter_pages, reading_direction: [{"panels": [LEFT_PANEL]}])
-    monkeypatch.setattr(magi, "get_per_page_results", lambda chapter_pages: [make_page_text(([10, 10, 40, 30], "Hi.", True))])
-
-    magi.get_panels_using_local_cpu([drawn_page()], "Series/Ch 1", str(tmp_path), read_text=True)
-
-    # The same names Images To Video shows, so a Pipeline's video step ticks them right away.
-    assert reported[0]["stages"] == ("Finding the panels", "Saving the panels", "Finding the text", "Reading the text")
-
-
-def test_panel_by_panel_does_not_read_the_text_unless_asked(tmp_path, monkeypatch):
-    import numpy
-
-    magi = Magi()
-    monkeypatch.setattr(magi, "predict_panels", lambda chapter_pages, reading_direction: [{"panels": [LEFT_PANEL]}])
     monkeypatch.setattr(
-        magi, "get_per_page_results", lambda chapter_pages: pytest.fail("the text shouldn't be read")
+        progress_module, "report_progress", lambda **fields: reported.append(fields)
+    )
+    magi = Magi()
+    monkeypatch.setattr(
+        magi,
+        "predict_panels",
+        lambda chapter_pages, reading_direction: [{"panels": [LEFT_PANEL]}],
+    )
+    monkeypatch.setattr(
+        magi,
+        "get_per_page_results",
+        lambda chapter_pages: [make_page_text(([10, 10, 40, 30], "Hi.", True))],
     )
 
     magi.get_panels_using_local_cpu(
-        [drawn_page()], "Series/Ch 1", str(tmp_path)
+        [drawn_page()], "Series/Ch 1", str(tmp_path), read_text=True
     )
+
+    # The same names Images To Video shows, so a Pipeline's video step ticks them right away.
+    assert reported[0]["stages"] == (
+        "Finding the panels",
+        "Saving the panels",
+        "Finding the text",
+        "Reading the text",
+    )
+
+
+def test_panel_by_panel_does_not_read_the_text_unless_asked(tmp_path, monkeypatch):
+
+    magi = Magi()
+    monkeypatch.setattr(
+        magi,
+        "predict_panels",
+        lambda chapter_pages, reading_direction: [{"panels": [LEFT_PANEL]}],
+    )
+    monkeypatch.setattr(
+        magi,
+        "get_per_page_results",
+        lambda chapter_pages: pytest.fail("the text shouldn't be read"),
+    )
+
+    magi.get_panels_using_local_cpu([drawn_page()], "Series/Ch 1", str(tmp_path))
 
     chapter = tmp_path / "Series" / "Ch 1"
     assert os.listdir(chapter) == ["panel_1.png"]
@@ -351,16 +438,30 @@ def test_finding_and_reading_the_text_shows_its_progress(monkeypatch):
     import gui_classes.ProgressPanel as progress_panel
 
     reports = []
-    monkeypatch.setattr(progress_panel, "report_progress", lambda **fields: reports.append(fields))
+    monkeypatch.setattr(
+        progress_panel, "report_progress", lambda **fields: reports.append(fields)
+    )
 
     get_magi_with_model(FakeModel()).get_per_page_results(["page 1", "page 2"])
 
     # Where Magi runs is also shown (see "test_the_status_view_shows_where_magi_runs").
     assert [report for report in reports if "device" not in report] == [
-        {"stage": "Finding the text", "pages_done": 0, "pages_total": 2, "unit": "images", "detail": "Finding the text"},
+        {
+            "stage": "Finding the text",
+            "pages_done": 0,
+            "pages_total": 2,
+            "unit": "images",
+            "detail": "Finding the text",
+        },
         {"pages_done": 1},
         {"pages_done": 2},
-        {"stage": "Reading the text", "pages_done": 0, "pages_total": 2, "unit": "text boxes", "detail": "Reading the text"},
+        {
+            "stage": "Reading the text",
+            "pages_done": 0,
+            "pages_total": 2,
+            "unit": "text boxes",
+            "detail": "Reading the text",
+        },
         {"pages_done": 2},
     ]
 
@@ -371,8 +472,26 @@ def test_the_text_is_read_in_parts_of_exactly_one_batch_of_lines(monkeypatch):
     magi = get_magi_with_model(model)
     boxes_on_each_page = [[[0, 0, 1, 1]] * 2, [[0, 0, 1, 1]] * 2, [], [[0, 0, 1, 1]]]
 
-    text = magi.read_text_in_parts(["p1", "p2", "p3", "p4"], boxes_on_each_page, lambda **fields: None, tqdm)
+    text = magi.read_text_in_parts(
+        ["p1", "p2", "p3", "p4"], boxes_on_each_page, lambda **fields: None, tqdm
+    )
 
     # Exactly 3 lines at a time, so page 2's lines are split between the two parts.
     assert [sum(map(len, part)) for part in model.boxes_read] == [3, 2]
     assert [len(page_text) for page_text in text] == [2, 2, 0, 1]
+
+
+def test_a_failed_magi_download_says_where_the_model_comes_from(monkeypatch):
+    from magi_model.modelling_magiv2 import Magiv2Model
+
+    def no_internet(*args, **kwargs):
+        raise OSError(
+            "We couldn't connect to 'https://huggingface.co' to load this model"
+        )
+
+    monkeypatch.setattr(Magiv2Model, "from_pretrained", no_internet)
+
+    with pytest.raises(OSError, match="check your internet connection") as error:
+        magi_module.load_full_magi_model()
+
+    assert magi_module.MAGI_MODEL_PAGE_URL in str(error.value)

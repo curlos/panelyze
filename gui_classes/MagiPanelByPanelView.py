@@ -77,7 +77,10 @@ class MagiPanelByPanelView(JobView):
                             size=12,
                             color=Nord.TEXT_MUTED,
                         ),
-                    ]
+                    ],
+                    # Like the other tabs' settings: on a short window, what doesn't fit can be scrolled to.
+                    expand=True,
+                    scroll=ft.ScrollMode.ALWAYS,
                 ),
                 width=350,
                 padding=ft.padding.only(left=10, top=5, right=10),
@@ -94,14 +97,20 @@ class MagiPanelByPanelView(JobView):
                     control.on_checkbox_change, directories.refresh_input_summary
                 )
             elif getattr(control, "on_change", None):
-                control.on_change = refresh_after(control.on_change, directories.refresh_input_summary)
+                control.on_change = refresh_after(
+                    control.on_change, directories.refresh_input_summary
+                )
 
     def get_already_split_summary(self, input_directory, output_directory):
         """
         What will really be split, for the line under the picked folder: "only 1 new chapter to split" when the others are already split (and kept, see "process_image_folder"). "" when none are.
         """
         storage = self.parent_gui.page.client_storage
-        if storage.get("split_panels_again") or not output_directory or not os.path.isdir(input_directory):
+        if (
+            storage.get("split_panels_again")
+            or not output_directory
+            or not os.path.isdir(input_directory)
+        ):
             return ""
         group_by_page = bool(storage.get("group_panels_by_page"))
         try:
@@ -109,8 +118,20 @@ class MagiPanelByPanelView(JobView):
             kept = sum(
                 1
                 for image_folder, images in image_folders
-                if read_panels_info(get_panels_folder(output_directory, get_relative_output_path(image_folder, input_directory), group_by_page))
-                == get_panels_info(image_folder, images, storage, group_by_page, self.read_text_for_video)
+                if read_panels_info(
+                    get_panels_folder(
+                        output_directory,
+                        get_relative_output_path(image_folder, input_directory),
+                        group_by_page,
+                    )
+                )
+                == get_panels_info(
+                    image_folder,
+                    images,
+                    storage,
+                    group_by_page,
+                    self.read_text_for_video,
+                )
             )
         except OSError:
             # E.g. a page was deleted meanwhile. It's only a hint, so it's left out.
@@ -136,8 +157,12 @@ class MagiPanelByPanelView(JobView):
         return f"{self.finished_text} {len(self.kept_chapters)} of {pluralize(chapter_count, 'chapter')} {verb} already split (kept)."
 
     def get_folder_to_open(self, input_directory, output_directory):
-        group_by_page = bool(self.parent_gui.page.client_storage.get("group_panels_by_page"))
-        folder = get_panels_folder(output_directory, get_last_directory(input_directory), group_by_page)
+        group_by_page = bool(
+            self.parent_gui.page.client_storage.get("group_panels_by_page")
+        )
+        folder = get_panels_folder(
+            output_directory, get_last_directory(input_directory), group_by_page
+        )
         return folder if os.path.isdir(folder) else output_directory
 
     def get_next_tab_input_directory(self, input_directory, output_directory):
@@ -147,7 +172,9 @@ class MagiPanelByPanelView(JobView):
 
         return get_panels_folder(output_directory, get_last_directory(input_directory))
 
-    def process_image_folder(self, image_folder, images, input_directory, output_directory):
+    def process_image_folder(
+        self, image_folder, images, input_directory, output_directory
+    ):
         # Imported here so that torch and transformers only load when Magi is actually used, not when the app starts.
         from magi import get_magi
 
@@ -156,10 +183,17 @@ class MagiPanelByPanelView(JobView):
             storage.get("group_panels_by_page") and not self.ignore_group_by_page
         )
         panels_folder = get_panels_folder(
-            output_directory, get_relative_output_path(image_folder, input_directory), group_by_page
+            output_directory,
+            get_relative_output_path(image_folder, input_directory),
+            group_by_page,
         )
-        panels_info = get_panels_info(image_folder, images, storage, group_by_page, self.read_text_for_video)
-        is_already_split = not storage.get("split_panels_again") and read_panels_info(panels_folder) == panels_info
+        panels_info = get_panels_info(
+            image_folder, images, storage, group_by_page, self.read_text_for_video
+        )
+        is_already_split = (
+            not storage.get("split_panels_again")
+            and read_panels_info(panels_folder) == panels_info
+        )
         if is_already_split:
             print(f"Already split into panels (kept): {panels_folder}")
             self.kept_chapters.append(os.path.basename(image_folder))
@@ -178,7 +212,11 @@ class MagiPanelByPanelView(JobView):
             )
             # A chapter where nothing was saved is still tried again next time ("read_panels_info" needs panels).
             if os.path.isdir(panels_folder):
-                with open(os.path.join(panels_folder, PANELS_INFO_FILE_NAME), "w", encoding="utf-8") as file:
+                with open(
+                    os.path.join(panels_folder, PANELS_INFO_FILE_NAME),
+                    "w",
+                    encoding="utf-8",
+                ) as file:
                     json.dump(panels_info, file)
 
         if storage.get("save_as_cbz"):
@@ -199,7 +237,10 @@ def get_panels_info(image_folder, images, storage, group_by_page, read_text):
     What a chapter's panels are made from: its pages (names and sizes) and every setting that changes the panels. Saved next to the panels ("panels-info.json"), so the next run can tell they're still up to date. Not when the pages changed: imported comic files and picked images are copied to a new temporary folder on every run.
     """
     return {
-        "pages": [[image["name"], os.path.getsize(os.path.join(image_folder, image["name"]))] for image in images],
+        "pages": [
+            [image["name"], os.path.getsize(os.path.join(image_folder, image["name"]))]
+            for image in images
+        ],
         "reading_direction": storage.get("reading_direction"),
         # On "Automatic", the direction a download saved next to the pages decides the order.
         "saved_reading_direction": read_saved_reading_direction(image_folder),
@@ -215,11 +256,14 @@ def read_panels_info(panels_folder):
     The "panels-info.json" of a chapter's panels, or None if it's missing, unreadable, or its panels are gone.
     """
     if not os.path.isdir(panels_folder) or not any(
-        (name.startswith("panel_") and is_image_file(name)) or name.startswith("page_") for name in os.listdir(panels_folder)
+        (name.startswith("panel_") and is_image_file(name)) or name.startswith("page_")
+        for name in os.listdir(panels_folder)
     ):
         return None
     try:
-        with open(os.path.join(panels_folder, PANELS_INFO_FILE_NAME), encoding="utf-8") as file:
+        with open(
+            os.path.join(panels_folder, PANELS_INFO_FILE_NAME), encoding="utf-8"
+        ) as file:
             return json.load(file)
     except (OSError, ValueError):
         return None
@@ -229,6 +273,7 @@ def refresh_after(on_change, refresh):
     """
     "on_change", then "refresh" (the settings are saved first).
     """
+
     def handle_change(e):
         on_change(e)
         refresh()

@@ -4,6 +4,8 @@ import threading
 import time
 
 import flet as ft
+
+from utils import set_text_with_links
 from gui_classes import Nord
 
 # The "ProgressPanel" that's currently shown, if any. Jobs report to it with "report_progress", so the code that does the work doesn't need to know about the GUI.
@@ -33,7 +35,13 @@ ERROR_HINT = "Full details are in Raw Output."
 MUTED_COLOR = Nord.TEXT_MUTED
 
 # What the panel is showing. "idle" is before anything runs, then "running", and then "finished", "failed" or "cancelled" (the user stopped it).
-IDLE, RUNNING, FINISHED, FAILED, CANCELLED = "idle", "running", "finished", "failed", "cancelled"
+IDLE, RUNNING, FINISHED, FAILED, CANCELLED = (
+    "idle",
+    "running",
+    "finished",
+    "failed",
+    "cancelled",
+)
 
 
 def get_singular(unit):
@@ -66,7 +74,9 @@ def format_size_like_file_explorer(size):
     import ctypes
 
     text = ctypes.create_unicode_buffer(64)
-    ctypes.windll.shlwapi.StrFormatByteSizeW(ctypes.c_longlong(int(size)), text, len(text))
+    ctypes.windll.shlwapi.StrFormatByteSizeW(  # pyright: ignore[reportAttributeAccessIssue]
+        ctypes.c_longlong(int(size)), text, len(text)
+    )
     return text.value
 
 
@@ -76,7 +86,7 @@ def format_size(size):
     """
     if USE_FILE_EXPLORER_SIZES:
         return format_size_like_file_explorer(size)
-    for unit in ("B", "KB", "MB", "GB"):
+    for unit in ("B", "KB", "MB", "GB"):  # noqa: B007 ("unit" is used after the loop)
         if size < 1000:
             break
         size /= 1000
@@ -98,7 +108,10 @@ SIZE_KINDS = {
 
 def get_size_kind(file_name):
     extension = os.path.splitext(file_name)[1].lower()
-    return next((kind for kind, extensions in SIZE_KINDS.items() if extension in extensions), "other")
+    return next(
+        (kind for kind, extensions in SIZE_KINDS.items() if extension in extensions),
+        "other",
+    )
 
 
 def get_folder_size(folder):
@@ -156,7 +169,7 @@ class ProgressPanel(ft.Container):
         current_progress_panel = self
 
         self.prefix = ""
-        self.total_started_at = None
+        self.total_started_at: float | None = None
         # When the job that's running (or ran last) started and ended, for its timer.
         self.started_at = None
         self.ended_at = None
@@ -173,7 +186,9 @@ class ProgressPanel(ft.Container):
         self.status_text = ft.Text(color=Nord.TEXT)
         self.stages_text = ft.Text(color=MUTED_COLOR, size=12, visible=False)
         self.device_text = ft.Text(color=MUTED_COLOR, size=12, visible=False)
-        self.error_hint_text = ft.Text(ERROR_HINT, color=MUTED_COLOR, size=12, visible=False)
+        self.error_hint_text = ft.Text(
+            ERROR_HINT, color=MUTED_COLOR, size=12, visible=False
+        )
         self.progress_bar = ft.ProgressBar(
             color=Nord.BLUE, bgcolor=Nord.SURFACE_HIGH, visible=False
         )
@@ -264,7 +279,8 @@ class ProgressPanel(ft.Container):
         total, size_by_kind = get_folder_size(self.output_folder)
         self.bytes_saved = max(0, total - self.output_size_at_start[0])
         self.bytes_saved_by_kind = {
-            kind: max(0, size - self.output_size_at_start[1].get(kind, 0)) for kind, size in size_by_kind.items()
+            kind: max(0, size - self.output_size_at_start[1].get(kind, 0))
+            for kind, size in size_by_kind.items()
         }
 
     def show_cancelling(self, message):
@@ -355,10 +371,15 @@ class ProgressPanel(ft.Container):
         # A single stage (a video without text) says nothing the title doesn't.
         if len(self.stages) < 2 or self.state not in (RUNNING, FINISHED):
             return ""
-        current = list(self.stages).index(self.stage) if self.stage in self.stages else 0
+        current = (
+            list(self.stages).index(self.stage) if self.stage in self.stages else 0
+        )
         if self.state == FINISHED:
             current = len(self.stages)
-        marks = ["✓" if index < current else "●" if index == current else "○" for index in range(len(self.stages))]
+        marks = [
+            "✓" if index < current else "●" if index == current else "○"
+            for index in range(len(self.stages))
+        ]
         return "   ".join(f"{mark} {name}" for mark, name in zip(marks, self.stages))
 
     def get_device_text(self):
@@ -403,13 +424,17 @@ class ProgressPanel(ft.Container):
         return min(chapters_done / self.chapters, 1)
 
     def render(self):
-        self.title_text.value = f"{self.prefix} · {self.title}" if self.prefix else self.title
+        self.title_text.value = (
+            f"{self.prefix} · {self.title}" if self.prefix else self.title
+        )
         self.title_text.color = MUTED_COLOR if self.state == IDLE else Nord.TEXT
-        self.status_text.value = self.get_status_text()
+        set_text_with_links(self.status_text, self.get_status_text())
         self.stages_text.value = self.get_stages_text()
         self.stages_text.visible = bool(self.stages_text.value)
         device_text = self.get_device_text()
-        self.device_text.spans = Nord.get_highlighted_spans(device_text, [self.device], Nord.DEVICE)
+        self.device_text.spans = Nord.get_highlighted_spans(
+            device_text, [self.device], Nord.DEVICE
+        )
         self.device_text.visible = bool(device_text)
         self.timer_text.value = self.get_timer_text()
         self.progress_bar.value = self.get_bar_value()

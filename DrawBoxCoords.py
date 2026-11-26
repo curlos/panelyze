@@ -33,10 +33,11 @@ class DrawBoxCoords:
         if flet_page_client_storage:
             self.flet_page_client_storage = flet_page_client_storage
 
-        if self.flet_page_client_storage:
+        storage = self.flet_page_client_storage
+        if storage:
             # Fall back to the current (default) value for any setting that hasn't been saved yet.
             def get_setting(setting_key, default_value):
-                setting_value = self.flet_page_client_storage.get(setting_key)
+                setting_value = storage.get(setting_key)
                 return default_value if setting_value in (None, "") else setting_value
 
             self.images_to_video_text_box_border_width = int(
@@ -93,7 +94,7 @@ class DrawBoxCoords:
         dpi = 100
         image_width, image_height = base_pil_image.size
         figure = plt.figure(figsize=(image_width / dpi, image_height / dpi), dpi=dpi)
-        subplot = figure.add_axes([0, 0, 1, 1])
+        subplot = figure.add_axes((0, 0, 1, 1))
         subplot.imshow(base_pil_image)
         subplot.axis("off")
 
@@ -106,9 +107,9 @@ class DrawBoxCoords:
             background_color = (0, 0, 0, 0)
 
             if self.images_to_video_text_box_border_color != "transparent":
-                border_color = to_rgb(
-                    self.images_to_video_text_box_border_color
-                ) + (self.images_to_video_text_box_border_color_opacity,)
+                border_color = to_rgb(self.images_to_video_text_box_border_color) + (
+                    self.images_to_video_text_box_border_color_opacity,
+                )
 
             if self.images_to_video_text_box_background_color != "transparent":
                 background_color = to_rgb(

@@ -1,0 +1,19 @@
+[tool.pyright]
+typeCheckingMode = "standard"
+# The copied code (Magi from Hugging Face, the comix.to downloader) and old experiments aren't checked. Setting "exclude" replaces Pyright's defaults, so the venvs, build folders and hidden folders are listed too.
+exclude = ["magi_model", "experiments", "comix_downloader", "venv", "venv-*", "dist", "build-assets", "**/node_modules", "**/__pycache__", "**/.*"]
+extraPaths = ["comix_downloader"]
+
+[tool.ruff]
+# The same folders Pyright skips (Ruff already skips hidden folders and what .gitignore lists).
+extend-exclude = ["magi_model", "experiments", "comix_downloader", "venv", "venv-*", "dist", "build-assets"]
+
+[tool.ruff.lint]
+# Ruff's classic rules (unused imports and variables, undefined names, broken syntax, a few common slips) and "bugbear" (likely bugs). Not its newer style rules.
+select = ["E4", "E7", "E9", "F", "B"]
+# "zip()" without "strict=": a style suggestion that can make working code raise. "setattr" with a fixed name: used on purpose where Pyright would flag a normal assignment (e.g. a test replacing a method).
+ignore = ["B905", "B010"]
+
+[tool.ruff.lint.per-file-ignores]
+# The packaged app checks how it was started ("--run-mangadex", "--self-test") before importing the rest of the app.
+"gui.py" = ["E402"]

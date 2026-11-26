@@ -1,5 +1,8 @@
 import os
+from typing import Any, cast
+
 import edge_tts
+import pytest
 from PIL import Image
 
 from DrawBoxCoords import DrawBoxCoords
@@ -30,9 +33,6 @@ def test_every_panel_fits_in_the_same_16_9_frame(tmp_path):
         clip = video_creator.get_image_clip_fit_to_video_frame(str(image_path))
         assert tuple(clip.size) == (1280, 720)
         assert clip.with_duration(1).get_frame(0).shape == (720, 1280, 3)
-
-
-import pytest
 
 
 @pytest.mark.parametrize(
@@ -69,7 +69,9 @@ def write_transcript(directory, text):
 
 
 def test_transcript_skips_blank_lines(tmp_path):
-    write_transcript(tmp_path, "Hello\n\n   \n------ new image ------\n------ new image ------\n")
+    write_transcript(
+        tmp_path, "Hello\n\n   \n------ new image ------\n------ new image ------\n"
+    )
 
     video_creator = VideoCreatorFromImages({})
 
@@ -81,9 +83,13 @@ def test_transcript_skips_blank_lines(tmp_path):
 
 def test_the_transcript_keeps_symbols_and_japanese(tmp_path):
     # Windows' default encoding can't save "♥" or Japanese.
-    VideoCreatorFromImages.save_essential_text_to_transcript(None, [["I love you ♥", "呪術廻戦"]], str(tmp_path))
+    VideoCreatorFromImages.save_essential_text_to_transcript(
+        cast(Any, None), [["I love you ♥", "呪術廻戦"]], str(tmp_path)
+    )
 
-    assert VideoCreatorFromImages({}).get_essential_text_from_transcript(str(tmp_path)) == [["I love you ♥", "呪術廻戦"]]
+    assert VideoCreatorFromImages({}).get_essential_text_from_transcript(
+        str(tmp_path)
+    ) == [["I love you ♥", "呪術廻戦"]]
 
 
 def test_the_voice_over_audio_files_can_be_deleted_after_the_video_is_made(tmp_path):
@@ -102,7 +108,9 @@ def test_the_voice_over_audio_files_can_be_deleted_after_the_video_is_made(tmp_p
     video_creator = VideoCreatorFromImages({"video_height": "360"})
     video_creator.initialize_flet_client_storage_values({"video_height": "360"})
 
-    clips = video_creator.get_clips([str(tmp_path / "panel_1.png")], None, None, [1], str(tmp_path))
+    clips = video_creator.get_clips(
+        [str(tmp_path / "panel_1.png")], None, None, [1], str(tmp_path)
+    )
     # Reading the audio, like writing the video does.
     clips[0].audio.get_frame(0.1)
     video_creator.close_audio_clips()
@@ -112,7 +120,9 @@ def test_the_voice_over_audio_files_can_be_deleted_after_the_video_is_made(tmp_p
 
 def test_transcript_that_does_not_match_the_images_is_not_used(tmp_path, monkeypatch):
     # The transcript has 2 images worth of text but the chapter now has 3 images.
-    write_transcript(tmp_path, "A\n------ new image ------\nB\n------ new image ------\n")
+    write_transcript(
+        tmp_path, "A\n------ new image ------\nB\n------ new image ------\n"
+    )
 
     video_creator = VideoCreatorFromImages({})
     monkeypatch.setattr(
@@ -140,7 +150,11 @@ def get_video_creator_with_fake_magi(monkeypatch, highlight=True):
     runs = []
     magi_results = [
         {"texts": [[0, 0, 5, 5]], "ocr": ["Hello there."], "is_essential_text": [True]},
-        {"texts": [[1, 1, 6, 6], [2, 2, 7, 7]], "ocr": ["BOOM", "Hi!"], "is_essential_text": [False, True]},
+        {
+            "texts": [[1, 1, 6, 6], [2, 2, 7, 7]],
+            "ocr": ["BOOM", "Hi!"],
+            "is_essential_text": [False, True],
+        },
     ]
 
     class FakeMagi:
@@ -162,14 +176,20 @@ def make_images(tmp_path, sizes=(10, 20)):
     return images
 
 
-def test_magi_only_runs_once_for_the_same_images_even_when_highlighting(tmp_path, monkeypatch):
+def test_magi_only_runs_once_for_the_same_images_even_when_highlighting(
+    tmp_path, monkeypatch
+):
     video_creator, runs = get_video_creator_with_fake_magi(monkeypatch)
     images = make_images(tmp_path)
     output = tmp_path / "out"
 
-    first_text, first_data = video_creator.get_essential_text_and_magi_data(str(images), str(output), image_count=2)
+    first_text, first_data = video_creator.get_essential_text_and_magi_data(
+        str(images), str(output), image_count=2
+    )
     # A transcript now exists, which highlighting doesn't use. The saved Magi results are used instead.
-    second_text, second_data = video_creator.get_essential_text_and_magi_data(str(images), str(output), image_count=2)
+    second_text, second_data = video_creator.get_essential_text_and_magi_data(
+        str(images), str(output), image_count=2
+    )
 
     assert len(runs) == 1
     assert first_text == second_text == [["Hello there."], ["Hi!"]]
@@ -177,23 +197,33 @@ def test_magi_only_runs_once_for_the_same_images_even_when_highlighting(tmp_path
     assert (output / "magi-data.json").exists()
 
 
-def test_magi_runs_again_when_the_images_or_reading_direction_change(tmp_path, monkeypatch):
+def test_magi_runs_again_when_the_images_or_reading_direction_change(
+    tmp_path, monkeypatch
+):
     video_creator, runs = get_video_creator_with_fake_magi(monkeypatch)
     images = make_images(tmp_path)
     output = tmp_path / "out"
-    video_creator.get_essential_text_and_magi_data(str(images), str(output), image_count=2)
+    video_creator.get_essential_text_and_magi_data(
+        str(images), str(output), image_count=2
+    )
 
     make_images(tmp_path, sizes=(10, 21))
-    video_creator.get_essential_text_and_magi_data(str(images), str(output), image_count=2)
+    video_creator.get_essential_text_and_magi_data(
+        str(images), str(output), image_count=2
+    )
     assert len(runs) == 2
 
     video_creator.speech_text_parser.reading_direction = "ltr"
-    video_creator.get_essential_text_and_magi_data(str(images), str(output), image_count=2)
+    video_creator.get_essential_text_and_magi_data(
+        str(images), str(output), image_count=2
+    )
     assert runs == ["rtl", "rtl", "ltr"]
 
     # A direction saved next to the images (used by "Automatic") changes too.
     (images / "reading-direction.txt").write_text("4koma")
-    video_creator.get_essential_text_and_magi_data(str(images), str(output), image_count=2)
+    video_creator.get_essential_text_and_magi_data(
+        str(images), str(output), image_count=2
+    )
     assert len(runs) == 4
 
 
@@ -204,21 +234,29 @@ def test_a_broken_saved_file_is_ignored(tmp_path, monkeypatch):
     output.mkdir()
     (output / "magi-data.json").write_text("{not json")
 
-    video_creator.get_essential_text_and_magi_data(str(images), str(output), image_count=2)
+    video_creator.get_essential_text_and_magi_data(
+        str(images), str(output), image_count=2
+    )
 
     assert len(runs) == 1
     assert not (output / "magi-data.json.tmp").exists()
 
 
-def test_without_highlighting_the_saved_results_also_save_reading_the_text(tmp_path, monkeypatch):
+def test_without_highlighting_the_saved_results_also_save_reading_the_text(
+    tmp_path, monkeypatch
+):
     video_creator, runs = get_video_creator_with_fake_magi(monkeypatch, highlight=False)
     video_creator.use_reading_speed_wpm = True
     images = make_images(tmp_path)
     output = tmp_path / "out"
 
-    video_creator.get_essential_text_and_magi_data(str(images), str(output), image_count=2)
+    video_creator.get_essential_text_and_magi_data(
+        str(images), str(output), image_count=2
+    )
     (output / "transcript.txt").unlink()
-    text, _ = video_creator.get_essential_text_and_magi_data(str(images), str(output), image_count=2)
+    text, _ = video_creator.get_essential_text_and_magi_data(
+        str(images), str(output), image_count=2
+    )
 
     assert len(runs) == 1
     assert text == [["Hello there."], ["Hi!"]]
@@ -233,7 +271,9 @@ def test_numpy_numbers_can_be_saved(tmp_path):
     assert get_json_value(numpy.array([1.5, 2.5])) == [1.5, 2.5]
 
 
-def test_one_voice_over_line_failing_is_skipped_but_several_in_a_row_stop_the_video(tmp_path):
+def test_one_voice_over_line_failing_is_skipped_but_several_in_a_row_stop_the_video(
+    tmp_path,
+):
     video_creator = VideoCreatorFromImages({})
     attempts = []
 
@@ -257,7 +297,9 @@ def test_one_voice_over_line_failing_is_skipped_but_several_in_a_row_stop_the_vi
         assert "No audio was received" in str(error)
 
 
-def test_a_failed_voice_over_file_that_cant_be_deleted_shows_the_real_error(tmp_path, monkeypatch):
+def test_a_failed_voice_over_file_that_cant_be_deleted_shows_the_real_error(
+    tmp_path, monkeypatch
+):
     import VideoCreatorFromImages as module
 
     video_creator = VideoCreatorFromImages({})
@@ -268,7 +310,10 @@ def test_a_failed_voice_over_file_that_cant_be_deleted_shows_the_real_error(tmp_
 
     def locked(path):
         # Windows, while Azure still has the file open.
-        raise PermissionError(32, "The process cannot access the file because it is being used by another process")
+        raise PermissionError(
+            32,
+            "The process cannot access the file because it is being used by another process",
+        )
 
     video_creator.tts.generate_audio = fake_generate_audio
     monkeypatch.setattr(module.os, "remove", locked)
@@ -277,7 +322,9 @@ def test_a_failed_voice_over_file_that_cant_be_deleted_shows_the_real_error(tmp_
         video_creator.generate_voice_over(["Hello"], str(tmp_path / "a.mp3"))
 
 
-def make_voice_over_video_creator(tmp_path, monkeypatch, highlight=False, fail=lambda text_list: False):
+def make_voice_over_video_creator(
+    tmp_path, monkeypatch, highlight=False, fail=lambda text_list: False
+):
     """
     A video creator whose voice-over "says" each line by writing a file, and whose audio length is the number of words.
     """
@@ -299,36 +346,56 @@ def make_voice_over_video_creator(tmp_path, monkeypatch, highlight=False, fail=l
             file.write(" ".join(text_list))
 
     video_creator.tts.generate_audio = fake_generate_audio
-    monkeypatch.setattr(module, "get_audio_duration", lambda path: len(open(path).read().split()))
+    monkeypatch.setattr(
+        module, "get_audio_duration", lambda path: len(open(path).read().split())
+    )
     images = [str(tmp_path / f"panel_{number}.png") for number in (1, 2, 3)]
     return video_creator, images, spoken
 
 
 def get_durations(video_creator, images, tmp_path, text_matrix):
     return video_creator.get_images_duration_based_on_tts(
-        images, str(tmp_path / "highlighted"), str(tmp_path / "audio"), text_matrix, None
+        images,
+        str(tmp_path / "highlighted"),
+        str(tmp_path / "audio"),
+        text_matrix,
+        None,
     )
 
 
-def test_voice_over_lines_are_made_at_the_same_time_but_the_durations_stay_in_order(tmp_path, monkeypatch):
+def test_voice_over_lines_are_made_at_the_same_time_but_the_durations_stay_in_order(
+    tmp_path, monkeypatch
+):
     video_creator, images, spoken = make_voice_over_video_creator(tmp_path, monkeypatch)
 
-    durations = get_durations(video_creator, images, tmp_path, [["one two"], [], ["three"]])
+    durations = get_durations(
+        video_creator, images, tmp_path, [["one two"], [], ["three"]]
+    )
 
     # The image without text is shown for 1 second.
     assert durations == [2, 1, 1]
     assert sorted(spoken) == [["one two"], ["three"]]
 
 
-def test_with_highlighting_each_line_gets_its_own_voice_over_in_order(tmp_path, monkeypatch):
-    video_creator, images, _ = make_voice_over_video_creator(tmp_path, monkeypatch, highlight=True)
+def test_with_highlighting_each_line_gets_its_own_voice_over_in_order(
+    tmp_path, monkeypatch
+):
+    video_creator, images, _ = make_voice_over_video_creator(
+        tmp_path, monkeypatch, highlight=True
+    )
     # Drawing the highlighted boxes isn't what's tested here.
     video_creator.draw_boxes_with_text_and_magi_data = lambda *args, **kwargs: None
 
-    durations = get_durations(video_creator, images, tmp_path, [["one two", "a b c"], [], ["x"]])
+    durations = get_durations(
+        video_creator, images, tmp_path, [["one two", "a b c"], [], ["x"]]
+    )
 
     assert durations == [2, 3, 1, 1]
-    assert sorted(os.listdir(tmp_path / "audio")) == ["panel_1-1.mp3", "panel_1-2.mp3", "panel_3-1.mp3"]
+    assert sorted(os.listdir(tmp_path / "audio")) == [
+        "panel_1-1.mp3",
+        "panel_1-2.mp3",
+        "panel_3-1.mp3",
+    ]
 
 
 def test_a_line_that_fails_gets_no_voice_but_the_video_goes_on(tmp_path, monkeypatch):
@@ -336,15 +403,26 @@ def test_a_line_that_fails_gets_no_voice_but_the_video_goes_on(tmp_path, monkeyp
         tmp_path, monkeypatch, fail=lambda text_list: text_list == ["bad"]
     )
 
-    assert get_durations(video_creator, images, tmp_path, [["one two"], ["bad"], ["three"]]) == [2, 1, 1]
+    assert get_durations(
+        video_creator, images, tmp_path, [["one two"], ["bad"], ["three"]]
+    ) == [2, 1, 1]
 
 
-def test_when_the_voice_over_stops_the_waiting_lines_are_not_tried(tmp_path, monkeypatch):
-    video_creator, _, spoken = make_voice_over_video_creator(tmp_path, monkeypatch, fail=lambda text_list: True)
+def test_when_the_voice_over_stops_the_waiting_lines_are_not_tried(
+    tmp_path, monkeypatch
+):
+    video_creator, _, spoken = make_voice_over_video_creator(
+        tmp_path, monkeypatch, fail=lambda text_list: True
+    )
     images = [str(tmp_path / f"panel_{number}.png") for number in range(1, 41)]
 
     with pytest.raises(RuntimeError, match="No audio was received"):
-        get_durations(video_creator, images, tmp_path, [[f"line {number}"] for number in range(40)])
+        get_durations(
+            video_creator,
+            images,
+            tmp_path,
+            [[f"line {number}"] for number in range(40)],
+        )
 
     assert len(spoken) < 40
 
@@ -355,12 +433,16 @@ def write_panel_text(images, lines):
     (images / "panel-text.json").write_text(json.dumps(lines))
 
 
-def test_the_text_panel_by_panel_read_is_used_instead_of_running_magi(tmp_path, monkeypatch):
+def test_the_text_panel_by_panel_read_is_used_instead_of_running_magi(
+    tmp_path, monkeypatch
+):
     video_creator, runs = get_video_creator_with_fake_magi(monkeypatch, highlight=False)
     images = make_images(tmp_path)
     write_panel_text(images, [["From the page."], []])
 
-    text, _ = video_creator.get_essential_text_and_magi_data(str(images), str(tmp_path / "out"), image_count=2)
+    text, _ = video_creator.get_essential_text_and_magi_data(
+        str(images), str(tmp_path / "out"), image_count=2
+    )
 
     assert runs == []
     assert text == [["From the page."], []]
@@ -372,18 +454,24 @@ def test_text_for_a_different_number_of_images_is_not_used(tmp_path, monkeypatch
     # E.g. an image failed to upscale.
     write_panel_text(images, [["One."], ["Two."], ["Three."]])
 
-    text, _ = video_creator.get_essential_text_and_magi_data(str(images), str(tmp_path / "out"), image_count=2)
+    text, _ = video_creator.get_essential_text_and_magi_data(
+        str(images), str(tmp_path / "out"), image_count=2
+    )
 
     assert len(runs) == 1
     assert text == [["Hello there."], ["Hi!"]]
 
 
-def test_highlighting_still_reads_the_panels_because_it_needs_where_the_text_is(tmp_path, monkeypatch):
+def test_highlighting_still_reads_the_panels_because_it_needs_where_the_text_is(
+    tmp_path, monkeypatch
+):
     video_creator, runs = get_video_creator_with_fake_magi(monkeypatch, highlight=True)
     images = make_images(tmp_path)
     write_panel_text(images, [["From the page."], []])
 
-    video_creator.get_essential_text_and_magi_data(str(images), str(tmp_path / "out"), image_count=2)
+    video_creator.get_essential_text_and_magi_data(
+        str(images), str(tmp_path / "out"), image_count=2
+    )
 
     assert len(runs) == 1
 
@@ -395,9 +483,13 @@ def test_writing_the_video_shows_how_many_frames_are_written(monkeypatch):
     import VideoCreatorFromImages as video_module
 
     reported = []
-    monkeypatch.setattr(video_module, "report_progress", lambda **fields: reported.append(fields))
+    monkeypatch.setattr(
+        video_module, "report_progress", lambda **fields: reported.append(fields)
+    )
     # MoviePy only reports a frame once the clock has moved, and Windows' clock ticks too slowly for this quick loop. Each frame takes a second here.
-    monkeypatch.setattr(proglog.proglog, "time", SimpleNamespace(time=itertools.count().__next__))
+    monkeypatch.setattr(
+        proglog.proglog, "time", SimpleNamespace(time=itertools.count().__next__)
+    )
     logger = video_module.VideoWritingProgress()
 
     # What MoviePy does while it writes the frames.
@@ -406,7 +498,12 @@ def test_writing_the_video_shows_how_many_frames_are_written(monkeypatch):
 
     # Counting up from 0, never shown full before the frames are written.
     assert [fields["pages_done"] for fields in reported] == [0, 1, 2, 3]
-    assert reported[-1] == {"pages_done": 3, "pages_total": 3, "unit": "frames", "detail": "Writing the video file"}
+    assert reported[-1] == {
+        "pages_done": 3,
+        "pages_total": 3,
+        "unit": "frames",
+        "detail": "Writing the video file",
+    }
 
 
 def test_a_bubble_in_two_panels_is_only_said_once():
@@ -437,13 +534,19 @@ def test_a_bubble_in_two_panels_is_only_in_the_transcript_once(tmp_path):
 
     late = "Your report is late!"
     nonsense = "Don't give me that early morning nonsense!"
-    VideoCreatorFromImages.save_essential_text_to_transcript(None, [[late, nonsense], [nonsense, "No!"], ["No!"]], str(tmp_path))
+    VideoCreatorFromImages.save_essential_text_to_transcript(
+        cast(Any, None), [[late, nonsense], [nonsense, "No!"], ["No!"]], str(tmp_path)
+    )
 
     # Shachou ch. 3, page 1: Magi's boxes for two panels overlap, so both have the same bubbles. A short line is kept: it's often really said again.
     assert (tmp_path / "transcript.txt").read_text().split("\n") == [
-        late, nonsense, "------ new image ------",
-        "No!", "------ new image ------",
-        "No!", "------ new image ------",
+        late,
+        nonsense,
+        "------ new image ------",
+        "No!",
+        "------ new image ------",
+        "No!",
+        "------ new image ------",
         "",
     ]
 
@@ -454,9 +557,17 @@ def test_with_highlighting_a_repeated_bubble_gets_no_frame_and_no_audio():
     late = "Your report is late!"
     nonsense = "Don't give me that early morning nonsense!"
     magi_data = [
-        {"texts": [[0, 0, 1, 1]] * 3, "ocr": [late, nonsense, "CHUN"], "is_essential_text": [True, True, False]},
+        {
+            "texts": [[0, 0, 1, 1]] * 3,
+            "ocr": [late, nonsense, "CHUN"],
+            "is_essential_text": [True, True, False],
+        },
         # The next panel has the same two bubbles, a short line, and its own line.
-        {"texts": [[0, 0, 1, 1]] * 4, "ocr": [late, nonsense, "No!", "It's been half a year"], "is_essential_text": [True, True, True, True]},
+        {
+            "texts": [[0, 0, 1, 1]] * 4,
+            "ocr": [late, nonsense, "No!", "It's been half a year"],
+            "is_essential_text": [True, True, True, True],
+        },
     ]
 
     marked = mark_repeated_lines_as_not_dialogue(magi_data)
@@ -473,8 +584,16 @@ def test_a_bubble_cut_off_by_a_panel_s_edge_is_only_read_where_it_s_whole():
 
     # Shachou to Sake to Hoshi ch. 8, panels 17 and 18 (Magi's real boxes and reading, after a 2x upscale).
     magi_data = [
-        {"texts": [[3, 90, 147, 325], [200, 900, 260, 980]], "ocr": ["me to think it...", "Hah..."], "is_essential_text": [True, True]},
-        {"texts": [[1370, 85, 1599, 314]], "ocr": ["come to think of it..."], "is_essential_text": [True]},
+        {
+            "texts": [[3, 90, 147, 325], [200, 900, 260, 980]],
+            "ocr": ["me to think it...", "Hah..."],
+            "is_essential_text": [True, True],
+        },
+        {
+            "texts": [[1370, 85, 1599, 314]],
+            "ocr": ["come to think of it..."],
+            "is_essential_text": [True],
+        },
     ]
     sizes = [(434, 1108), (1614, 1116)]
 
@@ -489,14 +608,201 @@ def test_a_bubble_cut_off_by_a_panel_s_edge_is_only_read_where_it_s_whole():
 
     # Read exactly, even though it's cut off: the whole copy next door is still read (not taken for a repeat).
     exact = [
-        {"texts": [[100, 900, 300, 1108]], "ocr": ["Come to think of it, where is he?"], "is_essential_text": [True]},
-        {"texts": [[100, 100, 300, 300]], "ocr": ["Come to think of it, where is he?"], "is_essential_text": [True]},
+        {
+            "texts": [[100, 900, 300, 1108]],
+            "ocr": ["Come to think of it, where is he?"],
+            "is_essential_text": [True],
+        },
+        {
+            "texts": [[100, 100, 300, 300]],
+            "ocr": ["Come to think of it, where is he?"],
+            "is_essential_text": [True],
+        },
     ]
-    assert [image["is_essential_text"] for image in mark_repeated_lines_as_not_dialogue(exact, [(434, 1108), (434, 1108)])] == [[False], [True]]
+    assert [
+        image["is_essential_text"]
+        for image in mark_repeated_lines_as_not_dialogue(
+            exact, [(434, 1108), (434, 1108)]
+        )
+    ] == [[False], [True]]
     # The other way around: whole first, cut off in the next image.
-    assert [image["is_essential_text"] for image in mark_repeated_lines_as_not_dialogue(exact[::-1], [(434, 1108), (434, 1108)])] == [[True], [False]]
+    assert [
+        image["is_essential_text"]
+        for image in mark_repeated_lines_as_not_dialogue(
+            exact[::-1], [(434, 1108), (434, 1108)]
+        )
+    ] == [[True], [False]]
     # Not alike enough, or too short: kept.
     different = [dict(exact[0], ocr=["Where did everyone go today?"]), exact[1]]
-    assert [image["is_essential_text"] for image in mark_repeated_lines_as_not_dialogue(different, [(434, 1108), (434, 1108)])] == [[True], [True]]
+    assert [
+        image["is_essential_text"]
+        for image in mark_repeated_lines_as_not_dialogue(
+            different, [(434, 1108), (434, 1108)]
+        )
+    ] == [[True], [True]]
     short = [dict(exact[0], ocr=["No way!"]), dict(exact[1], ocr=["No way..."])]
-    assert [image["is_essential_text"] for image in mark_repeated_lines_as_not_dialogue(short, [(434, 1108), (434, 1108)])] == [[True], [True]]
+    assert [
+        image["is_essential_text"]
+        for image in mark_repeated_lines_as_not_dialogue(
+            short, [(434, 1108), (434, 1108)]
+        )
+    ] == [[True], [True]]
+
+
+def test_the_transcript_keeps_symbols_where_text_files_are_not_utf8_by_default(
+    tmp_path, monkeypatch
+):
+    import builtins
+
+    import VideoCreatorFromImages as video_module
+
+    # Windows' default text encoding (cp1252) can't write "♪".
+    monkeypatch.setattr(
+        video_module,
+        "open",
+        lambda *args, **kwargs: builtins.open(
+            *args, **{"encoding": "cp1252", **kwargs}
+        ),
+        raising=False,
+    )
+    video_creator = video_module.VideoCreatorFromImages({})
+
+    video_creator.save_essential_text_to_transcript([["La la ♪"]], str(tmp_path))
+
+    assert video_creator.get_essential_text_from_transcript(str(tmp_path)) == [
+        ["La la ♪"]
+    ]
+
+
+def test_a_panel_shown_for_less_than_a_second_is_in_the_video(tmp_path, monkeypatch):
+    from moviepy import VideoFileClip
+
+    from VideoCreatorFromImages import VideoCreatorFromImages
+
+    images = tmp_path / "panels"
+    images.mkdir()
+    for number, color in enumerate(["red", "lime", "yellow"], start=1):
+        Image.new("RGB", (160, 90), color).save(images / f"panel_{number}.png")
+    # At 120 words a minute: 3.5 s, 0.5 s and 3 s (no voice-over, no highlighting).
+    video_creator = VideoCreatorFromImages(
+        {
+            "use_reading_speed_wpm": True,
+            "reading_speed_wpm": "120",
+            "use_minimum_image_duration": False,
+            "video_height": "90",
+        }
+    )
+    monkeypatch.setattr(
+        video_creator.speech_text_parser,
+        "get_essential_text_list_in_images",
+        lambda image_folder: [["w " * 7], ["w"], ["w " * 6]],
+    )
+    video_creator.speech_text_parser.last_magi_data = None
+
+    video_creator.create_video_from_images(
+        str(images), str(tmp_path / "video.mp4"), str(tmp_path / "video")
+    )
+
+    with VideoFileClip(str(tmp_path / "video.mp4")) as video:
+        colors_seen = {
+            tuple(int(value) > 128 for value in frame[45, 80])
+            for frame in video.iter_frames()
+        }
+    lime = (False, True, False)
+    assert lime in colors_seen
+
+
+def test_a_saved_transcript_is_not_reused_for_other_images_or_another_reading_direction(
+    tmp_path, monkeypatch
+):
+    from VideoCreatorFromImages import VideoCreatorFromImages
+
+    images = tmp_path / "panels"
+    images.mkdir()
+    for number in (1, 2):
+        (images / f"panel_{number}.png").write_bytes(b"x" * (10 + number))
+    video_creator = VideoCreatorFromImages({})
+    video_creator.use_text_to_speech_azure = True
+    magi_runs = []
+
+    def read_text(image_folder):
+        magi_runs.append(video_creator.speech_text_parser.reading_direction)
+        return (
+            [["first", "second"], ["third"]]
+            if video_creator.speech_text_parser.reading_direction == "rtl"
+            else [["second", "first"], ["third"]]
+        )
+
+    monkeypatch.setattr(
+        video_creator.speech_text_parser, "get_essential_text_list_in_images", read_text
+    )
+    video_creator.speech_text_parser.last_magi_data = None
+
+    def get_text():
+        return video_creator.get_essential_text_and_magi_data(
+            str(images), str(tmp_path / "video"), 2
+        )[0]
+
+    assert get_text() == [["first", "second"], ["third"]]
+    video_creator.speech_text_parser.reading_direction = "ltr"
+    assert get_text() == [["second", "first"], ["third"]]
+    # The same images and direction again: the transcript is used.
+    assert get_text() == [["second", "first"], ["third"]]
+    assert magi_runs == ["rtl", "ltr"]
+
+
+def test_a_hand_edited_transcript_is_kept_when_it_is_replaced(tmp_path):
+    from VideoCreatorFromImages import VideoCreatorFromImages
+
+    video_creator = VideoCreatorFromImages({})
+    transcript = tmp_path / "transcript.txt"
+    backup = tmp_path / "transcript-backup.txt"
+
+    video_creator.save_essential_text_to_transcript([["Magi's line"]], str(tmp_path))
+    assert not backup.exists()
+    transcript.write_text("My fixed line\n------ new image ------\n")
+
+    # E.g. "Highlight text boxes" is turned on, which needs Magi's own text.
+    video_creator.save_essential_text_to_transcript([["Magi's line"]], str(tmp_path))
+    assert backup.read_text() == "My fixed line\n------ new image ------\n"
+    assert transcript.read_text() == "Magi's line\n------ new image ------\n"
+
+    # A transcript the app wrote itself is replaced without a backup, so the hand-edited one stays there.
+    video_creator.save_essential_text_to_transcript([["Another line"]], str(tmp_path))
+    assert backup.read_text() == "My fixed line\n------ new image ------\n"
+
+
+def test_a_hand_edited_transcript_that_is_used_is_left_as_it_is(tmp_path, monkeypatch):
+    from VideoCreatorFromImages import VideoCreatorFromImages
+
+    images = tmp_path / "panels"
+    images.mkdir()
+    for number in (1, 2):
+        (images / f"panel_{number}.png").write_bytes(b"x" * (10 + number))
+    video_creator = VideoCreatorFromImages({})
+    video_creator.use_text_to_speech_azure = True
+    monkeypatch.setattr(
+        video_creator.speech_text_parser,
+        "get_essential_text_list_in_images",
+        lambda image_folder: [["Magi's line"], ["third"]],
+    )
+    video_creator.speech_text_parser.last_magi_data = None
+
+    def get_text():
+        return video_creator.get_essential_text_and_magi_data(
+            str(images), str(tmp_path / "video"), 2
+        )[0]
+
+    get_text()
+    transcript = tmp_path / "video" / "transcript.txt"
+    # Edited by hand, with a blank line the app wouldn't write.
+    edited = (
+        "My fixed line\n\n------ new image ------\nthird\n------ new image ------\n"
+    )
+    transcript.write_text(edited)
+
+    assert get_text() == [["My fixed line"], ["third"]]
+
+    # Nothing is replaced, so there's nothing to back up (an older backup stays).
+    assert transcript.read_text() == edited
+    assert not (tmp_path / "video" / "transcript-backup.txt").exists()

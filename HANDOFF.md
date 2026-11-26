@@ -32,7 +32,7 @@ The context of a long working session (Nov 18–19, 2026) on Panelyze, so a new 
 - **Be honest** about what was and wasn't tested.
 - **Never open Finder windows** (the tests block `open_directory`). Closing them via `osascript` is denied, and `killall Finder` isn't allowed.
 - **Kill only processes you started,** never with broad patterns.
-- **`.env` has a real Azure key:** never print it. To list variables, mask the values.
+- **API keys are typed in the app's Settings** (no `.env` file). Never print them.
 - **Test downloads:** use Dragon Ball ch. 93 for MangaDex download tests (pages 1–3). Use **Shachou ch. 3** for benchmarks, because it has history to compare against.
 - **Benchmarks:**
   - Run one at a time, so they don't compete for the GPU.

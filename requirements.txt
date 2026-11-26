@@ -51,8 +51,9 @@ nodriver==0.50.3
 # The voice joins a word split over two lines of a speech bubble ("Presi- Dent") only if the result is a real English word (see "join_words_split_across_lines").
 pyspellchecker==0.9.1
 
-# Tests
+# Tests. Ruff checks the code for mistakes like unused imports (see tests/test_lint.py).
 pytest==9.2.0
+ruff==0.17.6
 
 # Running the app in a web browser (only for testing, see DEVELOPING.md). FastAPI is kept at the version that works with flet-web 0.25.2 (newer ones break it).
 flet-web==0.25.2

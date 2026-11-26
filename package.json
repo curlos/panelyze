@@ -4,7 +4,7 @@
   "description": "Only a list of shortcuts for VS Code's NPM Scripts panel. Panelyze is a Python app and doesn't use Node. See DEVELOPING.md.",
   "scripts": {
     "run": "venv/bin/python gui.py",
-    "dev": "PYTHONDONTWRITEBYTECODE=1 venv/bin/flet run -r gui.py --ignore-dirs storage,venv,venv-py310-old,dist,build-assets,testing-output,test-chapter-cache,experiments,tests,.git,.vscode,.pytest_cache,node_modules",
+    "dev": "PYTHONDONTWRITEBYTECODE=1 venv/bin/flet run -r gui.py --ignore-dirs storage,venv,dist,build-assets,test-chapter-cache,experiments,tests,.git,.vscode,.pytest_cache,node_modules",
     "test": "venv/bin/python -m pytest",
     "test:all": "venv/bin/python -m pytest && venv/bin/python -m pytest -m e2e",
     "self-test": "venv/bin/python gui.py --self-test",

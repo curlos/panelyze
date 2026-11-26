@@ -11,13 +11,20 @@ class SettingsBase(ft.Container):
         self.bgcolor = Nord.BACKGROUND
         self.expand = True
         self.width = 350
+        # Each settings class sets "self.page" and "self.inner_content" in its own __init__.
+        self.inner_content = []
+
+    @property
+    def client_storage(self):
+        assert self.page, "The settings were used before their page was set."
+        return self.page.client_storage
 
     def change_setting(self, setting_key, setting_value):
         # Checkboxes send "true"/"false" as text.
         if setting_value in ("true", "false"):
             setting_value = setting_value == "true"
 
-        self.page.client_storage.set(setting_key, setting_value)
+        self.client_storage.set(setting_key, setting_value)
 
     def change_number_setting(self, textfield, setting_key, setting_value):
         # Only save valid numbers (or an empty box). Otherwise, show an error under the box.
@@ -25,7 +32,7 @@ class SettingsBase(ft.Container):
             textfield.error_text = "Please enter a valid number."
         else:
             textfield.error_text = ""
-            self.page.client_storage.set(setting_key, setting_value)
+            self.client_storage.set(setting_key, setting_value)
 
         textfield.update()
 
@@ -35,7 +42,7 @@ class SettingsBase(ft.Container):
             label=label,
             border_color=Nord.BLUE,
             keyboard_type=ft.KeyboardType.NUMBER,
-            value=self.page.client_storage.get(client_storage_key),
+            value=self.client_storage.get(client_storage_key),
             on_change=lambda e: self.change_number_setting(
                 e.control, client_storage_key, e.data
             ),
@@ -45,6 +52,7 @@ class SettingsBase(ft.Container):
         view_element.visible = not view_element.visible
         self.change_setting(setting_key, e.data)
         view_element.update()
+        assert self.page, "The settings were used before their page was set."
         self.page.update()
 
     def change_setting_element_visibility(
@@ -82,7 +90,7 @@ class SettingsBase(ft.Container):
 
     def get_radio_group_init_value(self, radio_group_dict):
         for setting_key in radio_group_dict:
-            is_checked = self.page.client_storage.get(setting_key)
+            is_checked = self.client_storage.get(setting_key)
 
             if is_checked:
                 return setting_key
@@ -91,10 +99,10 @@ class SettingsBase(ft.Container):
         """
         The saved value of a setting, or its default (from "default_settings.py") if it was never saved.
         """
-        setting_value = self.page.client_storage.get(setting_key)
+        setting_value = self.client_storage.get(setting_key)
 
         if setting_value is None or setting_value == "":
             setting_value = DEFAULT_SETTINGS[setting_key]
-            self.page.client_storage.set(setting_key, setting_value)
+            self.client_storage.set(setting_key, setting_value)
 
         return setting_value

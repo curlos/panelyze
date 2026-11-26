@@ -129,10 +129,7 @@ class SettingsImagesToVideo(
             padding=ft.padding.only(left=30),
         )
 
-
-        self.text_to_speech_azure_col = TextToSpeechAzure(
-            page, self.radio_group_dict
-        )
+        self.text_to_speech_azure_col = TextToSpeechAzure(page, self.radio_group_dict)
 
         self.inner_content = [
             ft.Container(

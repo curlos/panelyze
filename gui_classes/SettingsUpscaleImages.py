@@ -48,7 +48,6 @@ class SettingsUpscaleImages(SettingsBase):
             visible=bool(self.page.client_storage.get("use_max_image_width")),
         )
 
-
         self.inner_content = [
             DropdownTextOptions(
                 label="Upscale Model",
@@ -64,7 +63,7 @@ class SettingsUpscaleImages(SettingsBase):
                 border_radius=0,
                 label="Upscale Ratio",
                 options=[
-                    ft.dropdown.Option(upscale_ratio)
+                    ft.dropdown.Option(str(upscale_ratio))
                     for upscale_ratio in self.upscale_ratios
                 ],
                 value=self.default_upscale_ratio,
@@ -81,7 +80,8 @@ class SettingsUpscaleImages(SettingsBase):
                 border_radius=0,
                 label="Noise Level",
                 options=[
-                    ft.dropdown.Option(noise_level) for noise_level in self.noise_levels
+                    ft.dropdown.Option(str(noise_level))
+                    for noise_level in self.noise_levels
                 ],
                 value=self.default_noise_level,
                 text_style=ft.TextStyle(

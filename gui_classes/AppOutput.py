@@ -5,6 +5,7 @@ import threading
 import time
 import flet as ft
 from gui_classes import Nord
+from utils import set_text_with_links
 
 from default_settings import LOG_FOLDER
 
@@ -78,9 +79,11 @@ class AppOutput:
         live_line = self.live_line.get(key)
 
         if live_line is not None:
-            live_line.value = text
+            set_text_with_links(live_line, text)
         elif text.strip() or finished:
-            live_line = self.add_text_control(text, STREAM_COLORS.get(stream_name, Nord.TEXT))
+            live_line = self.add_text_control(
+                text, STREAM_COLORS.get(stream_name, Nord.TEXT)
+            )
 
         if finished:
             self.live_line.pop(key, None)
@@ -116,7 +119,8 @@ class AppOutput:
                 pass
 
     def add_text_control(self, text, color):
-        text_control = ft.Text(text, color=color, selectable=True)
+        text_control = ft.Text(color=color, selectable=True)
+        set_text_with_links(text_control, text)
         self.lines_to_add.append(text_control)
         return text_control
 
@@ -257,7 +261,9 @@ def open_log_file(log_file_path):
         rotate_log_files(log_file_path)
 
         log_file = open(log_file_path, "a", encoding="utf-8")
-        log_file.write(f"\n===== Panelyze started {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n")
+        log_file.write(
+            f"\n===== Panelyze started {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n"
+        )
         log_file.flush()
         return log_file
     except Exception:

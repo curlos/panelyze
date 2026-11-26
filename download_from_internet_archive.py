@@ -56,7 +56,8 @@ def pick_comic_file(files):
     names = [
         file.get("name", "")
         for file in files
-        if file.get("source") != "metadata" and not file.get("name", "").lower().endswith(IGNORED_FILE_ENDINGS)
+        if file.get("source") != "metadata"
+        and not file.get("name", "").lower().endswith(IGNORED_FILE_ENDINGS)
     ]
     for extension in COMIC_FILE_PREFERENCE:
         for name in names:
@@ -75,7 +76,9 @@ def download_internet_archive_item(url, cancel_event=None):
 
     print(f"Getting the Internet Archive item {identifier}")
     report_progress(detail="Getting the item's details...")
-    response = requests.get(f"https://archive.org/metadata/{identifier}", timeout=TIMEOUT_SECONDS)
+    response = requests.get(
+        f"https://archive.org/metadata/{identifier}", timeout=TIMEOUT_SECONDS
+    )
     response.raise_for_status()
     item = response.json()
     if not item:
@@ -84,21 +87,29 @@ def download_internet_archive_item(url, cancel_event=None):
     metadata = item.get("metadata", {})
     if not is_public_domain(metadata):
         raise RuntimeError(
-            f'"{get_title(metadata, identifier)}" isn\'t marked as public domain on the Internet Archive, so it won\'t be downloaded (license: {metadata.get("licenseurl") or "none"}).'
+            f"\"{get_title(metadata, identifier)}\" isn't marked as public domain on the Internet Archive, so it won't be downloaded (license: {metadata.get('licenseurl') or 'none'})."
         )
 
     file_name = pick_comic_file(item.get("files", []))
     if not file_name:
-        raise RuntimeError(f"{identifier} has no comic file ({', '.join(COMIC_FILE_PREFERENCE)}) to download.")
+        raise RuntimeError(
+            f"{identifier} has no comic file ({', '.join(COMIC_FILE_PREFERENCE)}) to download."
+        )
 
     download_folder = tempfile.mkdtemp(prefix="panelyze-download-")
     try:
         # Named after the item's title (the pages' folder gets the same name), never a path from the item, so it can't be saved outside the download folder.
         comic_name = get_safe_folder_name(get_title(metadata, identifier))
-        comic_path = os.path.join(download_folder, comic_name + os.path.splitext(file_name)[1].lower())
-        file_url = f"https://archive.org/download/{quote(identifier)}/{quote(file_name)}"
+        comic_path = os.path.join(
+            download_folder, comic_name + os.path.splitext(file_name)[1].lower()
+        )
+        file_url = (
+            f"https://archive.org/download/{quote(identifier)}/{quote(file_name)}"
+        )
         print(f"Downloading {file_name}")
-        with requests.get(file_url, stream=True, timeout=TIMEOUT_SECONDS) as file_response:
+        with requests.get(
+            file_url, stream=True, timeout=TIMEOUT_SECONDS
+        ) as file_response:
             file_response.raise_for_status()
             total_bytes = int(file_response.headers.get("Content-Length") or 0)
             downloaded_bytes = 0
@@ -111,11 +122,17 @@ def download_internet_archive_item(url, cancel_event=None):
                     downloaded_bytes += len(chunk)
                     if total_bytes:
                         report_progress(
-                            chapter=1, chapters=1, unit="MB", detail=None,
-                            pages_done=round(downloaded_bytes / 1_000_000), pages_total=round(total_bytes / 1_000_000) or 1,
+                            chapter=1,
+                            chapters=1,
+                            unit="MB",
+                            detail=None,
+                            pages_done=round(downloaded_bytes / 1_000_000),
+                            pages_total=round(total_bytes / 1_000_000) or 1,
                         )
 
-        report_progress(pages_done=None, pages_total=None, detail="Opening the comic file...")
+        report_progress(
+            pages_done=None, pages_total=None, detail="Opening the comic file..."
+        )
         return extract_comic_files_to_folder([comic_path])
     finally:
         shutil.rmtree(download_folder, ignore_errors=True)
