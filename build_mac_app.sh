@@ -112,6 +112,29 @@ mkdir -p "$PACK_DIR"
         --pyinstaller-build-args=--exclude-module=flet_web \
         --yes
 )
+# Flet draws the window with a separate app ("Flet", with Flet's icon), so the Dock showed two icons: Panelyze and Flet. "flet pack" should rename it, but Flet 0.25.2 skips that (it looks for "flet-macos-amd64.tar.gz", which is now "flet-macos.tar.gz"). So a copy renamed "Panelyze", with the Panelyze icon, goes in "Contents/Resources/window" (gui.py tells Flet to use it, see "get_mac_window_app_folder" in utils.py), using flet_cli's own rename functions.
+WINDOW_DIR="$APP_PATH/Contents/Resources/window"
+mkdir -p "$WINDOW_DIR"
+tar -xzf "$APP_PATH/Contents/Resources/flet_desktop/app/flet-macos.tar.gz" -C "$WINDOW_DIR"
+# Flet only unpacks this archive when "FLET_VIEW_PATH" isn't set, so it's not needed anymore (47 MB).
+rm "$APP_PATH/Contents/Resources/flet_desktop/app/flet-macos.tar.gz"
+"$PYTHON" -c 'import sys; from flet_cli.__pyinstaller.macos_utils import update_flet_view_icon, update_flet_view_version_info; update_flet_view_icon(sys.argv[1], sys.argv[2]); update_flet_view_version_info(sys.argv[1], "com.curlos.panelyze.window", "Panelyze", sys.argv[3], None)' \
+    "$WINDOW_DIR/Flet.app" "$BUILD_ASSETS_DIR/Panelyze.icns" "$APP_VERSION"
+WINDOW_APP="$WINDOW_DIR/Panelyze.app"
+# Panelyze starts the window with arguments (its address). Opened without any (or only with the "-psn_..." one macOS can add), e.g. from a pinned Dock icon, the window would have no app behind it and stay empty, so the whole app is opened instead (it's 6 folders up).
+cat > "$WINDOW_APP/Contents/MacOS/start-window" << 'EOF'
+#!/bin/bash
+if [ $# -eq 0 ] || [[ "$1" == -psn_* ]]; then
+    exec open "$(dirname "$0")/../../../../../.."
+fi
+exec "$(dirname "$0")/Flet" "$@"
+EOF
+chmod +x "$WINDOW_APP/Contents/MacOS/start-window"
+plutil -replace CFBundleExecutable -string start-window "$WINDOW_APP/Contents/Info.plist"
+codesign --force --deep --sign - "$WINDOW_APP"
+# The app itself (Python, with no window of its own) gets no Dock icon, so the Dock shows only the window's one.
+plutil -replace LSUIElement -bool true "$APP_PATH/Contents/Info.plist"
+
 # "--product-version" doesn't reach the Mac app's Info.plist (it says 0.0.0), so it's set here. Changing Info.plist breaks the app's ad-hoc signature, so it's signed again.
 plutil -replace CFBundleShortVersionString -string "$APP_VERSION" "$APP_PATH/Contents/Info.plist"
 codesign --force --deep --sign - "$APP_PATH"

@@ -169,6 +169,8 @@ def test_picking_a_folder_in_settings_makes_a_panelyze_folder_inside_it(
 ):
     gui = make_gui()
     settings = gui.AppSettingsView
+    # An empty current folder, so no "files stay where they are" question is asked.
+    gui.page.client_storage.set("panelyze_folder", str(tmp_path / "empty"))
 
     settings.pick_panelyze_folder_result(fake_event(path=str(tmp_path / "Downloads")))
     assert gui.page.client_storage.get("panelyze_folder") == str(
@@ -401,3 +403,96 @@ def test_each_tab_opens_the_folder_with_what_it_made(make_gui, tmp_path):
     (chapter / "panel_1.png").write_bytes(b"")
     (out / "Ch 1").mkdir()
     assert gui.ImagesToVideoView.get_folder_to_open(str(chapter), str(out)) == str(out)
+
+
+def test_changing_the_folder_says_the_files_saved_so_far_stay_in_the_old_one(
+    make_gui, tmp_path
+):
+    gui = make_gui()
+    settings = gui.AppSettingsView
+    old_folder = tmp_path / "Old" / "Panelyze"
+    (old_folder / "Downloads").mkdir(parents=True)
+    gui.page.client_storage.set("panelyze_folder", str(old_folder))
+
+    settings.pick_panelyze_folder_result(fake_event(path=str(tmp_path / "New")))
+
+    # Nothing changes until it's confirmed, and the message names both folders.
+    dialog = gui.page.dialog
+    assert dialog.open
+    message = "".join(span.text for span in dialog.content.spans)
+    assert str(tmp_path / "New" / "Panelyze") in message
+    assert f"stay in {old_folder}. They aren't moved." in message
+    assert gui.page.client_storage.get("panelyze_folder") == str(old_folder)
+
+    # Cancel keeps the old folder.
+    cancel, change = dialog.actions
+    cancel.on_click(None)
+    assert not dialog.open
+    assert gui.page.client_storage.get("panelyze_folder") == str(old_folder)
+
+    # "Change Folder" changes it, and the old files are left alone.
+    settings.pick_panelyze_folder_result(fake_event(path=str(tmp_path / "New")))
+    gui.page.dialog.actions[1].on_click(None)
+    assert gui.page.client_storage.get("panelyze_folder") == str(
+        tmp_path / "New" / "Panelyze"
+    )
+    assert (old_folder / "Downloads").is_dir()
+
+
+def test_use_default_folder_also_asks_when_the_current_folder_has_files(
+    make_gui, tmp_path
+):
+    gui = make_gui()
+    old_folder = tmp_path / "Panelyze"
+    (old_folder / "Videos").mkdir(parents=True)
+    gui.page.client_storage.set("panelyze_folder", str(old_folder))
+
+    gui.AppSettingsView.ask_to_change_panelyze_folder(PANELYZE_FOLDER)
+
+    assert gui.page.dialog.open
+    assert gui.page.client_storage.get("panelyze_folder") == str(old_folder)
+
+
+def test_a_folder_with_only_hidden_files_counts_as_empty(make_gui, tmp_path):
+    gui = make_gui()
+    old_folder = tmp_path / "Panelyze"
+    old_folder.mkdir()
+    # Finder adds this when the folder is just opened.
+    (old_folder / ".DS_Store").write_bytes(b"")
+    gui.page.client_storage.set("panelyze_folder", str(old_folder))
+
+    gui.AppSettingsView.ask_to_change_panelyze_folder(str(tmp_path / "New"))
+
+    assert gui.page.dialog is None
+    assert gui.page.client_storage.get("panelyze_folder") == str(tmp_path / "New")
+
+
+def test_a_folder_that_cannot_be_read_is_asked_about(make_gui, tmp_path, monkeypatch):
+    gui = make_gui()
+    old_folder = tmp_path / "Panelyze"
+    old_folder.mkdir()
+    gui.page.client_storage.set("panelyze_folder", str(old_folder))
+
+    def refuse(path):
+        raise PermissionError(path)
+
+    # Like macOS not allowing the app into Documents or an external drive.
+    monkeypatch.setattr(os, "scandir", refuse)
+    gui.AppSettingsView.ask_to_change_panelyze_folder(str(tmp_path / "New"))
+
+    assert gui.page.dialog.open
+    assert gui.page.client_storage.get("panelyze_folder") == str(old_folder)
+
+
+def test_no_question_is_asked_while_a_job_runs(make_gui, tmp_path):
+    gui = make_gui()
+    old_folder = tmp_path / "Panelyze"
+    (old_folder / "Videos").mkdir(parents=True)
+    gui.page.client_storage.set("panelyze_folder", str(old_folder))
+    gui.is_job_running = True
+
+    gui.AppSettingsView.ask_to_change_panelyze_folder(str(tmp_path / "New"))
+
+    # The usual "can't change the folder while a job is running" message instead.
+    assert gui.page.dialog is None
+    assert gui.page.client_storage.get("panelyze_folder") == str(old_folder)

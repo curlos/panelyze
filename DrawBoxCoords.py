@@ -1,14 +1,9 @@
 import os
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 from PIL import Image
-from matplotlib.colors import to_rgb
-from utils import time_it
+from utils import modify_filename, time_it
 
-matplotlib.use("Agg")
-
-from utils import modify_filename
+# matplotlib draws without a window ("Agg"), so it works from the jobs' background threads. Set here instead of with "matplotlib.use", which would load matplotlib when the app starts.
+os.environ.setdefault("MPLBACKEND", "Agg")
 
 
 class DrawBoxCoords:
@@ -89,6 +84,11 @@ class DrawBoxCoords:
         index,
         output_image_folder,
     ):
+
+        # Loaded only here: the first time matplotlib is used, it looks through every font on the computer (about 12 seconds on a Mac, once; it keeps the result). When it was loaded with the app, that made the app's very first start take about 14 seconds.
+        import matplotlib.patches as patches
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import to_rgb
 
         # Make the figure the exact same size (in pixels) as the image so the saved image keeps its full resolution instead of being shrunk down (which made the video blurry).
         dpi = 100

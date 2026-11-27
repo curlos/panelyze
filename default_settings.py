@@ -18,6 +18,12 @@ if sys.platform == "win32":
 else:
     LOG_FOLDER = os.path.expanduser("~/Library/Logs/Panelyze")
 
+# matplotlib's font cache in the packaged app (see the top of gui.py), in the folder each system keeps apps' caches in.
+if sys.platform == "win32":
+    MATPLOTLIB_CACHE_FOLDER = os.path.join(os.path.dirname(LOG_FOLDER), "matplotlib")
+else:
+    MATPLOTLIB_CACHE_FOLDER = os.path.expanduser("~/Library/Caches/Panelyze/matplotlib")
+
 # Everything the app makes is saved here unless a different folder is picked (in the app's Settings, or for just one tool). Each tool gets its own folder inside it, so one tool's files never mix with another's.
 PANELYZE_FOLDER = os.path.join(os.path.expanduser("~"), "Documents", "Panelyze")
 

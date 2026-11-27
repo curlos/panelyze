@@ -1046,6 +1046,13 @@ def is_running_as_packaged_app():
     return getattr(sys, "frozen", False)
 
 
+def get_mac_window_app_folder():
+    """
+    The folder in the packaged Mac app with its copy of Flet's window app, renamed "Panelyze" with the Panelyze icon (see "build_mac_app.sh"). Flet draws the window with that separate app; its own copy would show a second "Flet" icon in the Dock.
+    """
+    return os.path.join(os.path.dirname(sys.executable), "..", "Resources", "window")
+
+
 def get_all_mangadex_languages():
     """
     The languages MangaDex Downloader can download in, read straight from its code. This is instant and needs no internet (it used to run "mangadex-downloader --list-language" in a separate process on every startup).

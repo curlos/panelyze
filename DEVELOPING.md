@@ -71,6 +71,7 @@ The last line keeps the CUDA build: the versions already match `requirements.txt
 ## Run
 
 - `python gui.py` (with the venv activated).
+- On a Mac, `npm run run` and `npm run dev` show the window as **Panelyze** in the Dock and menu bar (plain `python gui.py` shows Flet's name and icon). `make_dev_window_app.sh` makes that renamed copy of Flet's window app once, in `~/Library/Application Support/Panelyze/dev-window`, and the scripts point Flet to it (`FLET_VIEW_PATH`). Delete that folder to make it again (e.g. after the icon changes).
 - `flet run -r gui.py` restarts the app every time a file in the repo is saved, which also stops a job that's running. For a long job, use `python gui.py` (restart it to pick up code changes).
 - `flet run --web --port 8577 gui.py` opens the app in your web browser instead of a window. Handy for checking how it looks, including at phone sizes (make the browser window narrow). Its settings are separate from the window's.
 - `python gui.py --self-test` checks that Magi, waifu2x, video, MangaDex Downloader, text-to-speech, opening comic files (.pdf, .cbz), the comix.to downloader and the Best upscaler (spandrel, Core ML) all work, without opening the window.

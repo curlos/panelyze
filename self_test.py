@@ -220,6 +220,50 @@ def check_best_upscaler_libraries(work_directory):
     return "spandrel loads, and Core ML converts and runs a model"
 
 
+def check_matplotlib_cache(work_directory):
+    import matplotlib
+
+    from default_settings import MATPLOTLIB_CACHE_FOLDER
+    from utils import is_running_as_packaged_app
+
+    if not is_running_as_packaged_app():
+        return "only checked in the packaged app"
+
+    # PyInstaller points matplotlib at a new, empty folder each time the app opens, so its font cache (about 12 seconds to make) was rebuilt every time the app was opened. gui.py keeps it in a folder that stays.
+    import matplotlib.font_manager  # noqa: F401  (makes the font cache if it isn't there yet)
+
+    cache_folder = matplotlib.get_cachedir()
+    assert os.path.realpath(cache_folder) == os.path.realpath(
+        MATPLOTLIB_CACHE_FOLDER
+    ), f"matplotlib's cache is in {cache_folder}"
+    assert any(name.startswith("fontlist-") for name in os.listdir(cache_folder)), (
+        "matplotlib didn't save its font cache"
+    )
+    return "matplotlib keeps its font cache between launches"
+
+
+def check_mac_window_app(work_directory):
+    import plistlib
+
+    from utils import get_mac_window_app_folder, is_running_as_packaged_app
+
+    if not (is_running_as_packaged_app() and sys.platform == "darwin"):
+        return "only checked in the packaged Mac app"
+
+    # Flet draws the window with a separate app. The Mac app has its own copy, renamed "Panelyze" with the Panelyze icon (see "build_mac_app.sh"); Flet's own would show a second "Flet" icon in the Dock.
+    window_app = os.path.join(get_mac_window_app_folder(), "Panelyze.app")
+    with open(os.path.join(window_app, "Contents", "Info.plist"), "rb") as plist_file:
+        info = plistlib.load(plist_file)
+
+    assert info["CFBundleName"] == "Panelyze", (
+        f"the window app is {info['CFBundleName']}"
+    )
+    assert os.path.exists(
+        os.path.join(window_app, "Contents", "Resources", info["CFBundleIconFile"])
+    ), "the window app has no icon"
+    return "the window app is named Panelyze, with the Panelyze icon"
+
+
 CHECKS = [
     check_magi_panels,
     check_waifu2x,
@@ -229,6 +273,8 @@ CHECKS = [
     check_comic_files,
     check_comix_downloader,
     check_best_upscaler_libraries,
+    check_matplotlib_cache,
+    check_mac_window_app,
 ]
 
 

@@ -131,7 +131,7 @@ class AppSettingsView(ft.Container):
                             style=Nord.button_style("secondary"),
                             text="Use Default Folder",
                             icon=ft.Icons.RESTART_ALT,
-                            on_click=lambda e: self.parent_gui.change_panelyze_folder(
+                            on_click=lambda e: self.ask_to_change_panelyze_folder(
                                 PANELYZE_FOLDER
                             ),
                         ),
@@ -384,7 +384,67 @@ class AppSettingsView(ft.Container):
         if not e.path:
             return
 
-        self.parent_gui.change_panelyze_folder(get_panelyze_folder_inside(e.path))
+        self.ask_to_change_panelyze_folder(get_panelyze_folder_inside(e.path))
+
+    def ask_to_change_panelyze_folder(self, new_folder):
+        """
+        Change the Panelyze folder, but first say that the files already saved stay where they are (they aren't moved), if there are any.
+        """
+        # The folder can't change during a job: this shows the same message as before, without asking first.
+        if self.parent_gui.is_job_running:
+            self.parent_gui.change_panelyze_folder(new_folder)
+            return
+
+        page = self.parent_gui.page
+        current_folder = page.client_storage.get("panelyze_folder") or PANELYZE_FOLDER
+        # Hidden files (like the ".DS_Store" Finder adds when a folder is opened) don't count. A folder that can't be read (e.g. macOS didn't allow it) is asked about, to be safe.
+        try:
+            with os.scandir(current_folder) as entries:
+                has_files = any(not entry.name.startswith(".") for entry in entries)
+        except OSError:
+            has_files = os.path.exists(current_folder)
+        if (
+            os.path.normpath(new_folder) == os.path.normpath(current_folder)
+            or not has_files
+        ):
+            self.parent_gui.change_panelyze_folder(new_folder)
+            return
+
+        def change(e):
+            page.close(dialog)
+            self.parent_gui.change_panelyze_folder(new_folder)
+
+        bold = ft.TextStyle(weight=ft.FontWeight.BOLD)
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Change the folder?", size=18, weight=ft.FontWeight.BOLD),
+            content=ft.Text(
+                spans=[
+                    ft.TextSpan("New files will be saved in "),
+                    ft.TextSpan(new_folder, bold),
+                    ft.TextSpan(". The files saved so far stay in "),
+                    ft.TextSpan(current_folder, bold),
+                    ft.TextSpan(". They aren't moved."),
+                ]
+            ),
+            actions=[
+                ft.TextButton(
+                    "Cancel",
+                    on_click=lambda e: page.close(dialog),
+                    style=ft.ButtonStyle(
+                        color=Nord.TEXT_BRIGHT,
+                        shape=Nord.SQUARE,
+                        side=Nord.get_focus_border(),
+                    ),
+                ),
+                ft.ElevatedButton(
+                    style=Nord.button_style("primary"),
+                    text="Change Folder",
+                    on_click=change,
+                ),
+            ],
+        )
+        page.open(dialog)
 
     def open_log_file(self, path=None):
         # The log file, or the folder with every kept log in it.

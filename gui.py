@@ -1,6 +1,13 @@
 import multiprocessing
+import os
 import threading
 import sys
+
+# In the packaged app, PyInstaller points matplotlib at a new, empty folder every time the app opens, so it rebuilt its font cache (about 12 seconds) every time the app was opened. A folder that stays keeps the cache (matplotlib itself is only loaded when text boxes are drawn, see DrawBoxCoords.py). It's set before anything imports matplotlib.
+if getattr(sys, "frozen", False):
+    from default_settings import MATPLOTLIB_CACHE_FOLDER
+
+    os.environ["MPLCONFIGDIR"] = MATPLOTLIB_CACHE_FOLDER
 
 # In the packaged app, Python libraries (e.g. torch) sometimes start helper processes by running the app itself with special arguments. This makes the app recognize those and act as the helper, instead of opening another window.
 multiprocessing.freeze_support()
@@ -30,7 +37,12 @@ from gui_classes.AppSettingsView import AppSettingsView
 from gui_classes.PipelineView import PipelineView
 from default_settings import DEFAULT_SETTINGS
 from gui_classes.AppOutput import show_all_output_in_app
-from utils import add_line_to_terminal_output_list_view, get_all_mangadex_languages
+from utils import (
+    add_line_to_terminal_output_list_view,
+    get_all_mangadex_languages,
+    get_mac_window_app_folder,
+    is_running_as_packaged_app,
+)
 
 
 # The window opens at the default size. It can't be made smaller than the minimum size (about a phone's width), because the views don't fit in less space.
@@ -358,4 +370,6 @@ class GUI:
 
 # Only open the window when this file is run directly (not when the tests import it).
 if __name__ == "__main__":
+    if is_running_as_packaged_app() and sys.platform == "darwin":
+        os.environ["FLET_VIEW_PATH"] = get_mac_window_app_folder()
     ft.app(target=GUI)
