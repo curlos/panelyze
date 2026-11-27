@@ -252,11 +252,15 @@ def test_waifu2x_path_uses_the_bundled_copy_in_the_packaged_app(tmp_path, monkey
     bundled = tmp_path / "waifu2x" / "waifu2x-ncnn-vulkan"
     bundled.parent.mkdir()
     bundled.write_text("")
+    # One installed on the computer is never used: only the app's own copies.
     monkeypatch.setattr(
         utils.shutil, "which", lambda name: "/usr/local/bin/waifu2x-ncnn-vulkan"
     )
+    monkeypatch.setattr(
+        utils, "DOWNLOADED_WAIFU2X_FOLDER", str(tmp_path / "not-downloaded")
+    )
 
-    assert utils.get_waifu2x_path() == "/usr/local/bin/waifu2x-ncnn-vulkan"
+    assert utils.get_waifu2x_path() is None
 
     monkeypatch.setattr(utils.sys, "frozen", True, raising=False)
     monkeypatch.setattr(utils.sys, "_MEIPASS", str(tmp_path), raising=False)
@@ -283,7 +287,7 @@ def fake_waifu2x_download(tmp_path, monkeypatch, fail=False, extra_files=None):
     )
     downloaded = []
 
-    def fake_download_file(url, path):
+    def fake_download_file(url, path, name=None):
         downloaded.append(url)
         if fail:
             raise OSError("No internet")
@@ -292,9 +296,25 @@ def fake_waifu2x_download(tmp_path, monkeypatch, fail=False, extra_files=None):
     folder = str(tmp_path / "Application Support" / "Panelyze" / "waifu2x")
     monkeypatch.setattr(utils, "DOWNLOADED_WAIFU2X_FOLDER", folder)
     monkeypatch.setattr(waifu2x, "DOWNLOADED_WAIFU2X_FOLDER", folder)
-    monkeypatch.setattr(utils.shutil, "which", lambda name: None)
     monkeypatch.setattr(waifu2x, "download_file", fake_download_file)
     return downloaded
+
+
+def test_waifu2x_photo_model_is_not_kept(tmp_path, monkeypatch):
+    import waifu2x
+
+    fake_waifu2x_download(
+        tmp_path,
+        monkeypatch,
+        extra_files={"waifu2x-ncnn-vulkan-20250915/models-upconv_7_photo/b.bin": b"b"},
+    )
+
+    path = waifu2x.download_waifu2x(report=lambda message: None)
+
+    # Panelyze only uses the models for drawings, so the size before downloading is the size after.
+    assert not os.path.exists(
+        os.path.join(os.path.dirname(path), "models-upconv_7_photo")
+    )
 
 
 def test_waifu2x_is_downloaded_the_first_time_it_is_needed(tmp_path, monkeypatch):
@@ -1073,3 +1093,133 @@ def test_a_message_about_links_with_no_real_link_stays_plain_text():
         line.value == "Not a web link (it should start with https://): slam dunk"
         and not line.spans
     )
+
+
+class FakeResponse:
+    def __init__(self, status_code, headers, url, content):
+        self.status_code = status_code
+        self.headers = headers
+        self.url = url
+        self.content = content
+
+    def raise_for_status(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+
+class FakeRangeServer:
+    """
+    Stands in for "requests.Session": sends the parts of "data" asked for, like GitHub does (or the whole file, with "whole_files_only").
+    """
+
+    def __init__(self, data, whole_files_only=False):
+        self.data = data
+        self.whole_files_only = whole_files_only
+        self.requests = 0
+
+    def get(self, url, headers, timeout, stream=False):
+        self.requests += 1
+        start, end = map(int, headers["Range"].removeprefix("bytes=").split("-"))
+        if self.whole_files_only:
+            return FakeResponse(200, {}, url, self.data)
+        return FakeResponse(
+            206,
+            {"Content-Range": f"bytes {start}-{end}/{len(self.data)}"},
+            url,
+            self.data[start : end + 1],
+        )
+
+
+def test_a_zip_on_a_server_is_read_without_downloading_all_of_it(tmp_path, monkeypatch):
+    import io
+    import zipfile
+
+    import requests
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as models_zip:
+        models_zip.writestr("2x_small.pth", b"a" * 1000)
+        # Random bytes don't compress, so the zip really is big.
+        models_zip.writestr("4x_big.pth", os.urandom(5_000_000))
+    server = FakeRangeServer(buffer.getvalue())
+    monkeypatch.setattr(requests, "Session", lambda: server)
+
+    with utils.open_remote_zip("https://example.com/models.zip") as remote_zip:
+        assert remote_zip.read("2x_small.pth") == b"a" * 1000
+
+    # A few small requests (the list of files, then the small one), not the 5 MB one.
+    assert server.requests < 10
+
+
+def test_a_server_that_only_sends_whole_files_is_said_so(monkeypatch):
+    import requests
+
+    monkeypatch.setattr(
+        requests, "Session", lambda: FakeRangeServer(b"x" * 100, whole_files_only=True)
+    )
+
+    with pytest.raises(utils.PartialDownloadNotSupported):
+        utils.open_remote_zip("https://example.com/models.zip")
+
+
+def test_running_out_of_disk_space_gets_a_clear_message(tmp_path, monkeypatch):
+    import errno
+    from types import SimpleNamespace
+
+    disk_full = OSError(errno.ENOSPC, "No space left on device")
+    try:
+        try:
+            raise disk_full
+        except OSError as error:
+            # Like a failed download, which says what failed and keeps the cause.
+            raise OSError("Couldn't download the model") from error
+    except OSError as wrapped:
+        assert "ran out of space" in utils.get_error_text(wrapped)
+    assert utils.get_error_text(ValueError("Something else")) == "Something else"
+
+    monkeypatch.setattr(
+        utils.shutil, "disk_usage", lambda path: SimpleNamespace(free=800_000_000)
+    )
+    # The folder doesn't have to exist yet (e.g. before the first download).
+    with pytest.raises(utils.NotEnoughSpace) as error:
+        utils.check_free_space(
+            str(tmp_path / "not" / "made" / "yet"), 2_063_693_064, "the Magi model"
+        )
+    assert utils.get_error_text(error.value).startswith(
+        "Not enough space on this computer for the Magi model: it needs 2.06 GB, and 800 MB is free."
+    )
+
+
+def test_a_dropped_connection_is_tried_again(monkeypatch):
+    import io
+    import zipfile
+
+    import requests
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as models_zip:
+        models_zip.writestr("2x_small.pth", b"a" * 1000)
+    server = FakeRangeServer(buffer.getvalue())
+    real_get = server.get
+    failures = []
+
+    def get_with_one_dropped_connection(url, headers, timeout, stream=False):
+        # The 2nd request (the first one after checking the server) fails once.
+        if server.requests == 1 and not failures:
+            failures.append(1)
+            server.requests += 1
+            raise requests.ConnectionError("Connection reset")
+        return real_get(url, headers, timeout, stream)
+
+    server.get = get_with_one_dropped_connection
+    monkeypatch.setattr(requests, "Session", lambda: server)
+    monkeypatch.setattr(utils.time, "sleep", lambda seconds: None)
+
+    with utils.open_remote_zip("https://example.com/models.zip") as remote_zip:
+        assert remote_zip.read("2x_small.pth") == b"a" * 1000
+    assert failures == [1]

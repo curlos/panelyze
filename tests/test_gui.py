@@ -1107,3 +1107,58 @@ def test_a_job_is_refused_when_its_output_could_overwrite_the_input(
         "can't be inside the input directory or be its parent"
         in terminal_lines[-1].value
     )
+
+
+def fail_the_first_time(original):
+    """
+    "original", except that its first call fails, like an update on a control that isn't on the page.
+    """
+    failed = False
+
+    def fail_once(*args, **kwargs):
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise AssertionError("Control must be added to the page first")
+        return original(*args, **kwargs)
+
+    return fail_once
+
+
+@pytest.mark.parametrize("tab", ["Upscale Images", "Download", "Pipeline"])
+def test_a_job_that_fails_as_it_starts_never_leaves_the_app_locked(
+    make_gui, monkeypatch, tmp_path, tab
+):
+    gui = make_gui()
+    gui.app_bar.change_view(tab)
+    if tab == "Upscale Images":
+        directories = gui.UpscaleImagesView.pick_input_output_directories_container
+        monkeypatch.setattr(
+            directories.submit_button,
+            "update",
+            fail_the_first_time(directories.submit_button.update),
+        )
+        directories.handle_submit(fake_event())
+    elif tab == "Download":
+        view = gui.MangaDexDownloaderView
+        view.mangadex_url_text_field.value = "https://mangadex.org/title/x"
+        monkeypatch.setattr(
+            view.download_button,
+            "update",
+            fail_the_first_time(view.download_button.update),
+        )
+        view.handle_download(fake_event())
+    else:
+        pipeline = gui.PipelineView
+        pipeline.step_checkboxes["Panel-By-Panel"].value = True
+        pipeline.input_directory = str(tmp_path)
+        pipeline.output_directory = str(tmp_path)
+        monkeypatch.setattr(
+            pipeline, "set_locked", fail_the_first_time(pipeline.set_locked)
+        )
+        pipeline.handle_run_pipeline(fake_event())
+
+    # The error is shown, and every tab can be used again.
+    assert gui.is_job_running is False
+    terminal_lines = gui.terminal_output.terminal_output_list_view.controls
+    assert "Control must be added to the page first" in terminal_lines[-1].value

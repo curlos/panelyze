@@ -407,6 +407,60 @@ def test_the_best_model_upscales_each_image_with_janai_except_ones_already_4k(
     ]
 
 
+@pytest.mark.parametrize("model", ["fast", "better"])
+def test_fast_and_better_download_waifu2x_at_the_start_of_the_job(
+    make_gui, monkeypatch, model
+):
+    from gui_classes import UpscaleImagesView
+
+    downloads = []
+    monkeypatch.setattr(
+        UpscaleImagesView, "download_waifu2x", lambda: downloads.append("waifu2x")
+    )
+    gui = make_gui()
+    gui.page.client_storage.set("upscale_model", model)
+
+    gui.UpscaleImagesView.before_job()
+
+    assert downloads == ["waifu2x"]
+
+
+@pytest.mark.parametrize(
+    "sizes, downloads_waifu2x",
+    [([(100, 80), (60, 90)], False), ([(100, 80), (4000, 200)], True)],
+)
+def test_best_only_downloads_waifu2x_for_an_image_already_4k(
+    make_gui, tmp_path, monkeypatch, sizes, downloads_waifu2x
+):
+    import janai
+    from gui_classes import UpscaleImagesView
+
+    downloads = []
+    monkeypatch.setattr(
+        UpscaleImagesView, "download_waifu2x", lambda: downloads.append("waifu2x")
+    )
+    make_fake_waifu2x(monkeypatch, [])
+
+    def fake_janai(input_image, output_image, upscale_ratio):
+        with Image.open(input_image) as image:
+            image.resize(
+                (image.width * upscale_ratio, image.height * upscale_ratio)
+            ).save(output_image)
+
+    monkeypatch.setattr(janai, "upscale_image_with_janai", fake_janai)
+    gui = make_gui()
+    gui.page.client_storage.set("upscale_model", "best")
+
+    # Not at the start of the job (this was the bug: it was downloaded for every job)...
+    gui.UpscaleImagesView.before_job()
+    assert downloads == []
+    # ...only when an image needs it.
+    run_upscale(gui, tmp_path, sizes)
+
+    # "Best" upscales with MangaJaNai or IllustrationJaNai. waifu2x is only for an image that's already 4K (it's only cleaned up).
+    assert downloads == (["waifu2x"] if downloads_waifu2x else [])
+
+
 def test_images_the_4k_limit_upscales_less_get_their_own_run(
     make_gui, tmp_path, monkeypatch
 ):
@@ -607,3 +661,40 @@ def test_the_saved_upscale_ratio_and_noise_level_are_shown_when_the_app_opens_ag
     for label, value in (("Upscale Ratio", "4"), ("Noise Level", "-1")):
         assert dropdowns[label].value == value
         assert value in [option.key for option in dropdowns[label].options]
+
+
+def test_an_upscale_too_big_to_fit_in_memory_is_refused_before_anything_is_upscaled(
+    make_gui, tmp_path, monkeypatch
+):
+    runs = []
+    make_fake_waifu2x(monkeypatch, runs)
+    gui = make_gui()
+    gui.page.client_storage.set("limit_upscale_to_4k", False)
+    gui.page.client_storage.set("upscale_ratio", "32")
+
+    # 1000 x 1000 px at 32x is 32,000 x 32,000 px (1,024 megapixels, about 3 GB just to hold it).
+    with pytest.raises(ValueError, match="too big to upscale"):
+        run_upscale(gui, tmp_path, [(100, 100), (1000, 1000)])
+
+    assert runs == []
+
+
+def test_an_upscale_is_refused_when_the_results_might_not_fit_on_the_disk(
+    make_gui, tmp_path, monkeypatch
+):
+    import utils
+
+    runs = []
+    make_fake_waifu2x(monkeypatch, runs)
+    gui = make_gui()
+    gui.page.client_storage.set("upscale_ratio", "2")
+    # Only 1 MB free.
+    monkeypatch.setattr(
+        utils.shutil, "disk_usage", lambda path: SimpleNamespace(free=1_000_000)
+    )
+
+    # Two 1000 x 1000 px images at 2x: up to 24 MB.
+    with pytest.raises(utils.NotEnoughSpace, match="Not enough space"):
+        run_upscale(gui, tmp_path, [(1000, 1000), (1000, 1000)])
+
+    assert runs == []

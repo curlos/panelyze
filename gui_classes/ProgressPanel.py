@@ -1,3 +1,4 @@
+import contextlib
 import os
 import sys
 import threading
@@ -20,9 +21,13 @@ PROGRESS_FIELDS = (
     "pages_total",
     "unit",
     "detail",
+    # How much of a download is done, from 0 to 1 (e.g. a model the job needs). While it's set, the bar shows it instead of the job's own progress, which is kept for afterwards.
+    "fraction_done",
     # A job made of stages (Images To Video: reading the text, the voice-over, writing the video): their names, and the one it's on (see "get_stages_text").
     "stages",
     "stage",
+    # Stages listed before they start (see "show_upcoming_stages"): "○" until their "show_extra_stage" runs, wherever they are in the list.
+    "upcoming_stages",
     # Where the AI model of the job runs ("AMD Radeon RX 6700 XT", "Apple M1", "CPU"; see "magi.get_device_name").
     "device",
     # When a Pipeline started (time.monotonic()), so its total time can be shown next to each step's. It's not cleared between steps.
@@ -31,7 +36,7 @@ PROGRESS_FIELDS = (
 
 IDLE_TEXT = "Ready. Pick your input, then press the button."
 ERROR_TITLE = "Something went wrong"
-ERROR_HINT = "Full details are in Raw Output."
+ERROR_HINT = "Full details are in the Log."
 MUTED_COLOR = Nord.TEXT_MUTED
 
 # What the panel is showing. "idle" is before anything runs, then "running", and then "finished", "failed" or "cancelled" (the user stopped it).
@@ -94,6 +99,9 @@ def format_size(size):
         unit = "TB"
     if unit == "B" or size >= 100:
         return f"{size:.0f} {unit}"
+    # 3 digits for gigabytes, like Finder ("2.07 GB", not "2.1 GB": a tenth of a GB is 100 MB).
+    if unit in ("GB", "TB") and size < 10:
+        return f"{size:.2f} {unit}"
     return f"{size:.1f} {unit}"
 
 
@@ -143,11 +151,88 @@ def report_output_folder(folder):
 
 def report_cancelling(message):
     """
-    Shown as soon as Cancel is clicked (e.g. "Cancelling after the image being upscaled..."), until the job really stops. Also printed, so it's in the Raw Output and the log.
+    Shown as soon as Cancel is clicked (e.g. "Cancelling after the image being upscaled..."), until the job really stops. Also printed, so it's in the Log and the log file.
     """
     print(message)
     if current_progress_panel:
         current_progress_panel.show_cancelling(message)
+
+
+# Under every download step (and its progress), so a slow first run isn't taken for a slow app.
+DOWNLOAD_ONCE_DETAIL = "This is only downloaded once. It's kept on this computer, so later jobs don't download it again."
+
+
+def get_download_detail(progress):
+    """
+    A download's progress ("Downloading waifu2x: 12 MB of 54 MB"), with "DOWNLOAD_ONCE_DETAIL" under it.
+    """
+    return f"{progress}\n{DOWNLOAD_ONCE_DETAIL}"
+
+
+# Under each step that loads a model into PyTorch, for anyone who wants to know what it's doing.
+PYTORCH_LOAD_DETAIL = "PyTorch runs AI models on the graphics card or the processor. This happens once each time the app is opened."
+
+
+@contextlib.contextmanager
+def show_extra_stage(name, detail=None):
+    """
+    Something the job has to do before it can go on, like downloading or loading a model (e.g. the Magi model before "Finding the text"), shown in the Status view as a stage of its own, just before the stage the job is on. Once it's done, it's ticked and the job goes on with its stage. "detail" is a line under it while it runs, saying what it does; the job's own line comes back afterwards.
+    """
+    panel = current_progress_panel
+    if not (panel and getattr(panel, "shows_extra_stages", True)):
+        yield
+        return
+
+    stages, stage_after = get_stages_and_stage_after(panel)
+    # Shown once, even when it's needed again. It may already be listed as upcoming (see "show_upcoming_stages").
+    if name not in stages:
+        index = stages.index(stage_after)
+        stages = (*stages[:index], name, *stages[index:])
+    upcoming_stages = tuple(
+        upcoming for upcoming in panel.upcoming_stages if upcoming != name
+    )
+    # The line under the stage is its own while it runs (e.g. a download's progress), and the job's comes back afterwards.
+    previous_detail = panel.detail
+    report_progress(
+        stages=stages, stage=name, upcoming_stages=upcoming_stages, detail=detail
+    )
+    try:
+        yield
+    except BaseException:
+        # Not ticked as done (e.g. Core ML failed, and PyTorch is used instead). The error says what happened.
+        report_progress(stages=tuple(stage for stage in panel.stages if stage != name))
+        raise
+    finally:
+        report_progress(stage=stage_after, detail=previous_detail)
+
+
+def show_upcoming_stages(names):
+    """
+    Stages the job has to do next, listed right away as "○" (e.g. downloading a model, converting it and loading it, when the first of them starts), so the whole list is seen from the start. Each one is ticked off by its own "show_extra_stage". One that's already listed isn't added again.
+    """
+    panel = current_progress_panel
+    if not (panel and getattr(panel, "shows_extra_stages", True)):
+        return
+    names = [name for name in dict.fromkeys(names) if name not in panel.stages]
+    if not names:
+        return
+
+    stages, stage_after = get_stages_and_stage_after(panel)
+    index = stages.index(stage_after)
+    report_progress(
+        stages=(*stages[:index], *names, *stages[index:]),
+        stage=stage_after,
+        upcoming_stages=(*panel.upcoming_stages, *names),
+    )
+
+
+def get_stages_and_stage_after(panel):
+    """
+    The job's stages, and the one it goes on with after an extra stage. A job without stages (e.g. Upscale) gets one: the job itself (its title).
+    """
+    stages, stage = tuple(panel.stages), panel.stage
+    stage_after = stage if stage in stages else (stages[0] if stages else panel.title)
+    return stages or (panel.title,), stage_after
 
 
 def report_progress(**fields):
@@ -183,9 +268,14 @@ class ProgressPanel(ft.Container):
         self.status_icon = ft.Icon(size=22)
         self.title_text = ft.Text(size=15, expand=True)
         self.timer_text = ft.Text(color=MUTED_COLOR, size=13)
+        # On a phone-size window, the timer goes on a line of its own under the title instead (see "set_phone_size"), so the title isn't squeezed into one letter a line.
+        self.timer_below_text = ft.Text(color=MUTED_COLOR, size=13, visible=False)
+        self.is_phone_size = False
+        # How far it is, and where the AI model runs: "1 of 1 image · Ran on the Apple M1". Right under the title, with the bar under it.
+        self.count_text = ft.Text(color=Nord.TEXT)
+        # Anything else under the steps: a download's progress, what a step does, or an error.
         self.status_text = ft.Text(color=Nord.TEXT)
         self.stages_text = ft.Text(color=MUTED_COLOR, size=12, visible=False)
-        self.device_text = ft.Text(color=MUTED_COLOR, size=12, visible=False)
         self.error_hint_text = ft.Text(
             ERROR_HINT, color=MUTED_COLOR, size=12, visible=False
         )
@@ -194,21 +284,23 @@ class ProgressPanel(ft.Container):
         )
 
         self.bgcolor = Nord.SURFACE
-        self.padding = ft.padding.only(left=10, right=10, top=10)
+        # Space under the progress bar too, so it isn't right at the bottom edge (most noticeable on a small window).
+        self.padding = ft.padding.only(left=10, right=10, top=10, bottom=12)
+        # The most important first: the title, how far it is and the bar, then the steps and anything else. It all scrolls when it doesn't fit (the scroll bar only shows then), and what's cut off is then at the bottom, never the count or the bar.
         self.content = ft.Column(
             controls=[
                 ft.Row(
                     controls=[self.status_icon, self.title_text, self.timer_text],
                     spacing=10,
                 ),
+                self.timer_below_text,
+                self.count_text,
+                self.progress_bar,
                 self.stages_text,
                 self.status_text,
-                self.device_text,
                 self.error_hint_text,
-                self.progress_bar,
             ],
             spacing=8,
-            # When the terminal is dragged so small that the status doesn't fit, it scrolls (the scroll bar only shows then, like the Settings page's).
             scroll=ft.ScrollMode.ALWAYS,
         )
         self.render()
@@ -221,8 +313,10 @@ class ProgressPanel(ft.Container):
         self.pages_total = None
         self.unit = "pages"
         self.detail = None
+        self.fraction_done = None
         self.stages = ()
         self.stage = None
+        self.upcoming_stages = ()
         self.device = None
 
     def start(self, title):
@@ -232,6 +326,8 @@ class ProgressPanel(ft.Container):
         self.error_message_shown = False
         self.started_at = time.monotonic()
         self.ended_at = None
+        # A job that only downloads a model (Settings → Storage → Download) turns this off: the download is the job itself, not a step of its own.
+        self.shows_extra_stages = True
         self.stop_watching_output_folder()
         self.render()
         threading.Thread(target=self.tick, args=(self.started_at,), daemon=True).start()
@@ -241,6 +337,11 @@ class ProgressPanel(ft.Container):
         self.state = CANCELLED if cancelled else (FINISHED if success else FAILED)
         self.detail = None
         self.error_message_shown = False
+        # A stage that was listed but never needed (e.g. Core ML failed, so the model was loaded into PyTorch instead) isn't shown as done.
+        self.stages = tuple(
+            stage for stage in self.stages if stage not in self.upcoming_stages
+        )
+        self.upcoming_stages = ()
         if self.started_at is not None and self.ended_at is None:
             self.ended_at = time.monotonic()
             self.measure_output()
@@ -298,11 +399,26 @@ class ProgressPanel(ft.Container):
             if self.state != RUNNING or self.started_at != started_at:
                 return
             self.measure_output_if_changed()
-            self.timer_text.value = self.get_timer_text()
+            self.show_timer()
             try:
                 self.timer_text.update()
+                self.timer_below_text.update()
             except Exception:
                 pass
+
+    def set_phone_size(self, is_phone_size):
+        """
+        On a phone-size window, the timer goes under the title and each step of the job on a line of its own.
+        """
+        if is_phone_size != self.is_phone_size:
+            self.is_phone_size = is_phone_size
+            self.render()
+
+    def show_timer(self):
+        timer_text = self.get_timer_text()
+        self.timer_text.value = self.timer_below_text.value = timer_text
+        self.timer_text.visible = not self.is_phone_size
+        self.timer_below_text.visible = self.is_phone_size and bool(timer_text)
 
     def get_timer_text(self):
         """
@@ -368,19 +484,54 @@ class ProgressPanel(ft.Container):
         """
         "✓ Reading the text   ● Making the voice-over   ○ Writing the video": the stages done, the one it's on (its progress is the bar), and the ones still to come. All ✓ when the job finished.
         """
-        # A single stage (a video without text) says nothing the title doesn't.
+        return self.get_stages_separator().join(
+            f"{mark} {name}" for mark, name in self.get_marked_stages()
+        )
+
+    def get_stages_separator(self):
+        # One a line on a phone-size window, where a long list would wrap in the middle of a step's name.
+        return "\n" if self.is_phone_size else "   "
+
+    def get_marked_stages(self):
+        """
+        Each stage with its mark: "✓" done, "●" the one it's on, "○" still to come. None for a single stage (a video without text says nothing the title doesn't).
+        """
         if len(self.stages) < 2 or self.state not in (RUNNING, FINISHED):
-            return ""
+            return []
         current = (
             list(self.stages).index(self.stage) if self.stage in self.stages else 0
         )
         if self.state == FINISHED:
             current = len(self.stages)
         marks = [
-            "✓" if index < current else "●" if index == current else "○"
-            for index in range(len(self.stages))
+            "○"
+            if name in self.upcoming_stages
+            else "✓"
+            if index < current
+            else "●"
+            if index == current
+            else "○"
+            for index, name in enumerate(self.stages)
         ]
-        return "   ".join(f"{mark} {name}" for mark, name in zip(marks, self.stages))
+        return list(zip(marks, self.stages))
+
+    def get_stages_spans(self):
+        """
+        The stages in color, so progress is seen at a glance: a green ✓ for each one done, a blue ● for the one it's on (the app's accent, like the running hourglass: the bar's darker blue is too faint for a small dot), and the ones still to come in gray.
+        """
+        mark_colors = {"✓": Nord.GREEN, "●": Nord.ACCENT, "○": MUTED_COLOR}
+        spans = []
+        for index, (mark, name) in enumerate(self.get_marked_stages()):
+            if index:
+                spans.append(ft.TextSpan(self.get_stages_separator()))
+            spans.append(ft.TextSpan(mark, style=ft.TextStyle(color=mark_colors[mark])))
+            spans.append(
+                ft.TextSpan(
+                    f" {name}",
+                    style=ft.TextStyle(color=MUTED_COLOR if mark == "○" else Nord.TEXT),
+                )
+            )
+        return spans
 
     def get_device_text(self):
         """
@@ -390,21 +541,49 @@ class ProgressPanel(ft.Container):
             return ""
         return f"{'Running' if self.state == RUNNING else 'Ran'} on the {self.device}"
 
-    def get_status_text(self):
+    def show_count_and_device(self):
+        """
+        "1 of 1 image · Ran on the Apple M1", with the chip's name in color: where the AI model runs is at the end of the count's line, so it takes no line of its own.
+        """
+        count_text = self.get_count_text()
+        device_text = self.get_device_text()
+        if device_text:
+            device_spans = Nord.get_highlighted_spans(
+                f" · {device_text}" if count_text else device_text,
+                [self.device],
+                Nord.DEVICE,
+            )
+            for span in device_spans:
+                span.style = span.style or ft.TextStyle(color=MUTED_COLOR)
+            self.count_text.value = None
+            self.count_text.spans = [
+                *([ft.TextSpan(count_text)] if count_text else []),
+                *device_spans,
+            ]
+        else:
+            self.count_text.value = count_text
+            self.count_text.spans = None
+        self.count_text.visible = bool(count_text or device_text)
+
+    def get_count_text(self):
         parts = []
 
         # A single folder of images isn't worth calling "chapter 1 of 1".
-        if self.chapters and self.chapters > 1:
-            parts.append(f"{self.group_label} {self.chapter} of {self.chapters}")
+        if self.chapter and self.chapters and self.chapters > 1:
+            # With commas in the thousands: "Chapter 1,139 of 4,637".
+            parts.append(f"{self.group_label} {self.chapter:,} of {self.chapters:,}")
 
         if self.pages_total:
             unit = self.unit if self.pages_total != 1 else get_singular(self.unit)
-            parts.append(f"{self.pages_done or 0} of {self.pages_total} {unit}")
-
-        if self.detail:
-            parts.append(self.detail)
+            parts.append(f"{self.pages_done or 0:,} of {self.pages_total:,} {unit}")
 
         return " · ".join(parts)
+
+    def get_status_text(self):
+        """
+        The line under the steps: a download's progress, what a step does, or an error.
+        """
+        return self.detail or ""
 
     def get_bar_value(self):
         """
@@ -412,6 +591,9 @@ class ProgressPanel(ft.Container):
         """
         if self.state == FINISHED:
             return 1
+
+        if self.fraction_done is not None:
+            return self.fraction_done
 
         if not (self.chapters and self.chapter):
             return None
@@ -428,20 +610,20 @@ class ProgressPanel(ft.Container):
             f"{self.prefix} · {self.title}" if self.prefix else self.title
         )
         self.title_text.color = MUTED_COLOR if self.state == IDLE else Nord.TEXT
+        self.show_count_and_device()
         set_text_with_links(self.status_text, self.get_status_text())
-        self.stages_text.value = self.get_stages_text()
-        self.stages_text.visible = bool(self.stages_text.value)
-        device_text = self.get_device_text()
-        self.device_text.spans = Nord.get_highlighted_spans(
-            device_text, [self.device], Nord.DEVICE
+        # No empty line (e.g. before any job, or a step with nothing to explain).
+        self.status_text.visible = bool(
+            self.status_text.value or self.status_text.spans
         )
-        self.device_text.visible = bool(device_text)
-        self.timer_text.value = self.get_timer_text()
+        self.stages_text.spans = self.get_stages_spans()
+        self.stages_text.visible = bool(self.stages_text.spans)
+        self.show_timer()
         self.progress_bar.value = self.get_bar_value()
         self.progress_bar.visible = self.state in (RUNNING, FINISHED)
         self.error_hint_text.visible = self.state == FAILED
 
-        # An icon for the state. While running it doesn't spin: the terminal's title bar already has a spinning ring (the one that's seen when the terminal is closed or shows the Raw Output), and the timer and the bar show it's working.
+        # An icon for the state. While running it doesn't spin: the terminal's title bar already has a spinning ring (the one that's seen when the terminal is closed or shows the Log), and the timer and the bar show it's working.
         self.status_icon.name, self.status_icon.color = {
             IDLE: (ft.Icons.PLAY_CIRCLE_OUTLINE, MUTED_COLOR),
             RUNNING: (ft.Icons.HOURGLASS_TOP, Nord.ACCENT),

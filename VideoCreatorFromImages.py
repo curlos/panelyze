@@ -559,7 +559,8 @@ class VideoCreatorFromImages:
             pages_total=len(voice_overs_to_make),
             # One voice-over for each text box when they're highlighted, otherwise one for each image.
             unit="text boxes" if self.highlight_text_boxes_in_images else "images",
-            detail="Making the voice-over",
+            # No line of its own: the steps already say "Making the voice-over".
+            detail=None,
         )
 
         voice_over_stopped = threading.Event()

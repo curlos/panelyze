@@ -37,6 +37,16 @@ def never_check_the_gpu_in_settings(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def start_without_a_status_view(monkeypatch):
+    """
+    Each test starts without the Status view a test before it made (making one makes it the one that's reported to), so what one test reported never shows up in another.
+    """
+    from gui_classes import ProgressPanel
+
+    monkeypatch.setattr(ProgressPanel, "current_progress_panel", None)
+
+
+@pytest.fixture(autouse=True)
 def never_download_waifu2x(monkeypatch):
     """
     The Upscale tab downloads waifu2x when it isn't installed. Tests must never download it, and shouldn't depend on whether it's installed (the tests that run waifu2x fake it).
@@ -67,3 +77,54 @@ def never_open_finder_windows(monkeypatch):
         PipelineView,
     ):
         monkeypatch.setattr(module, "open_directory", lambda path: None)
+
+
+@pytest.fixture(autouse=True)
+def keep_storage_in_tmp_path(monkeypatch, tmp_path):
+    """
+    Settings → Storage adds up the size of the app's folders whenever Settings is opened. Tests point it at empty folders in "tmp_path" instead, so they never read (or delete) the real downloads, models or Hugging Face cache.
+    """
+    import janai
+    import storage
+    from default_settings import OUTPUT_SUBFOLDERS
+    import utils
+    from gui_classes import StorageSection
+
+    panelyze_folder = tmp_path / "Documents" / "Panelyze"
+    monkeypatch.setattr(
+        storage, "get_panelyze_folder", lambda client_storage: str(panelyze_folder)
+    )
+    monkeypatch.setattr(
+        storage,
+        "get_output_directory",
+        lambda client_storage, key: str(panelyze_folder / OUTPUT_SUBFOLDERS[key]),
+    )
+    app_support = tmp_path / "Application Support" / "Panelyze"
+    monkeypatch.setattr(
+        utils, "DOWNLOADED_WAIFU2X_FOLDER", str(app_support / "waifu2x")
+    )
+    monkeypatch.setattr(janai, "MODELS_FOLDER", str(app_support / "upscale-models"))
+
+    # No test downloads a model straight out of its zip on GitHub: a test's fake "download_file" gets the whole zip instead (a test can give its own "open_remote_zip").
+    def whole_files_only(url):
+        raise utils.PartialDownloadNotSupported(url)
+
+    import waifu2x
+
+    # waifu2x.py has its own copy of the folder (imported from utils.py), which it deletes before a download.
+    monkeypatch.setattr(
+        waifu2x, "DOWNLOADED_WAIFU2X_FOLDER", str(app_support / "waifu2x")
+    )
+    monkeypatch.setattr(janai, "open_remote_zip", whole_files_only)
+    monkeypatch.setattr(waifu2x, "open_remote_zip", whole_files_only)
+    monkeypatch.setattr(
+        storage, "get_hugging_face_cache", lambda: str(tmp_path / "huggingface")
+    )
+    monkeypatch.setattr(
+        storage, "PANELS_MODEL_FILE", str(tmp_path / "panels.safetensors")
+    )
+    monkeypatch.setattr(
+        StorageSection, "LOG_FILE_PATH", str(tmp_path / "Logs" / "panelyze.log")
+    )
+    monkeypatch.setattr(StorageSection, "LOG_FOLDER", str(tmp_path / "Logs"))
+    monkeypatch.setattr(StorageSection, "open_directory", lambda path: None)

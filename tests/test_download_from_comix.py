@@ -554,7 +554,7 @@ def test_a_cancelled_download_is_shown_as_cancelled_not_as_an_error(
         "Download cancelled. 2 chapters already downloaded were kept.",
     )
     assert not tab.mangadex_url_text_field.disabled and gui.is_job_running is False
-    # It isn't an error: nothing red in the Raw Output.
+    # It isn't an error: nothing red in the Log.
     raw_lines = [
         control.value
         for control in gui.terminal_output.terminal_output_list_view.controls
@@ -1197,5 +1197,5 @@ def test_a_series_where_a_chapter_failed_says_so_and_counts_only_the_saved_pages
 
     assert (
         summary
-        == "Downloaded Slam Dunk: 2 chapters · 10 pages · 1 chapter failed (see Raw Output)"
+        == "Downloaded Slam Dunk: 2 chapters · 10 pages · 1 chapter failed (see the Log)"
     )

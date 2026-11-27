@@ -233,7 +233,7 @@ def get_comix_summary(
             f" · {pluralize(len(already_there), 'more chapter')} already downloaded"
         )
     if failed_count:
-        summary += f" · {pluralize(failed_count, 'chapter')} failed (see Raw Output)"
+        summary += f" · {pluralize(failed_count, 'chapter')} failed (see the Log)"
     return summary
 
 

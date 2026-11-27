@@ -388,12 +388,12 @@ def download_from_mangadex(
     summary = get_download_summary(output_directory, chapter_folders_before)
     if summary is None and process and process.returncode != 0:
         raise RuntimeError(
-            "MangaDex couldn't download anything from that link. Check the link, and see Raw Output for details."
+            "MangaDex couldn't download anything from that link. Check the link, and see the Log for details."
         )
     if summary and process and process.returncode != 0:
         # E.g. the internet went away during a chapter: what was saved is still kept and used.
         return DownloadSummary(
-            f"{summary} · stopped early, so the last chapter may be incomplete (see Raw Output)",
+            f"{summary} · stopped early, so the last chapter may be incomplete (see the Log)",
             summary.folder,
         )
     if summary:

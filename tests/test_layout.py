@@ -128,11 +128,14 @@ def test_a_narrow_window_puts_the_settings_under_the_tab_instead_of_on_its_right
     assert gui.is_narrow
     assert isinstance(columns.content, ft.Column)
     assert isinstance(gui.MangaDexDownloaderView.responsive_columns.content, ft.Column)
+    # Phone size: the Status view puts its timer and each step on lines of their own.
+    assert gui.terminal_output.progress_panel.is_phone_size
 
     gui.page.width = 1400
     gui.handle_resized(fake_event())
 
     assert isinstance(columns.content, ft.Row)
+    assert not gui.terminal_output.progress_panel.is_phone_size
 
 
 def test_a_narrow_window_shows_only_the_tab_icons(make_gui):
@@ -437,3 +440,62 @@ def test_the_terminals_resize_line_only_shows_while_the_mouse_is_over_it(make_gu
     assert line_color() == Nord.BLUE
     terminal.resize_handle.on_exit(fake_event())
     assert line_color() == ft.Colors.TRANSPARENT
+
+
+class FakeFletConnection:
+    """
+    Stands in for the Flet app at the other end, so a real Flet page can be used without a window: every control added gets an id, as the app would give it.
+    """
+
+    page_name = ""
+    page_url = "http://localhost"
+    pubsubhub = None
+
+    def __init__(self):
+        self.next_id = 0
+
+    def send_commands(self, session_id, commands):
+        results = []
+        for command in commands:
+            if command.name == "add":
+                ids = []
+                for _ in command.commands:
+                    self.next_id += 1
+                    ids.append(f"_{self.next_id}")
+                results.append(" ".join(ids))
+        return SimpleNamespace(results=results, error=None)
+
+    def send_command(self, session_id, command):
+        return SimpleNamespace(result="", error=None)
+
+
+def test_a_tab_s_buttons_stay_on_the_page_when_the_window_becomes_narrow_or_wide(
+    make_gui, monkeypatch, request
+):
+    # A real Flet page (not "FakePage"): the bug was in how Flet itself handles controls moved in one update.
+    import asyncio
+
+    from flet.core.page import Page
+
+    import gui as gui_module
+    from tests.fake_gui import FakeClientStorage
+
+    loop = asyncio.new_event_loop()
+    request.addfinalizer(loop.close)
+    page = Page(cast(Any, FakeFletConnection()), "session", loop)
+    page._set_attr("platform", "macos", dirty=False)
+    page._set_attr("width", 1100, dirty=False)
+    monkeypatch.setattr(Page, "client_storage", FakeClientStorage())
+    gui = gui_module.GUI(page)
+    gui.app_bar.change_view("Upscale Images")
+    submit_button = (
+        gui.UpscaleImagesView.pick_input_output_directories_container.submit_button
+    )
+
+    for width in (600, 1100):
+        page._set_attr("width", width, dirty=False)
+        gui.handle_resized(fake_event())
+
+        # Off the page, its next update (when Upscale is clicked) failed and the app stayed locked.
+        assert gui.is_narrow == (width == 600)
+        assert submit_button.page is page

@@ -1,6 +1,12 @@
+import contextlib
+import os
 import threading
 
 EMOTION_MODEL_NAME = "j-hartmann/emotion-english-distilroberta-base"
+# The exact version of the model, so a change to it on Hugging Face can't change the voice styles (like "MAGI_MODEL_REVISION" in magi.py).
+EMOTION_MODEL_REVISION = "0e1cd914e3d46199ed785853e12b57304e04178b"
+# Its folder in the Hugging Face cache (shown in Settings → Storage).
+EMOTION_CACHE_FOLDER = "models--j-hartmann--emotion-english-distilroberta-base"
 
 # For each emotion the model can find, the Azure voice styles that fit it, best first. Not every Azure voice has every style, so the first one the voice actually has is used.
 AZURE_STYLES_BY_EMOTION = {
@@ -65,23 +71,60 @@ def get_emotion_model_device(magi_device):
 
 def load_emotion_pipeline():
     # Imported here so that transformers only loads when emotions are actually used.
+    from huggingface_hub import try_to_load_from_cache
     from transformers import pipeline
 
-    from magi import get_device
-
-    print("Loading the emotion model (the first time, this downloads about 330 MB)...")
-    return pipeline(
-        "text-classification",
-        model=EMOTION_MODEL_NAME,
-        device=get_emotion_model_device(get_device()),
+    from gui_classes.ProgressPanel import (
+        DOWNLOAD_ONCE_DETAIL,
+        format_size,
+        show_extra_stage,
     )
+    from magi import get_device
+    from storage import EMOTION_DOWNLOAD_BYTES, get_hugging_face_cache
+    from utils import check_free_space, report_folder_download
+
+    print(
+        f"Loading the emotion model (the first time, this downloads {format_size(EMOTION_DOWNLOAD_BYTES)})..."
+    )
+    is_downloaded = isinstance(
+        try_to_load_from_cache(
+            EMOTION_MODEL_NAME,
+            "pytorch_model.bin",
+            revision=EMOTION_MODEL_REVISION,
+            cache_dir=get_hugging_face_cache(),
+        ),
+        str,
+    )
+    if not is_downloaded:
+        check_free_space(
+            get_hugging_face_cache(), EMOTION_DOWNLOAD_BYTES, "the emotion model"
+        )
+    # Like Magi's download (see "load_full_magi_model" in magi.py): a step of its own in the Status view, with its progress.
+    with (
+        contextlib.nullcontext()
+        if is_downloaded
+        else show_extra_stage(
+            "Downloading the emotion model (one time only)", DOWNLOAD_ONCE_DETAIL
+        ),
+        report_folder_download(
+            "the emotion model",
+            os.path.join(get_hugging_face_cache(), EMOTION_CACHE_FOLDER),
+            EMOTION_DOWNLOAD_BYTES,
+        ),
+    ):
+        return pipeline(
+            "text-classification",
+            model=EMOTION_MODEL_NAME,
+            revision=EMOTION_MODEL_REVISION,
+            device=get_emotion_model_device(get_device()),
+        )
 
 
 class EmotionAnalyzer:
     """
     Finds the emotion of a line of text (anger, joy, sadness, etc.) so Azure Text-To-Speech can read it in a matching voice style. Only used with Azure's "Auto (emotion of each line)" voice style.
 
-    The emotion model (about 330 MB) is only loaded the first time it's needed. The first time ever, it's downloaded from Hugging Face automatically.
+    The emotion model (331 MB) is only loaded the first time it's needed. The first time ever, it's downloaded from Hugging Face automatically.
     """
 
     def __init__(self):
@@ -93,7 +136,15 @@ class EmotionAnalyzer:
         # A video makes several voice-over lines at the same time, and they'd all start loading the model at once, which breaks it ("Cannot copy out of meta tensor"). So the first one loads it and the others wait for it.
         with self._loading_lock:
             if self._emotion_pipeline is None:
-                self._emotion_pipeline = load_emotion_pipeline()
+                from gui_classes.ProgressPanel import (
+                    PYTORCH_LOAD_DETAIL,
+                    show_extra_stage,
+                )
+
+                with show_extra_stage(
+                    "Loading the emotion model into PyTorch", PYTORCH_LOAD_DETAIL
+                ):
+                    self._emotion_pipeline = load_emotion_pipeline()
 
         return self._emotion_pipeline
 

@@ -1,3 +1,4 @@
+import contextlib
 import functools
 import os
 import subprocess
@@ -208,16 +209,48 @@ def load_magi_config(config_file_name):
 
 def load_full_magi_model():
     """
-    The whole Magi model (about 2 GB), including the part that reads the text. Downloaded from Hugging Face the first time.
+    The whole Magi model (2.06 GB), including the part that reads the text. Downloaded from Hugging Face the first time.
     """
+    from huggingface_hub import try_to_load_from_cache
     from magi_model.modelling_magiv2 import Magiv2Model
 
-    try:
-        model = Magiv2Model.from_pretrained(
+    from gui_classes.ProgressPanel import DOWNLOAD_ONCE_DETAIL, show_extra_stage
+    from storage import MAGI_DOWNLOAD_BYTES, get_hugging_face_cache
+    from utils import check_free_space, report_folder_download
+
+    is_downloaded = isinstance(
+        try_to_load_from_cache(
             "ragavsachdeva/magiv2",
+            "pytorch_model.bin",
             revision=MAGI_MODEL_REVISION,
-            config=load_magi_config("full_config.json"),
+            cache_dir=get_hugging_face_cache(),
+        ),
+        str,
+    )
+    # Hugging Face downloads it with its own code, so its progress in the Status view comes from watching its folder grow.
+    magi_cache_folder = os.path.join(
+        get_hugging_face_cache(), "models--ragavsachdeva--magiv2"
+    )
+    if not is_downloaded:
+        check_free_space(
+            get_hugging_face_cache(), MAGI_DOWNLOAD_BYTES, "the Magi model"
         )
+    try:
+        with (
+            contextlib.nullcontext()
+            if is_downloaded
+            else show_extra_stage(
+                "Downloading Magi (full model, one time only)", DOWNLOAD_ONCE_DETAIL
+            ),
+            report_folder_download(
+                "the Magi model", magi_cache_folder, MAGI_DOWNLOAD_BYTES
+            ),
+        ):
+            model = Magiv2Model.from_pretrained(
+                "ragavsachdeva/magiv2",
+                revision=MAGI_MODEL_REVISION,
+                config=load_magi_config("full_config.json"),
+            )
     except OSError as error:
         raise OSError(
             f"Couldn't download the Magi AI model (check your internet connection): {error}. It comes from {MAGI_MODEL_PAGE_URL}"
@@ -957,17 +990,32 @@ class Magi:
     @property
     def panels_model(self):
         if self._panels_model is None:
-            self._panels_model = load_panels_magi_model().to(get_device())  # pyright: ignore[reportArgumentType]
+            from gui_classes.ProgressPanel import PYTORCH_LOAD_DETAIL, show_extra_stage
+
+            # A step of its own in the Status view (a few seconds, the first time in each run of the app).
+            with show_extra_stage(
+                "Loading Magi (panels) into PyTorch", PYTORCH_LOAD_DETAIL
+            ):
+                self._panels_model = load_panels_magi_model().to(get_device())  # pyright: ignore[reportArgumentType]
         report_device(self._panels_model)
         return self._panels_model
 
     @property
     def full_model(self):
         if self._full_model is None:
+            from gui_classes.ProgressPanel import format_size
+            from storage import MAGI_DOWNLOAD_BYTES
+
             print(
-                f"Loading the full Magi AI Model to read the text (the first time, this downloads about 2 GB from {MAGI_MODEL_PAGE_URL})."
+                f"Loading the full Magi AI Model to read the text (the first time, this downloads {format_size(MAGI_DOWNLOAD_BYTES)} from {MAGI_MODEL_PAGE_URL})."
             )
-            self._full_model = load_full_magi_model().to(get_device())  # pyright: ignore[reportArgumentType]
+            from gui_classes.ProgressPanel import PYTORCH_LOAD_DETAIL, show_extra_stage
+
+            # Its download, the first time, is a step of its own before this one (see "load_full_magi_model").
+            with show_extra_stage(
+                "Loading Magi (full model) into PyTorch", PYTORCH_LOAD_DETAIL
+            ):
+                self._full_model = load_full_magi_model().to(get_device())  # pyright: ignore[reportArgumentType]
         report_device(self._full_model)
         return self._full_model
 
@@ -1198,7 +1246,8 @@ class Magi:
                 pages_done=0,
                 pages_total=len(chapter_pages),
                 unit="images",
-                detail="Finding the text",
+                # No line of its own: the steps already say it (FINDING_TEXT_STAGE).
+                detail=None,
             )
             for batch_start in tqdm(range(0, len(chapter_pages), FIND_TEXT_BATCH_SIZE)):
                 per_page_results += model.predict_detections_and_associations(
@@ -1248,7 +1297,8 @@ class Magi:
             pages_done=0,
             pages_total=len(lines),
             unit="text boxes",
-            detail="Reading the text",
+            # No line of its own: the steps already say it (READING_TEXT_STAGE).
+            detail=None,
         )
 
         with tqdm(total=len(lines)) as progress_bar:

@@ -56,6 +56,8 @@ class FakePage:
         self.web = False
         # Like a real Flet page: the space between what's added to it.
         self.spacing = 10
+        # The dialog opened last (see "open").
+        self.dialog = None
 
     def add(self, *controls):
         # Like a real Flet page: controls put on the screen get linked to the page.
@@ -66,6 +68,14 @@ class FakePage:
 
     def update(self, *args):
         pass
+
+    # Like a real Flet page: "open" shows a dialog and "close" hides it.
+    def open(self, control):
+        self.dialog = control
+        control.open = True
+
+    def close(self, control):
+        control.open = False
 
     def run_thread(self, handler, *args):
         handler(*args)

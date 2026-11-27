@@ -7,6 +7,7 @@ from gui_classes.DropdownTextOptions import DropdownTextOptions
 import default_settings
 from default_settings import APP_VERSION, PANELYZE_FOLDER, get_panelyze_folder_inside
 from gui_classes.AppOutput import LOG_FILE_PATH, LOG_FOLDER
+from gui_classes.StorageSection import StorageSection
 from utils import open_directory
 
 # "No" is saved as "" (no comic file), but a dropdown choice with an empty key shows nothing in the box, so it's "no" there.
@@ -37,13 +38,27 @@ def get_help_text(text):
     return ft.Text(text, color=Nord.TEXT)
 
 
-def get_section(title, controls):
+def get_section(title, controls, title_button=None):
     """
-    One group of settings, in a box of its own with a title, so the settings page reads as separate parts.
+    One group of settings, in a box of its own with a title, so the settings page reads as separate parts. "title_button" (e.g. Storage's Refresh) goes right after the title.
     """
     return ft.Container(
         content=ft.Column(
-            controls=[ft.Text(title, size=16, weight=ft.FontWeight.BOLD, color=Nord.TEXT_BRIGHT), *controls],
+            controls=[
+                ft.Row(
+                    controls=[
+                        ft.Text(
+                            title,
+                            size=16,
+                            weight=ft.FontWeight.BOLD,
+                            color=Nord.TEXT_BRIGHT,
+                        ),
+                        *([title_button] if title_button else []),
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                *controls,
+            ],
             spacing=12,
         ),
         # The page's own color, so the dropdowns inside look like the ones in the other tabs. (Without a color, Flutter paints a dropdown's hover over the grey line under it too.)
@@ -67,7 +82,8 @@ class AppSettingsView(ft.Container):
 
         dev_output_folder = default_settings.DEV_OUTPUT_FOLDER
         self.panelyze_folder_text = ft.Text(
-            dev_output_folder or self.parent_gui.page.client_storage.get("panelyze_folder"),
+            dev_output_folder
+            or self.parent_gui.page.client_storage.get("panelyze_folder"),
             color=Nord.PATH,
             selectable=True,
         )
@@ -80,7 +96,9 @@ class AppSettingsView(ft.Container):
             label="Tab to open when Panelyze starts",
             options=[ft.dropdown.Option(tab_name) for tab_name in TAB_NAMES],
             value=self.parent_gui.get_start_tab(),
-            on_change=lambda e: self.parent_gui.page.client_storage.set("start_tab", e.data),
+            on_change=lambda e: self.parent_gui.page.client_storage.set(
+                "start_tab", e.data
+            ),
         )
         start_tab_section = get_section("Starting up", [self.start_tab_dropdown])
         folder_section = get_section(
@@ -105,7 +123,9 @@ class AppSettingsView(ft.Container):
                             style=Nord.button_style("secondary"),
                             text="Change Folder",
                             icon=ft.Icons.FOLDER_OPEN,
-                            on_click=lambda e: self.pick_panelyze_folder_dialog.get_directory_path(),
+                            on_click=lambda e: (
+                                self.pick_panelyze_folder_dialog.get_directory_path()
+                            ),
                         ),
                         ft.ElevatedButton(
                             style=Nord.button_style("secondary"),
@@ -115,9 +135,21 @@ class AppSettingsView(ft.Container):
                                 PANELYZE_FOLDER
                             ),
                         ),
-                    ]
+                    ],
                 ),
             ],
+        )
+        # Filled in each time this page is opened (see "get_view_element" in gui.py).
+        self.storage_section = StorageSection(self.parent_gui)
+        storage_section = get_section(
+            "Storage",
+            [
+                get_help_text(
+                    "What Panelyze keeps on this computer, and how much space it takes. A deleted model is downloaded again the next time it's needed."
+                ),
+                self.storage_section,
+            ],
+            title_button=self.storage_section.refresh_button,
         )
         self.cbz_dropdown = DropdownTextOptions(
             label="Also save each chapter as a .cbz file",
@@ -142,13 +174,15 @@ class AppSettingsView(ft.Container):
             ],
         )
         # Filled in the first time this page is opened (see "show_device").
-        self.device_text = ft.Text("Checking...", color=Nord.TEXT_BRIGHT, selectable=True)
+        self.device_text = ft.Text(
+            "Checking...", color=Nord.TEXT_BRIGHT, selectable=True
+        )
         self.device_check_started = False
         device_section = get_section(
             "GPU",
             [
                 get_help_text(
-                    "The AI models (Magi, and the \"Best\" upscaler) run on your computer's GPU when they can, which is much faster than the CPU. With more than one GPU, Panelyze uses the most powerful one they can run on."
+                    'The AI models (Magi, and the "Best" upscaler) run on your computer\'s GPU when they can, which is much faster than the CPU. With more than one GPU, Panelyze uses the most powerful one they can run on.'
                 ),
                 self.device_text,
                 ft.Text(
@@ -162,7 +196,7 @@ class AppSettingsView(ft.Container):
             "Log file",
             [
                 get_help_text(
-                    "Everything shown in the Terminal Output is also saved to a log file. The current log has everything since you opened Panelyze. The logs folder also keeps the last 9 times you used it (panelyze.1.log is the last time), e.g. to see why the app crashed."
+                    "Everything shown in Activity's Log is also saved to a log file. The current log has everything since you opened Panelyze. The logs folder also keeps the last 9 times you used it (panelyze.1.log is the last time), e.g. to see why the app crashed."
                 ),
                 ft.Row(
                     wrap=True,
@@ -179,7 +213,9 @@ class AppSettingsView(ft.Container):
                             icon=ft.Icons.FOLDER_OPEN,
                             on_click=lambda e: self.open_log_file(LOG_FOLDER),
                         ),
-                    ]
+                        self.storage_section.log_size_text,
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
                 # Reporting is a separate step (doing something with a log), so it gets some space above it.
                 ft.Container(
@@ -204,7 +240,11 @@ class AppSettingsView(ft.Container):
         about_section = get_section(
             "About",
             [
-                ft.Text(f"Panelyze {APP_VERSION}", weight=ft.FontWeight.BOLD, color=Nord.TEXT_BRIGHT),
+                ft.Text(
+                    f"Panelyze {APP_VERSION}",
+                    weight=ft.FontWeight.BOLD,
+                    color=Nord.TEXT_BRIGHT,
+                ),
                 get_help_text(
                     "Panelyze turns manga and comic pages into one image per panel, in reading order, so you can read them one at a time on a phone or tablet instead of zooming around a whole page. It finds the panels with an AI model (Magi) that runs on your own computer (it's downloaded the first time)."
                 ),
@@ -228,8 +268,12 @@ class AppSettingsView(ft.Container):
             ],
         )
         # Shown for a few seconds after a reset: next to the button, or above it in a narrow window (where next to it doesn't fit, and under it is out of view, since Reset is the last part of the page).
-        self.reset_message_beside = ft.Text(RESET_MESSAGE, color=Nord.GREEN, visible=False)
-        self.reset_message_above = ft.Text(RESET_MESSAGE, color=Nord.GREEN, visible=False)
+        self.reset_message_beside = ft.Text(
+            RESET_MESSAGE, color=Nord.GREEN, visible=False
+        )
+        self.reset_message_above = ft.Text(
+            RESET_MESSAGE, color=Nord.GREEN, visible=False
+        )
         self.hide_reset_message_timer = None
         reset_section = get_section(
             "Reset",
@@ -247,10 +291,12 @@ class AppSettingsView(ft.Container):
                             style=Nord.button_style("danger"),
                             text="Reset All Settings",
                             icon=ft.Icons.RESTART_ALT,
-                            on_click=lambda e: self.parent_gui.reset_settings_to_default(),
+                            on_click=lambda e: (
+                                self.parent_gui.reset_settings_to_default()
+                            ),
                         ),
                         self.reset_message_beside,
-                    ]
+                    ],
                 ),
             ],
         )
@@ -260,6 +306,7 @@ class AppSettingsView(ft.Container):
                 ft.Text("Settings", size=24, weight=ft.FontWeight.BOLD),
                 start_tab_section,
                 folder_section,
+                storage_section,
                 comic_file_section,
                 device_section,
                 log_file_section,
@@ -272,7 +319,9 @@ class AppSettingsView(ft.Container):
         )
         # The scrollbar is always shown, so it's clear there's more below when the window is short. It's drawn over the right edge of what scrolls, so the settings leave room for it on the right.
         self.content = ft.Column(
-            controls=[ft.Container(content=self.content, padding=ft.padding.only(right=20))],
+            controls=[
+                ft.Container(content=self.content, padding=ft.padding.only(right=20))
+            ],
             scroll=ft.ScrollMode.ALWAYS,
         )
 
@@ -283,8 +332,12 @@ class AppSettingsView(ft.Container):
         storage = self.parent_gui.page.client_storage
         self.start_tab_dropdown.value = self.parent_gui.get_start_tab()
         self.cbz_dropdown.value = storage.get("save_as_cbz") or "no"
-        self.cbz_dropdown.helper_text = CBZ_DESCRIPTIONS.get(self.cbz_dropdown.value, "")
-        self.panelyze_folder_text.value = default_settings.DEV_OUTPUT_FOLDER or storage.get("panelyze_folder")
+        self.cbz_dropdown.helper_text = CBZ_DESCRIPTIONS.get(
+            self.cbz_dropdown.value, ""
+        )
+        self.panelyze_folder_text.value = (
+            default_settings.DEV_OUTPUT_FOLDER or storage.get("panelyze_folder")
+        )
 
         # Narrow is the same width at which the other tabs move their settings under the preview (wide enough for the message next to the button).
         is_narrow = self.parent_gui.is_narrow
@@ -293,7 +346,9 @@ class AppSettingsView(ft.Container):
         # Clicking again starts the few seconds over.
         if self.hide_reset_message_timer:
             self.hide_reset_message_timer.cancel()
-        self.hide_reset_message_timer = threading.Timer(RESET_MESSAGE_SECONDS, self.hide_reset_message)
+        self.hide_reset_message_timer = threading.Timer(
+            RESET_MESSAGE_SECONDS, self.hide_reset_message
+        )
         self.hide_reset_message_timer.daemon = True
         self.hide_reset_message_timer.start()
 
@@ -310,7 +365,9 @@ class AppSettingsView(ft.Container):
         try:
             sentence, device_names = get_device_sentence()
             self.device_text.value = None
-            self.device_text.spans = Nord.get_highlighted_spans(sentence, device_names, Nord.DEVICE)
+            self.device_text.spans = Nord.get_highlighted_spans(
+                sentence, device_names, Nord.DEVICE
+            )
         except Exception as error:
             self.device_text.value = f"Couldn't check the GPU ({error})."
         if self.device_text.page:

@@ -166,7 +166,7 @@ def test_pipeline_stops_when_a_step_fails(tmp_path, monkeypatch):
     view.run_pipeline(["Panel-By-Panel", "Upscale Images"], view.input_directory)
 
     assert ran_steps == []
-    # The step's tab already showed its error in the Status view, so this only goes in the Raw Output.
+    # The step's tab already showed its error in the Status view, so this only goes in the Log.
     assert error_messages == []
     assert 'Pipeline stopped. "Panel-By-Panel" failed' in raw_output.controls[-1].value
     # Under the Run button: the step that failed, and the one that never ran.

@@ -7,7 +7,7 @@ about: The app crashed, showed an error, or did something unexpected
 The tab (Download, Panel-By-Panel, Upscale Images, Images To Video, Pipeline), the link or folder, and the settings you changed, e.g. "Pipeline with a MangaDex link, all steps, Best upscale".
 
 **What happened?**
-The error in the Terminal Output, or what you expected instead.
+The error in Activity's Log (or the Status view), or what you expected instead.
 
 **Your computer**
 - Mac or Windows (and version):

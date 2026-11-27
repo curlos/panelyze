@@ -129,6 +129,10 @@ def get_theme():
                 ft.ControlState.FOCUSED: ft.Colors.with_opacity(0.24, ACCENT)
             },
         ),
+        # Dialogs (e.g. "Delete Pipeline?") a shade lighter than the page, like the cards, so they stand out over the darkened page (otherwise Flet's near-black).
+        dialog_theme=ft.DialogTheme(
+            bgcolor=SURFACE_HIGH, shape=ft.RoundedRectangleBorder(radius=6)
+        ),
     )
 
 

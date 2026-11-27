@@ -184,7 +184,7 @@ def check_best_upscaler_libraries(work_directory):
     if not can_use_coreml():
         return "spandrel loads (Core ML isn't used on this computer)"
 
-    # The same steps as for a real "Best" model (see "get_coreml_upscale_function"), on a tiny one: the real ones are a 592 MB download.
+    # The same steps as for a real "Best" model (see "convert_to_coreml" and "get_coreml_upscale_function" in janai.py), on a tiny one: the real ones take 252 MB.
     import coremltools as ct
 
     layer = torch.nn.Conv2d(3, 3, 3, padding=1).eval()

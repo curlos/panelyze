@@ -39,9 +39,12 @@ def has_internet():
 
 
 needs_internet = pytest.mark.skipif(not has_internet(), reason="No internet connection")
-# On the PATH, or downloaded by the app before.
+# Downloaded by the app before (a waifu2x installed on the computer isn't used).
+WAIFU2X_NOT_DOWNLOADED = (
+    "waifu2x isn't downloaded yet (upscale once, or Settings → Storage → Download)"
+)
 needs_waifu2x = pytest.mark.skipif(
-    not get_waifu2x_path(), reason="waifu2x-ncnn-vulkan isn't installed"
+    not get_waifu2x_path(), reason=WAIFU2X_NOT_DOWNLOADED
 )
 
 
@@ -385,7 +388,7 @@ def test_the_pipeline_downloads_from_comix_to_and_splits_the_panels(gui, tmp_pat
 @needs_internet
 def test_pipeline_runs_every_step_on_a_real_page(gui, tmp_path):
     if not get_waifu2x_path():
-        pytest.skip("waifu2x-ncnn-vulkan isn't installed")
+        pytest.skip(WAIFU2X_NOT_DOWNLOADED)
 
     storage = gui.page.client_storage
     storage.set("use_start_and_end_pages", True)

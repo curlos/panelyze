@@ -22,7 +22,7 @@ current_app_output = None
 
 class AppOutput:
     """
-    Shows everything the app prints (normal output, errors, warnings, progress bars and the output of tools like waifu2x) in the app's "Terminal Output", and also saves it to a log file.
+    Shows everything the app prints (normal output, errors, warnings, progress bars and the output of tools like waifu2x) in the app's "Activity" panel (its Log), and also saves it to a log file.
 
     This is needed because the app usually isn't opened from a terminal (e.g. double-clicking Panelyze.app), so there's nowhere else to see what's happening.
     """
@@ -119,7 +119,8 @@ class AppOutput:
                 pass
 
     def add_text_control(self, text, color):
-        text_control = ft.Text(color=color, selectable=True)
+        # Not selectable on its own: the Log is one selection area, so a selection can go across lines (see "TerminalOutput").
+        text_control = ft.Text(color=color)
         set_text_with_links(text_control, text)
         self.lines_to_add.append(text_control)
         return text_control

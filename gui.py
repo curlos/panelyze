@@ -40,6 +40,8 @@ MIN_WINDOW_WIDTH = 360
 MIN_WINDOW_HEIGHT = 600
 # When the window is narrower than this, each tab's settings go under it instead of on its right, and the tabs at the top only show their icons.
 NARROW_WINDOW_WIDTH = 760
+# When the window is narrower than this (about a phone's width), the Status view puts the timer under the title and each step of the job on a line of its own.
+PHONE_WINDOW_WIDTH = 560
 # Everything (the tabs at the top, the tab's content and the terminal) is no wider than this (a bit wider than Bootstrap's largest container, 1320, and narrower than Tailwind's, 1536). A wider window only gets more margin on its sides, so on an ultra-wide screen the margins keep growing. A narrower window is filled completely.
 MAX_CONTENT_WIDTH = 1400
 
@@ -145,6 +147,9 @@ class GUI:
 
         # The terminal's text lines up with the content.
         self.terminal_output.set_side_margin(self.get_side_margin())
+        self.terminal_output.progress_panel.set_phone_size(
+            window_width < PHONE_WINDOW_WIDTH
+        )
 
         if self.tabs_in_title_bar:
             self.app_bar.set_room_for_title_bar_buttons()
@@ -168,7 +173,7 @@ class GUI:
                 already_running = False
                 self.is_job_running = True
         if already_running:
-            # Only in the Raw Output: the Status view keeps showing the job that's running (an error there would mark it as failed).
+            # Only in the Log: the Status view keeps showing the job that's running (an error there would mark it as failed).
             add_line_to_terminal_output_list_view(
                 self.terminal_output.terminal_output_list_view,
                 "ERROR: Another job is still running. Please wait for it to finish.",
@@ -205,6 +210,10 @@ class GUI:
             return
 
         self.is_narrow = is_narrow
+        # A tab with its settings on the side is taken off the page first. Narrow or not moves its controls into a new row or column, and Flet 0.25 loses track of controls moved in a single update: they still show, but say they aren't on the page, so the next job's first button update failed and the app stayed locked as if a job were running. (Pipeline and Settings don't move anything, so they stay, scrolled where they were.)
+        if self.view_slot and self.current_view not in ("Pipeline", "Settings"):
+            self.view_slot.content = None
+            self.page.update()
         self.set_views_narrow()
         # Re-rendering also builds a new app bar, with or without the tab names.
         self.render_page_based_on_current_view()
@@ -322,6 +331,8 @@ class GUI:
             self.PipelineView.refresh_review()
         if self.current_view == "Settings":
             self.AppSettingsView.show_device()
+            # Jobs may have saved or downloaded files since it was last shown.
+            self.AppSettingsView.storage_section.refresh()
 
         return {
             "Download": self.MangaDexDownloaderView,

@@ -7,6 +7,7 @@ import numpy
 import pytest
 from PIL import Image
 
+from gui_classes.ProgressPanel import get_download_detail
 import janai
 
 
@@ -62,12 +63,112 @@ def test_the_status_view_shows_where_best_runs(monkeypatch):
         lambda model_path: (lambda tile: tile, "cpu"),
     )
     monkeypatch.setattr(janai, "_loaded_upscalers", {})
+    monkeypatch.setattr(
+        ProgressPanel, "current_progress_panel", ProgressPanel.ProgressPanel()
+    )
 
     # Each time, also once the model is loaded.
     janai.get_upscaler("model.pth", use_neural_engine=False)
     janai.get_upscaler("model.pth", use_neural_engine=False)
 
-    assert reported == [{"device": "CPU"}, {"device": "CPU"}]
+    assert [fields for fields in reported if "device" in fields] == [
+        {"device": "CPU"},
+        {"device": "CPU"},
+    ]
+    # Loading the model is a step of its own in the Status view, only the first time.
+    assert [fields["stage"] for fields in reported if "stages" in fields] == [
+        "Loading MangaJaNai into PyTorch"
+    ]
+
+
+def test_on_a_mac_converting_for_core_ml_is_a_step_only_the_first_time(
+    monkeypatch, tmp_path
+):
+    import sys
+    import types
+
+    from gui_classes import ProgressPanel
+
+    # A fake Core ML, so this also runs on a computer without it.
+    class FakeMLModel:
+        def __init__(self, path, compute_units):
+            pass
+
+        def predict(self, inputs):
+            return {"upscaled": inputs["image"]}
+
+    fake_coremltools = types.SimpleNamespace(
+        ComputeUnit=types.SimpleNamespace(ALL="all", CPU_AND_GPU="cpu and gpu"),
+        models=types.SimpleNamespace(MLModel=FakeMLModel),
+    )
+    monkeypatch.setitem(sys.modules, "coremltools", fake_coremltools)
+    monkeypatch.setattr(
+        janai,
+        "convert_to_coreml",
+        lambda model_path, coreml_path, report: os.makedirs(coreml_path),
+    )
+    panel = ProgressPanel.ProgressPanel()
+    monkeypatch.setattr(ProgressPanel, "current_progress_panel", panel)
+    model_path = str(tmp_path / janai.COLOR_MODEL_FILE)
+    details = []
+    original_render = panel.render
+    monkeypatch.setattr(
+        panel, "render", lambda: (details.append(panel.detail), original_render())
+    )
+
+    for _ in range(2):
+        panel.start("Upscaling images...")
+        janai.get_coreml_upscale_function(model_path, False, "IllustrationJaNai")
+
+    # The second time is like opening the app again: the Core ML copy is already saved, so it's only loaded.
+    assert panel.stages == (
+        "Loading IllustrationJaNai into Core ML",
+        "Upscaling images...",
+    )
+    assert os.path.isdir(
+        str(
+            tmp_path
+            / "2x_IllustrationJaNai_V2standard_FDAT_M_unshuffle_40k-256.mlpackage"
+        )
+    )
+    # What each step does is said under it, and taken away afterwards.
+    assert janai.COREML_CONVERT_DETAIL in details
+    assert details.count(janai.COREML_LOAD_DETAIL) >= 2
+    assert panel.detail is None
+
+
+def test_when_core_ml_fails_pytorch_is_used_and_the_status_view_goes_on(
+    monkeypatch, tmp_path
+):
+    from gui_classes import ProgressPanel
+
+    def fail(*args):
+        raise RuntimeError("Core ML broke")
+
+    monkeypatch.setattr(janai, "can_use_coreml", lambda: True)
+    monkeypatch.setattr(janai, "get_coreml_upscale_function", fail)
+    monkeypatch.setattr(
+        janai,
+        "get_pytorch_upscale_function",
+        lambda model_path: (upscale_tile_like_nearest, "cpu"),
+    )
+    monkeypatch.setattr(janai, "_loaded_upscalers", {})
+    panel = ProgressPanel.ProgressPanel()
+    monkeypatch.setattr(ProgressPanel, "current_progress_panel", panel)
+    panel.start("Upscaling images...")
+    reported = []
+
+    upscale = janai.get_upscaler(
+        str(tmp_path / janai.COLOR_MODEL_FILE), False, report=reported.append
+    )
+
+    assert upscale(numpy.zeros((3, 4, 4), numpy.float32)).shape == (3, 8, 8)
+    assert "Core ML broke" in reported[0]
+    assert panel.stages == (
+        "Loading IllustrationJaNai into PyTorch",
+        "Upscaling images...",
+    )
+    assert panel.stage == "Upscaling images..." and panel.detail is None
 
 
 @pytest.mark.parametrize(
@@ -216,7 +317,9 @@ def test_models_are_downloaded_once_keeping_only_the_2x_ones(tmp_path, monkeypat
     monkeypatch.setattr(
         janai,
         "download_file",
-        lambda url, path: downloads.append(url) or shutil.copyfile(zip_path, path),
+        lambda url, path, name=None: (
+            downloads.append(url) or shutil.copyfile(zip_path, path)
+        ),
     )
 
     path = janai.download_model_file(
@@ -242,7 +345,7 @@ def test_a_broken_model_download_stops_the_job_instead_of_trying_each_image(
 ):
     monkeypatch.setattr(janai, "MODELS_FOLDER", str(tmp_path / "models"))
 
-    def fake_download(url, path):
+    def fake_download(url, path, name=None):
         # An error page saved instead of the zip, or a zip without the model.
         if zip_files is None:
             open(path, "wb").write(b"<html>Not found</html>")
@@ -295,7 +398,7 @@ def test_a_model_download_says_where_the_model_comes_from(tmp_path, monkeypatch)
     monkeypatch.setattr(janai, "MODELS_FOLDER", str(tmp_path / "models"))
     reported = []
 
-    def no_internet(url, path):
+    def no_internet(url, path, name=None):
         raise urllib.error.URLError("nodename nor servname provided")
 
     monkeypatch.setattr(janai, "download_file", no_internet)
@@ -307,3 +410,184 @@ def test_a_model_download_says_where_the_model_comes_from(tmp_path, monkeypatch)
 
     assert janai.MODELS_PAGE_URL in reported[0]
     assert janai.MODELS_PAGE_URL in str(error.value)
+
+
+def test_only_the_2x_models_are_downloaded_out_of_the_zip(tmp_path, monkeypatch):
+    from gui_classes import ProgressPanel
+
+    monkeypatch.setattr(janai, "MODELS_FOLDER", str(tmp_path / "models"))
+    zip_path = tmp_path / "models.zip"
+    with zipfile.ZipFile(zip_path, "w") as models_zip:
+        models_zip.writestr("folder/2x_Model_A.pth", b"a" * 1000)
+        models_zip.writestr("folder/4x_Model_C.pth", b"c" * 5000)
+    # The zip on the server, opened without downloading it.
+    monkeypatch.setattr(janai, "open_remote_zip", lambda url: zipfile.ZipFile(zip_path))
+    monkeypatch.setattr(
+        janai, "download_file", lambda *args, **kwargs: pytest.fail("not the whole zip")
+    )
+    reported = []
+    monkeypatch.setattr(
+        ProgressPanel, "report_progress", lambda **fields: reported.append(fields)
+    )
+
+    path = janai.download_model_file(
+        "2x_Model_A.pth", janai.MANGA_MODELS_ZIP_URL, report=lambda text: None
+    )
+
+    assert open(path, "rb").read() == b"a" * 1000
+    assert os.listdir(tmp_path / "models") == ["2x_Model_A.pth"]
+    # Only the 2x model counts toward what's downloaded.
+    details = [fields for fields in reported if "detail" in fields]
+    assert details == [
+        {
+            "detail": get_download_detail("Downloading MangaJaNai: 1.0 KB of 1.0 KB"),
+            "fraction_done": 1.0,
+        },
+        {"detail": None, "fraction_done": None},
+    ]
+
+
+def test_a_download_that_stops_half_way_leaves_no_broken_model(tmp_path, monkeypatch):
+    monkeypatch.setattr(janai, "MODELS_FOLDER", str(tmp_path / "models"))
+    zip_path = tmp_path / "models.zip"
+    with zipfile.ZipFile(zip_path, "w") as models_zip:
+        models_zip.writestr("2x_Model_A.pth", b"a" * 1000)
+
+    class ConnectionLost(zipfile.ZipFile):
+        def open(self, *args, **kwargs):
+            raise OSError("Connection reset")
+
+    monkeypatch.setattr(janai, "open_remote_zip", lambda url: ConnectionLost(zip_path))
+
+    with pytest.raises(OSError, match="check your internet connection"):
+        janai.download_model_file(
+            "2x_Model_A.pth", janai.MANGA_MODELS_ZIP_URL, report=lambda text: None
+        )
+    assert os.listdir(tmp_path / "models") == []
+
+
+def test_a_model_is_not_downloaded_without_enough_space(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    import utils
+
+    monkeypatch.setattr(
+        utils.shutil, "disk_usage", lambda path: SimpleNamespace(free=1_000_000)
+    )
+    monkeypatch.setattr(
+        janai, "download_file", lambda *args, **kwargs: pytest.fail("downloaded")
+    )
+
+    with pytest.raises(utils.NotEnoughSpace, match="MangaJaNai: it needs 236 MB"):
+        janai.download_model_file(
+            janai.MANGA_MODEL_FILES[1200],
+            janai.MANGA_MODELS_ZIP_URL,
+            report=lambda text: None,
+        )
+
+
+@pytest.mark.parametrize(
+    "on_a_mac, files, loaded, expected",
+    [
+        # The first time ever.
+        (
+            True,
+            [],
+            False,
+            [
+                "Downloading MangaJaNai (one time only)",
+                "Converting MangaJaNai 1600p for Core ML (one time only)",
+                "Loading MangaJaNai 1600p into Core ML",
+            ],
+        ),
+        # Downloaded early (Settings → Storage → Download): not converted yet.
+        (
+            True,
+            ["2x_MangaJaNai_1600p_V1_ESRGAN_90k.pth"],
+            False,
+            [
+                "Converting MangaJaNai 1600p for Core ML (one time only)",
+                "Loading MangaJaNai 1600p into Core ML",
+            ],
+        ),
+        # Each time the app is opened.
+        (
+            True,
+            [
+                "2x_MangaJaNai_1600p_V1_ESRGAN_90k.pth",
+                "2x_MangaJaNai_1600p_V1_ESRGAN_90k-256.mlpackage",
+            ],
+            False,
+            ["Loading MangaJaNai 1600p into Core ML"],
+        ),
+        # Already loaded.
+        (True, ["2x_MangaJaNai_1600p_V1_ESRGAN_90k.pth"], True, []),
+        # Windows (and Intel Macs): no Core ML.
+        (
+            False,
+            [],
+            False,
+            [
+                "Downloading MangaJaNai (one time only)",
+                "Loading MangaJaNai 1600p into PyTorch",
+            ],
+        ),
+    ],
+)
+def test_the_steps_a_model_still_needs(
+    monkeypatch, tmp_path, on_a_mac, files, loaded, expected
+):
+    monkeypatch.setattr(janai, "MODELS_FOLDER", str(tmp_path))
+    monkeypatch.setattr(janai, "can_use_coreml", lambda: on_a_mac)
+    for file_name in files:
+        (tmp_path / file_name).mkdir()
+    model_path = str(tmp_path / "2x_MangaJaNai_1600p_V1_ESRGAN_90k.pth")
+    monkeypatch.setattr(
+        janai, "_loaded_upscalers", {(model_path, True): "loaded"} if loaded else {}
+    )
+
+    assert (
+        janai.get_steps_to_get_ready(model_path, janai.MANGA_MODELS_ZIP_URL, True)
+        == expected
+    )
+
+
+def test_a_4x_upscale_lists_both_manga_models_steps_before_the_first_one_starts(
+    monkeypatch, tmp_path
+):
+    from gui_classes import ProgressPanel
+
+    monkeypatch.setattr(janai, "MODELS_FOLDER", str(tmp_path))
+    monkeypatch.setattr(janai, "can_use_coreml", lambda: True)
+    monkeypatch.setattr(janai, "_loaded_upscalers", {})
+    panel = ProgressPanel.ProgressPanel()
+    monkeypatch.setattr(ProgressPanel, "current_progress_panel", panel)
+    panel.start("Upscaling images...")
+    listed_at_the_first_download = []
+
+    def fake_download(file_name, zip_url, report=print):
+        if not listed_at_the_first_download:
+            listed_at_the_first_download.extend(panel.stages)
+        return os.path.join(janai.MODELS_FOLDER, file_name)
+
+    monkeypatch.setattr(janai, "download_model_file", fake_download)
+    monkeypatch.setattr(
+        janai,
+        "get_upscaler",
+        lambda model_path, use_neural_engine, report=print: upscale_tile_like_nearest,
+    )
+    # A black-and-white page 1,600 px tall: 1600p for the first pass, then 2048p (it's 3,200 px tall by then).
+    Image.new("L", (1000, 1600), 255).save(tmp_path / "page.png")
+
+    janai.upscale_image_with_janai(
+        str(tmp_path / "page.png"), str(tmp_path / "out.png"), 4
+    )
+
+    assert listed_at_the_first_download == [
+        "Downloading MangaJaNai (one time only)",
+        "Converting MangaJaNai 1600p for Core ML (one time only)",
+        "Loading MangaJaNai 1600p into Core ML",
+        "Converting MangaJaNai 2048p for Core ML (one time only)",
+        "Loading MangaJaNai 2048p into Core ML",
+        "Upscaling images...",
+    ]

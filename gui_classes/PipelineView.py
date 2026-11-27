@@ -19,6 +19,7 @@ from gui_classes.ProgressPanel import (
     report_progress,
 )
 from utils import (
+    get_error_text,
     COMIC_FILE_EXTENSIONS,
     IMAGE_EXTENSIONS,
     DownloadCancelled,
@@ -672,20 +673,22 @@ class PipelineView(ft.Container):
         # Only one job can run at a time.
         if not self.parent_gui.try_to_start_job("Pipeline"):
             return
-        # The steps use the settings of the other tabs, which can't be opened while it runs (see "set_job_running").
-        self.set_locked(True)
-        self.cancelled = False
-        reset_cancel_button(self.cancel_button)
-        # Until the first step sets what it stops (e.g. while picked comic files are opened).
-        set_cancel_click(self.cancel_button, self.cancel)
-        self.show_cancel_button(True)
-        # The last run's list isn't about this one (it's shown again when the first step starts).
-        self.step_status_column.visible = False
 
         input_directory = self.input_directory
         temporary_input_folder = None
 
+        # Everything after the job is started is in the "try", so whatever fails, "finally" ends the job and the app is never left locked.
         try:
+            # The steps use the settings of the other tabs, which can't be opened while it runs (see "set_job_running").
+            self.set_locked(True)
+            self.cancelled = False
+            reset_cancel_button(self.cancel_button)
+            # Until the first step sets what it stops (e.g. while picked comic files are opened).
+            set_cancel_click(self.cancel_button, self.cancel)
+            self.show_cancel_button(True)
+            # The last run's list isn't about this one (it's shown again when the first step starts).
+            self.step_status_column.visible = False
+
             # Picked comic files or picked images are saved into their own temporary folder, so they're processed exactly like a picked folder.
             if "Download" not in selected_steps:
                 temporary_input_folder = save_input_to_temporary_folder(
@@ -697,9 +700,11 @@ class PipelineView(ft.Container):
             self.run_pipeline(selected_steps, input_directory)
         except Exception as error:
             terminal_output.update_terminal_with_error_message(
-                f"ERROR: Pipeline stopped: {error}"
+                f"ERROR: Pipeline stopped: {get_error_text(error)}"
             )
         finally:
+            # First, so nothing below can leave the app locked.
+            self.parent_gui.set_job_running(False)
             # Only ever delete the temporary folder made just above.
             if temporary_input_folder:
                 shutil.rmtree(
@@ -709,7 +714,6 @@ class PipelineView(ft.Container):
             report_progress(prefix="", total_started_at=None)
             reset_cancel_button(self.cancel_button)
             self.show_cancel_button(False)
-            self.parent_gui.set_job_running(False)
             self.set_locked(False)
 
     def show_cancel_button(self, visible):
@@ -750,7 +754,13 @@ class PipelineView(ft.Container):
             self.show_progress_message(
                 f"Pipeline: Step {step_number}/{len(selected_steps)}: {step}"
             )
-            report_progress(prefix=f"Step {step_number} of {len(selected_steps)}")
+            # Without the stages of the step before (e.g. Panel-By-Panel's), which a model download in this step would be added to.
+            report_progress(
+                prefix=f"Step {step_number} of {len(selected_steps)}",
+                stages=(),
+                stage=None,
+                upcoming_stages=(),
+            )
             step_output_directory = get_step_output_directory(
                 self.output_directory, step
             )
@@ -772,7 +782,9 @@ class PipelineView(ft.Container):
                     return
                 step_statuses[step] = ("failed", "")
                 self.show_step_statuses(step_statuses)
-                message = f'ERROR: Pipeline stopped. "{step}" failed: {error}'
+                message = (
+                    f'ERROR: Pipeline stopped. "{step}" failed: {get_error_text(error)}'
+                )
                 if isinstance(error, StepFailed):
                     # The Status view keeps the step's own error (e.g. "waifu2x was not found"), which says what to fix.
                     add_line_to_terminal_output_list_view(
@@ -886,12 +898,12 @@ class PipelineView(ft.Container):
             # From MangaDex, comix.to, the Internet Archive or any web page (see "get_downloader").
             source, download = get_downloader(url)
             terminal_output.show_loading_text(f"Downloading from {source}...")
-            report_output_folder(step_output_directory)
             # The downloader sets what Cancel stops once it has started (like in the Download tab).
             set_cancel_click(
                 self.cancel_button, self.cancel, "Cancelling the download..."
             )
             try:
+                report_output_folder(step_output_directory)
                 summary = download(
                     url,
                     step_output_directory,

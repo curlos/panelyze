@@ -573,7 +573,7 @@ def test_a_mangadex_download_that_stopped_partway_says_so(tmp_path, monkeypatch)
 
     assert (
         summary
-        == "Downloaded Slam Dunk Vol. 1 Ch. 3 · 5 pages · stopped early, so the last chapter may be incomplete (see Raw Output)"
+        == "Downloaded Slam Dunk Vol. 1 Ch. 3 · 5 pages · stopped early, so the last chapter may be incomplete (see the Log)"
     )
     # Its folder is still opened, and filled in as the next tab's input.
     assert isinstance(summary, DownloadSummary) and summary.folder == str(

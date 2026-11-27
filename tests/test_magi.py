@@ -451,7 +451,7 @@ def test_finding_and_reading_the_text_shows_its_progress(monkeypatch):
             "pages_done": 0,
             "pages_total": 2,
             "unit": "images",
-            "detail": "Finding the text",
+            "detail": None,
         },
         {"pages_done": 1},
         {"pages_done": 2},
@@ -460,7 +460,7 @@ def test_finding_and_reading_the_text_shows_its_progress(monkeypatch):
             "pages_done": 0,
             "pages_total": 2,
             "unit": "text boxes",
-            "detail": "Reading the text",
+            "detail": None,
         },
         {"pages_done": 2},
     ]
@@ -490,6 +490,13 @@ def test_a_failed_magi_download_says_where_the_model_comes_from(monkeypatch):
         )
 
     monkeypatch.setattr(Magiv2Model, "from_pretrained", no_internet)
+    # Plenty of space, whatever this computer has (the download is checked against it first).
+    import utils
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        utils.shutil, "disk_usage", lambda path: SimpleNamespace(free=10**13)
+    )
 
     with pytest.raises(OSError, match="check your internet connection") as error:
         magi_module.load_full_magi_model()

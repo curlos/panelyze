@@ -17,7 +17,13 @@ import numpy
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
-from utils import download_file
+from utils import (
+    PartialDownloadNotSupported,
+    check_free_space,
+    download_file,
+    open_remote_zip,
+    save_zip_files,
+)
 
 MODELS_FOLDER = os.path.expanduser(
     "~/Library/Application Support/Panelyze/upscale-models"
@@ -48,6 +54,10 @@ PYTORCH_TILE = 512
 TILE_OVERLAP = 8
 
 _loaded_upscalers = {}
+
+# Under each step that gets a model ready, in the Status view, for anyone who wants to know what it's doing.
+COREML_CONVERT_DETAIL = "Core ML, Apple's way to run AI models fast on the Mac's chip, can't read the downloaded model, so a copy is made for it."
+COREML_LOAD_DETAIL = "Core ML is Apple's way to run AI models fast on the Mac's chip. This happens once each time the app is opened."
 
 
 def get_page_height_info(page_height):
@@ -93,45 +103,44 @@ def download_model_file(file_name, zip_url, report=print):
     if os.path.exists(path):
         return path
 
+    from gui_classes.ProgressPanel import DOWNLOAD_ONCE_DETAIL, show_extra_stage
+
+    with show_extra_stage(get_download_step(zip_url), DOWNLOAD_ONCE_DETAIL):
+        return download_missing_model_file(file_name, zip_url, report)
+
+
+def get_model_name(zip_url):
+    return "IllustrationJaNai" if zip_url == COLOR_MODEL_ZIP_URL else "MangaJaNai"
+
+
+def download_missing_model_file(file_name, zip_url, report=print):
+    path = os.path.join(MODELS_FOLDER, file_name)
     os.makedirs(MODELS_FOLDER, exist_ok=True)
-    zip_path = os.path.join(MODELS_FOLDER, "download.zip.tmp")
     report(
         f"Downloading the Best upscale model {file_name} (one time only) from {MODELS_PAGE_URL}..."
     )
+    name = get_model_name(zip_url)
+    from storage import COLOR_MODEL_DOWNLOAD_BYTES, MANGA_MODELS_DOWNLOAD_BYTES
+
+    check_free_space(
+        MODELS_FOLDER,
+        COLOR_MODEL_DOWNLOAD_BYTES
+        if zip_url == COLOR_MODEL_ZIP_URL
+        else MANGA_MODELS_DOWNLOAD_BYTES,
+        name,
+    )
     try:
-        download_file(zip_url, zip_path)
-    except OSError as error:
-        # Still an "OSError", which stops the job.
+        try:
+            # Only the 2x models are downloaded, straight out of the zip on GitHub: the zips also have 4x (and bigger) models that aren't used (MangaJaNai's 433 MB zip has 236 MB of 2x models, IllustrationJaNai's 159 MB zip has 16 MB).
+            with open_remote_zip(zip_url) as models_zip:
+                save_2x_models(models_zip, progress_name=name)
+        except PartialDownloadNotSupported:
+            download_whole_zip(zip_url, name)
+    except (OSError, zipfile.BadZipFile) as error:
+        # Still an "OSError", which stops the job (like no internet does), instead of downloading it again for every image.
         raise OSError(
             f"Couldn't download the Best upscale model {file_name} (check your internet connection): {error}. It comes from {MODELS_PAGE_URL}"
         ) from error
-
-    try:
-        # Not a zip, e.g. an error page saved instead. An "OSError" stops the job (like no internet does), instead of downloading it again for every image.
-        if not zipfile.is_zipfile(zip_path):
-            raise OSError(
-                f"The download of the Best upscale model {file_name} is broken (it wasn't the model). Check that {MODELS_PAGE_URL} opens in your browser, then try again."
-            )
-        with zipfile.ZipFile(zip_path) as models_zip:
-            # Keep every 2x model from the zip (e.g. MangaJaNai's other page heights), so it never has to be downloaded again.
-            for member in models_zip.namelist():
-                member_name = os.path.basename(member)
-                if member_name.startswith("2x_") and member_name.endswith(
-                    (".pth", ".safetensors")
-                ):
-                    with (
-                        models_zip.open(member) as source,
-                        open(
-                            os.path.join(MODELS_FOLDER, f"{member_name}.tmp"), "wb"
-                        ) as target,
-                    ):
-                        shutil.copyfileobj(source, target)
-                    os.replace(
-                        os.path.join(MODELS_FOLDER, f"{member_name}.tmp"),
-                        os.path.join(MODELS_FOLDER, member_name),
-                    )
-    finally:
-        os.remove(zip_path)
 
     if not os.path.exists(path):
         raise OSError(
@@ -139,6 +148,42 @@ def download_model_file(file_name, zip_url, report=print):
         )
 
     return path
+
+
+def download_whole_zip(zip_url, name):
+    """
+    For a server that only sends whole files: the whole zip is downloaded, and only its 2x models are kept.
+    """
+    zip_path = os.path.join(MODELS_FOLDER, "download.zip.tmp")
+    try:
+        download_file(zip_url, zip_path, name=name)
+        # Not a zip, e.g. an error page saved instead.
+        if not zipfile.is_zipfile(zip_path):
+            raise OSError(
+                f"The download wasn't the model. Check that {MODELS_PAGE_URL} opens in your browser, then try again."
+            )
+        with zipfile.ZipFile(zip_path) as models_zip:
+            save_2x_models(models_zip)
+    finally:
+        # Also a half-downloaded zip (up to 433 MB).
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+
+
+def save_2x_models(models_zip, progress_name=None):
+    """
+    Save every 2x model in the zip (e.g. all of MangaJaNai's page heights, so it never has to be downloaded again). With "progress_name", the Status view shows how much is done (the zip is on GitHub, so this is the download).
+    """
+    save_zip_files(
+        models_zip,
+        [
+            (member, os.path.join(MODELS_FOLDER, os.path.basename(member.filename)))
+            for member in models_zip.infolist()
+            if os.path.basename(member.filename).startswith("2x_")
+            and member.filename.endswith((".pth", ".safetensors"))
+        ],
+        progress_name,
+    )
 
 
 def load_pytorch_model(path):
@@ -166,43 +211,62 @@ def can_use_coreml():
     return True
 
 
-def get_coreml_upscale_function(model_path, use_neural_engine, report=print):
+def get_coreml_upscale_function(model_path, use_neural_engine, name, report=print):
     """
-    An "upscale this tile" function that runs with Core ML, on the Neural Engine or else the GPU. The model is converted to Core ML the first time (about 10 seconds) and saved next to it.
+    An "upscale this tile" function that runs with Core ML, on the Neural Engine or else the GPU. The model is converted to Core ML the first time (about 12 seconds for IllustrationJaNai on an M1) and saved next to it. Each is a step of its own in the Status view.
     """
     import coremltools as ct
 
+    from gui_classes.ProgressPanel import show_extra_stage
+
     coreml_path = f"{os.path.splitext(model_path)[0]}-{COREML_TILE}.mlpackage"
     if not os.path.exists(coreml_path):
-        import torch
-
-        report("Getting the upscale model ready for this Mac (one time only)...")
-        traced_model = torch.jit.trace(
-            load_pytorch_model(model_path), torch.rand(1, 3, COREML_TILE, COREML_TILE)
-        )
-        coreml_model = ct.convert(
-            traced_model,
-            inputs=[
-                ct.TensorType(name="image", shape=(1, 3, COREML_TILE, COREML_TILE))
-            ],
-            outputs=[ct.TensorType(name="upscaled")],
-            compute_precision=ct.precision.FLOAT16,
-            minimum_deployment_target=ct.target.macOS13,
-            convert_to="mlprogram",
-        )
-        # Saved under a temporary name first, so quitting halfway can't leave a broken model behind. Core ML needs the name to end in ".mlpackage".
-        temporary_path = f"{os.path.splitext(coreml_path)[0]}-unfinished.mlpackage"
-        shutil.rmtree(temporary_path, ignore_errors=True)
-        coreml_model.save(temporary_path)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
-        os.replace(temporary_path, coreml_path)
+        with show_extra_stage(get_convert_step(name), COREML_CONVERT_DETAIL):
+            convert_to_coreml(model_path, coreml_path, report)
 
     compute_units = (
         ct.ComputeUnit.ALL if use_neural_engine else ct.ComputeUnit.CPU_AND_GPU
     )
-    coreml_model = ct.models.MLModel(coreml_path, compute_units=compute_units)
-    return lambda tile: coreml_model.predict(
-        {"image": tile[None].astype(numpy.float32)}
-    )["upscaled"][0]
+    # About 2.5 seconds for IllustrationJaNai on an M1, each time the app is opened.
+    with show_extra_stage(get_load_step(name, "Core ML"), COREML_LOAD_DETAIL):
+        coreml_model = ct.models.MLModel(coreml_path, compute_units=compute_units)
+
+        def upscale_tile(tile):
+            return coreml_model.predict({"image": tile[None].astype(numpy.float32)})[
+                "upscaled"
+            ][0]
+
+        # Core ML gets ready on the first tile (about 4 seconds the first time), so it's done here instead of in the middle of the first image.
+        upscale_tile(numpy.zeros((3, COREML_TILE, COREML_TILE), numpy.float32))
+    return upscale_tile
+
+
+def convert_to_coreml(model_path, coreml_path, report=print):
+    """
+    Save a Core ML copy of the model at "coreml_path" (Core ML can't read PyTorch's files): the model is run once on a blank tile to record what it does, turned into Core ML's operations, made smaller and faster for the Mac (16-bit numbers), and saved.
+    """
+    import coremltools as ct
+    import torch
+
+    report(f"Converting {os.path.basename(model_path)} for Core ML (one time only)...")
+    traced_model = torch.jit.trace(
+        load_pytorch_model(model_path), torch.rand(1, 3, COREML_TILE, COREML_TILE)
+    )
+    coreml_model = ct.convert(
+        traced_model,
+        inputs=[ct.TensorType(name="image", shape=(1, 3, COREML_TILE, COREML_TILE))],
+        outputs=[ct.TensorType(name="upscaled")],
+        compute_precision=ct.precision.FLOAT16,
+        minimum_deployment_target=ct.target.macOS13,
+        convert_to="mlprogram",
+        # Only saved here, and loaded afterwards with the chips it should run on (see "get_coreml_upscale_function"). Loading it here would use every chip, so macOS would first prepare it for the Neural Engine: for IllustrationJaNai (which runs on the GPU) that takes many minutes, with the app frozen.
+        skip_model_load=True,
+    )
+    # Saved under a temporary name first, so quitting halfway can't leave a broken model behind. Core ML needs the name to end in ".mlpackage".
+    temporary_path = f"{os.path.splitext(coreml_path)[0]}-unfinished.mlpackage"
+    shutil.rmtree(temporary_path, ignore_errors=True)
+    coreml_model.save(temporary_path)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+    os.replace(temporary_path, coreml_path)
 
 
 def get_pytorch_upscale_function(model_path):
@@ -287,43 +351,54 @@ def get_upscaler(model_path, use_neural_engine, report=print):
     "upscale(image)" for a model, loaded once and then reused. Core ML when it's available, or else PyTorch. Where it runs is shown in the Status view.
     """
     from gui_classes.ProgressPanel import report_progress
-    from magi import get_device_name, get_mac_chip_name
 
     key = (model_path, use_neural_engine)
     if key not in _loaded_upscalers:
-        upscale_tile, device_name = None, None
-        tile_size, fixed_tile_size = PYTORCH_TILE, False
-        if can_use_coreml():
-            try:
-                upscale_tile = get_coreml_upscale_function(
-                    model_path, use_neural_engine, report
-                )
-                tile_size, fixed_tile_size = COREML_TILE, True
-                # Core ML runs on the Mac's chip (its GPU and Neural Engine).
-                device_name = get_mac_chip_name()
-            except Exception as error:
-                report(
-                    f"Couldn't use Core ML for the upscale model ({error}). Using PyTorch instead (slower)."
-                )
-
-        if upscale_tile is None:
-            import torch
-
-            upscale_tile, device = get_pytorch_upscale_function(model_path)
-            device_name = get_device_name(device)
-            # With AMD's PyTorch (ROCm, "hip"), every tile is the same size: AMD's GPU software works out how to run each new image size the first time it sees it (slow), and comic panels are all different sizes, so tiles that fit each panel were about 2x slower there. Elsewhere (NVIDIA, the CPU), padding small images to a full tile would only add work.
-            tile_size, fixed_tile_size = PYTORCH_TILE, torch.version.hip is not None
-
-        _loaded_upscalers[key] = (
-            lambda image: upscale_in_tiles(
-                upscale_tile, image, 2, tile_size, fixed_tile_size
-            ),
-            device_name,
-        )
+        _loaded_upscalers[key] = load_upscaler(model_path, use_neural_engine, report)
 
     upscale, device_name = _loaded_upscalers[key]
     report_progress(device=device_name)
     return upscale
+
+
+def load_upscaler(model_path, use_neural_engine, report=print):
+    """
+    "upscale(image)" for a model, and the name of what it runs on. Core ML when it's available, or else PyTorch. Getting it ready is a step of its own in the Status view (two the first time on a Mac: it's converted for Core ML).
+    """
+    from gui_classes.ProgressPanel import PYTORCH_LOAD_DETAIL, show_extra_stage
+    from magi import get_device_name, get_mac_chip_name
+
+    name = get_upscaler_name(model_path)
+    if can_use_coreml():
+        try:
+            upscale_tile = get_coreml_upscale_function(
+                model_path, use_neural_engine, name, report
+            )
+            # Core ML runs on the Mac's chip (its GPU and Neural Engine).
+            return (
+                lambda image: upscale_in_tiles(
+                    upscale_tile, image, 2, COREML_TILE, fixed_tile_size=True
+                ),
+                get_mac_chip_name(),
+            )
+        except Exception as error:
+            report(
+                f"Couldn't use Core ML for the upscale model ({error}). Using PyTorch instead (slower)."
+            )
+
+    import torch
+
+    # About 1.5 seconds for IllustrationJaNai on an M1, each time the app is opened.
+    with show_extra_stage(get_load_step(name, "PyTorch"), PYTORCH_LOAD_DETAIL):
+        upscale_tile, device = get_pytorch_upscale_function(model_path)
+    # With AMD's PyTorch (ROCm, "hip"), every tile is the same size: AMD's GPU software works out how to run each new image size the first time it sees it (slow), and comic panels are all different sizes, so tiles that fit each panel were about 2x slower there. Elsewhere (NVIDIA, the CPU), padding small images to a full tile would only add work.
+    fixed_tile_size = torch.version.hip is not None
+    return (
+        lambda image: upscale_in_tiles(
+            upscale_tile, image, 2, PYTORCH_TILE, fixed_tile_size
+        ),
+        get_device_name(device),
+    )
 
 
 def get_8_bit_rgb_image(image):
@@ -347,30 +422,90 @@ def get_8_bit_rgb_image(image):
     return image.convert("RGB")
 
 
+# The Status view's steps for getting a model ready. The same names are listed ahead ("get_steps_to_get_ready") and ticked off as they run, so they're made in one place.
+def get_download_step(zip_url):
+    # "One time only" on every download, so a slow first run isn't taken for a slow app.
+    return f"Downloading {get_model_name(zip_url)} (one time only)"
+
+
+def get_convert_step(name):
+    return f"Converting {name} for Core ML (one time only)"
+
+
+def get_load_step(name, engine):
+    return f"Loading {name} into {engine}"
+
+
+def get_upscaler_name(model_path):
+    """
+    The name of a model in the Status view: "IllustrationJaNai", or "MangaJaNai 1600p" (there are 7, one for each page height, and a 4x upscale can use two).
+    """
+    file_name = os.path.basename(model_path)
+    if file_name == COLOR_MODEL_FILE:
+        return "IllustrationJaNai"
+    height = next(
+        (height for height, name in MANGA_MODEL_FILES.items() if name == file_name),
+        None,
+    )
+    return f"MangaJaNai {height}p" if height else "MangaJaNai"
+
+
+def get_steps_to_get_ready(model_path, zip_url, use_neural_engine):
+    """
+    The Status view's steps a model still needs before it can upscale, in order, from what's on the disk and in memory: downloading it, converting it for Core ML (on an Apple Silicon Mac, the first time) and loading it. None when it's ready.
+    """
+    name = get_upscaler_name(model_path)
+    steps = []
+    if not os.path.exists(model_path):
+        steps.append(get_download_step(zip_url))
+    if (model_path, use_neural_engine) in _loaded_upscalers:
+        return steps
+    if can_use_coreml():
+        if not os.path.exists(
+            f"{os.path.splitext(model_path)[0]}-{COREML_TILE}.mlpackage"
+        ):
+            steps.append(get_convert_step(name))
+        steps.append(get_load_step(name, "Core ML"))
+    else:
+        steps.append(get_load_step(name, "PyTorch"))
+    return steps
+
+
 def upscale_image_with_janai(input_image, output_image, upscale_ratio, report=print):
     """
     Upscale one image by "upscale_ratio" (2, 4, 8, ...: the models make images 2x bigger, so 4x is two times 2x) with MangaJaNai, or IllustrationJaNai for a color image. Saved in the format of "output_image"'s extension.
     """
+    from gui_classes.ProgressPanel import show_upcoming_stages
+
     with Image.open(input_image) as image:
         page_height = get_page_height(image)
         rgb_image = get_8_bit_rgb_image(image)
         is_color = is_color_image(rgb_image)
         array = numpy.asarray(rgb_image, dtype=numpy.float32).transpose(2, 0, 1) / 255
 
-    for upscale_pass in range(int(math.log2(int(upscale_ratio)))):
-        if is_color:
-            model_path = download_model_file(
-                COLOR_MODEL_FILE, COLOR_MODEL_ZIP_URL, report
-            )
-            upscale = get_upscaler(model_path, use_neural_engine=False, report=report)
-        else:
-            # The page is twice as tall after each pass.
-            model_file = MANGA_MODEL_FILES[
-                get_manga_model_height(page_height * 2**upscale_pass)
-            ]
-            model_path = download_model_file(model_file, MANGA_MODELS_ZIP_URL, report)
-            upscale = get_upscaler(model_path, use_neural_engine=True, report=report)
+    # The model for each 2x pass: IllustrationJaNai for color, or the MangaJaNai for the page's height (it's twice as tall after each pass). On the Neural Engine for MangaJaNai only (Apple's compiler gets stuck on IllustrationJaNai).
+    passes = [
+        (COLOR_MODEL_FILE, COLOR_MODEL_ZIP_URL, False)
+        if is_color
+        else (
+            MANGA_MODEL_FILES[get_manga_model_height(page_height * 2**upscale_pass)],
+            MANGA_MODELS_ZIP_URL,
+            True,
+        )
+        for upscale_pass in range(int(math.log2(int(upscale_ratio))))
+    ]
+    # Everything the models still need is listed in the Status view before the first step starts.
+    show_upcoming_stages(
+        step
+        for model_file, zip_url, use_neural_engine in passes
+        for step in get_steps_to_get_ready(
+            os.path.join(MODELS_FOLDER, model_file), zip_url, use_neural_engine
+        )
+    )
 
+    for model_file, zip_url, use_neural_engine in passes:
+        model_path = download_model_file(model_file, zip_url, report)
+        upscale = get_upscaler(model_path, use_neural_engine, report=report)
         array = numpy.clip(upscale(array), 0, 1)
 
     result = Image.fromarray(

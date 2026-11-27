@@ -5,6 +5,8 @@ import shutil
 import tempfile
 from gui_classes.SettingsUpscaleImages import SettingsUpscaleImages
 from utils import (
+    MAX_UPSCALED_PIXELS,
+    check_free_space,
     MAX_UPSCALED_IMAGE_SIDE,
     DownloadCancelled,
     PANEL_TEXT_FILE_NAME,
@@ -50,12 +52,19 @@ class UpscaleImagesView(JobView):
     def before_job(self):
         # An earlier run may have stopped in the middle of MangaJaNai.
         self.janai_is_running = False
-        # waifu2x is downloaded the first time if it isn't installed. Without it, the button would silently do nothing.
+        # "Best" only needs waifu2x for images that are already 4K, so it's only downloaded then (see "upscale_all_images").
+        if (
+            self.parent_gui.page.client_storage.get("upscale_model") or "fast"
+        ) != "best":
+            self.make_sure_waifu2x_is_downloaded()
+
+    def make_sure_waifu2x_is_downloaded(self):
+        # waifu2x is downloaded the first time it's needed. Without it, the button would silently do nothing.
         try:
             download_waifu2x()
         except Exception as error:
             raise RuntimeError(
-                f'"waifu2x-ncnn-vulkan" couldn\'t be downloaded ({error}). Download it from https://github.com/nihui/waifu2x-ncnn-vulkan/releases and add its folder to your PATH.'
+                f'"waifu2x-ncnn-vulkan" couldn\'t be downloaded ({error}). Check your internet connection and try again. It comes from https://github.com/nihui/waifu2x-ncnn-vulkan/releases'
             ) from error
 
     def get_cancel_message(self):
@@ -153,6 +162,29 @@ class UpscaleImagesView(JobView):
                         f"Upscaling {file_name} {image_upscale_ratio}x instead of {upscale_ratio}x so it doesn't go past 4K."
                     )
             image_upscale_ratios[file_name] = image_upscale_ratio
+
+        # Checked before anything is upscaled, so a job that can't work stops right away instead of half-way. Each image has to fit in memory as it's upscaled, and the results have to fit on the disk: at most 4 bytes a pixel (with transparency; PNG and WebP compress them, so they usually take much less).
+        output_size_upper_bound = 0
+        for file_name, image_upscale_ratio in image_upscale_ratios.items():
+            with Image.open(f"{image_folder}/{file_name}") as image:
+                width = image.width * image_upscale_ratio
+                height = image.height * image_upscale_ratio
+            if width * height > MAX_UPSCALED_PIXELS:
+                # The 4K limit only helps when it's off (an image that's already huge isn't made smaller by it).
+                tip = (
+                    'Pick a smaller "Upscale Ratio", or turn on "Don\'t upscale past 4K".'
+                    if not limit_upscale_to_4k
+                    else "It's too big to upscale even at the smallest ratio."
+                )
+                raise ValueError(
+                    f"{file_name} would be {width:,} x {height:,} px after upscaling it {image_upscale_ratio}x ({width * height / 1e6:,.0f} megapixels): too big to upscale (at most {MAX_UPSCALED_PIXELS / 1e6:,.0f} megapixels, like 16,384 x 16,384 px). {tip}"
+                )
+            output_size_upper_bound += width * height * 4
+        check_free_space(
+            full_image_output_directory,
+            output_size_upper_bound,
+            "the upscaled images",
+        )
 
         # A WebP image can't be more than 16383 px on a side (e.g. a long webtoon strip, or a big upscale without the 4K limit), so such a folder is saved as PNG.
         if image_format == "webp":
@@ -314,6 +346,9 @@ class UpscaleImagesView(JobView):
         )
 
         waifu2x_image_upscale_ratios = dict(image_upscale_ratios)
+        # With "Best", only images that are already 4K are left for waifu2x. It's downloaded first, so a failed download doesn't come after minutes of upscaling.
+        if upscale_model == "best" and 1 in image_upscale_ratios.values():
+            self.make_sure_waifu2x_is_downloaded()
         if upscale_model == "best":
             from janai import upscale_image_with_janai
 

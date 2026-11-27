@@ -16,6 +16,7 @@ from gui_classes.ProgressPanel import report_output_folder, report_progress
 from gui_classes.SettingsMangaDexDownloader import SettingsMangaDexDownloader
 from download_from_internet_archive import get_item_identifier
 from utils import (
+    get_error_text,
     DownloadCancelled,
     DownloadSummary,
     count_images,
@@ -406,21 +407,23 @@ class MangaDexDownloaderView(ft.Container):
         # Only one job can run at a time (see "GUI.try_to_start_job").
         if not self.parent_gui.try_to_start_job("Download"):
             return
-        self.download_button.visible = False
-        self.cancel_button.visible = True
-        reset_cancel_button(self.cancel_button)
-        # Until the downloader sets what Cancel stops (it may finish first, e.g. "Already downloaded"), a click still does something.
-        get_cancel_event(self.cancel_button)
-        # The link and the settings can't be changed while it's downloading.
-        self.set_locked(True)
-        self.download_button.update()
-        self.cancel_button.update()
-
         terminal_output = self.parent_gui.terminal_output
-        terminal_output.show_loading_text(f"Downloading from {source}...")
-        report_output_folder(output_directory)
 
+        # Everything after the job is started is in the "try", so whatever fails, "finally" ends the job and the app is never left locked.
         try:
+            self.download_button.visible = False
+            self.cancel_button.visible = True
+            reset_cancel_button(self.cancel_button)
+            # Until the downloader sets what Cancel stops (it may finish first, e.g. "Already downloaded"), a click still does something.
+            get_cancel_event(self.cancel_button)
+            # The link and the settings can't be changed while it's downloading.
+            self.set_locked(True)
+            self.download_button.update()
+            self.cancel_button.update()
+
+            terminal_output.show_loading_text(f"Downloading from {source}...")
+            report_output_folder(output_directory)
+
             summary = download(
                 mangadex_url_to_download_from,
                 output_directory,
@@ -439,7 +442,9 @@ class MangaDexDownloaderView(ft.Container):
             ):
                 # The download is done, so Cancel has nothing left to stop. Making the comic files is quick.
                 self.cancel_button.visible = False
-                self.cancel_button.update()
+                # Not on the page for a moment when the window becomes narrow or wide (see "handle_resized" in gui.py). The download still worked.
+                if self.cancel_button.page:
+                    self.cancel_button.update()
                 try:
                     save_downloads_as_comic_files(downloaded_folder, comic_file_size)
                 except Exception as error:
@@ -471,12 +476,15 @@ class MangaDexDownloaderView(ft.Container):
                 f"Download from {source} failed.", success=False
             )
             # comix.to stops with a clear message (e.g. no browser found), shown here instead of only in the log.
-            terminal_output.update_terminal_with_error_message(f"ERROR: {error}")
+            terminal_output.update_terminal_with_error_message(
+                f"ERROR: {get_error_text(error)}"
+            )
         finally:
             self.parent_gui.set_job_running(False)
             self.download_button.visible = True
             self.cancel_button.visible = False
             reset_cancel_button(self.cancel_button)
             self.set_locked(False)
-            self.download_button.update()
-            self.cancel_button.update()
+            if self.download_button.page:
+                self.download_button.update()
+                self.cancel_button.update()

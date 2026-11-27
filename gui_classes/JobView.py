@@ -6,6 +6,7 @@ from gui_classes.AppOutput import write_to_log_file_only
 from gui_classes.ProgressPanel import report_output_folder, report_progress
 from gui_classes.PickInputAndOutputDirectories import PickInputAndOutputDirectories
 from utils import (
+    get_error_text,
     DownloadCancelled,
     get_image_folders,
     get_input_and_output_error,
@@ -134,9 +135,9 @@ class JobView(ft.Container):
             return False
 
         terminal_output.show_loading_text(self.loading_text)
-        report_output_folder(output_directory)
 
         try:
+            report_output_folder(output_directory)
             self.before_job()
             image_folders = list(get_image_folders(input_directory))
 
@@ -165,7 +166,9 @@ class JobView(ft.Container):
             write_to_log_file_only(traceback.format_exc())
             # After the "failed" title, so the error stays under it in the Status view.
             terminal_output.hide_loading_text(self.failed_text, success=False)
-            terminal_output.update_terminal_with_error_message(f"ERROR: {error}")
+            terminal_output.update_terminal_with_error_message(
+                f"ERROR: {get_error_text(error)}"
+            )
             return False
 
         terminal_output.hide_loading_text(self.get_finished_text(len(image_folders)))

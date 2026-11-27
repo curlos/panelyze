@@ -100,7 +100,7 @@ class TextToSpeechAzure(SettingsBase):
                     ),
                 ),
                 ft.Text(
-                    "Auto reads each line in a style that fits its emotion. The emotion model (about 330 MB) downloads automatically the first time it's used.",
+                    "Auto reads each line in a style that fits its emotion. The emotion model (331 MB) downloads automatically the first time it's used.",
                     size=12,
                     color=Nord.TEXT,
                 ),

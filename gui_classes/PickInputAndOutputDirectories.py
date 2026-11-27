@@ -6,6 +6,7 @@ import flet as ft
 from gui_classes import Nord
 from default_settings import can_pick_output_folders, get_output_directory
 from utils import (
+    get_error_text,
     COMIC_FILE_EXTENSIONS,
     IMAGE_EXTENSIONS,
     copy_picked_images_to_folder,
@@ -331,16 +332,6 @@ class PickInputAndOutputDirectories(ft.Container):
         # Only one job (Magi, upscaling, video, download) can run at a time. Two jobs at once would fight over the GUI terminal output.
         if not self.parent_gui.try_to_start_job(self.submit_button.text):
             return
-        self.cancel_event.clear()
-        self.set_locked(True)
-        self.submit_button.update()
-        # Cancel takes Clear's place while the job runs (nothing can be cleared then, and three buttons don't fit side by side).
-        self.clear_button.visible = False
-        self.cancel_button.visible = True
-        # In case a click came just after the last job ended.
-        reset_cancel_button(self.cancel_button)
-        self.clear_button.update()
-        self.cancel_button.update()
 
         # What was picked when the main button was clicked.
         input_directory = self.input_directory
@@ -349,7 +340,19 @@ class PickInputAndOutputDirectories(ft.Container):
         output_directory = self.output_directory
         temporary_input_folder = None
 
+        # Everything after the job is started is in the "try", so whatever fails, "finally" ends the job and the app is never left locked.
         try:
+            self.cancel_event.clear()
+            self.set_locked(True)
+            self.submit_button.update()
+            # Cancel takes Clear's place while the job runs (nothing can be cleared then, and three buttons don't fit side by side).
+            self.clear_button.visible = False
+            self.cancel_button.visible = True
+            # In case a click came just after the last job ended.
+            reset_cancel_button(self.cancel_button)
+            self.clear_button.update()
+            self.cancel_button.update()
+
             if not output_directory and input_comic_paths:
                 # Checked before the comic files are opened.
                 self.parent_gui.terminal_output.update_terminal_with_error_message(
@@ -365,9 +368,9 @@ class PickInputAndOutputDirectories(ft.Container):
 
             self.on_submit(input_directory, output_directory)
         except Exception as error:
-            # e.g. a comic file that couldn't be opened.
+            # e.g. a comic file that couldn't be opened, or no space left to unpack it.
             self.parent_gui.terminal_output.update_terminal_with_error_message(
-                f"ERROR: {error}"
+                f"ERROR: {get_error_text(error)}"
             )
         finally:
             # Only ever delete the temporary folder made just above.
@@ -452,7 +455,7 @@ class PickInputAndOutputDirectories(ft.Container):
         if len(self.input_image_paths) == 1:
             label = os.path.basename(self.input_image_paths[0])
         else:
-            label = f"{len(self.input_image_paths)} images from {get_last_directory(self.input_directory)}"
+            label = f"{len(self.input_image_paths):,} images from {get_last_directory(self.input_directory)}"
 
         self.show_input(label, get_input_summary(image_paths=self.input_image_paths))
 

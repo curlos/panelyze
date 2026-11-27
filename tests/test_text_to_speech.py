@@ -202,10 +202,19 @@ def test_the_emotion_model_is_loaded_on_the_gpu_magi_picked(monkeypatch):
     import magi
 
     monkeypatch.setattr(magi, "get_device", lambda: "cuda:1")
+    # Plenty of space, whatever this computer has (the download is checked against it first).
+    import utils
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        utils.shutil, "disk_usage", lambda path: SimpleNamespace(free=10**13)
+    )
     used = []
     import transformers.pipelines
 
-    def fake_pipeline(task, model, device):
+    def fake_pipeline(task, model, revision, device):
+        # The pinned version of the model.
+        assert revision == EmotionAnalyzer.EMOTION_MODEL_REVISION
         return used.append(device) or "pipeline"
 
     # Both places "from transformers import pipeline" can find it: transformers 4.57 looks it up in "transformers.pipelines" each time, older versions keep it on "transformers".
