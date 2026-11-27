@@ -36,7 +36,7 @@ chardet==5.2.0
 
 # Images To Video (video, text-to-speech, highlighted text boxes)
 moviepy==2.2.1
-imageio-ffmpeg==0.5.1
+imageio-ffmpeg==0.6.0
 matplotlib==3.10.0
 edge-tts==7.3.1
 azure-cognitiveservices-speech==1.42.0

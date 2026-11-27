@@ -82,7 +82,7 @@ Issues are public, so look through the log before attaching it. It has your fold
 
 ## License
 
-Distributed under the MIT License.
+The app includes [FFmpeg](https://ffmpeg.org) (from [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg)) to make the videos. FFmpeg is licensed under the GPL v2 or later, and its source is at [ffmpeg.org](https://ffmpeg.org/download.html).
 
 ## Acknowledgements
 

@@ -80,7 +80,17 @@ def check_waifu2x(work_directory):
 
 
 def check_video(work_directory):
+    import imageio_ffmpeg
+    import moviepy.config
+
     from VideoCreatorFromImages import VideoCreatorFromImages
+
+    # The videos are made with the ffmpeg that comes with imageio-ffmpeg. One installed on this computer (e.g. with Homebrew) doesn't count: a user's Mac doesn't have it. imageio-ffmpeg 0.5.1 had no Apple Silicon build, so it quietly used Homebrew's, and the app could only make videos where that was installed. What's checked is what MoviePy really runs (an "FFMPEG_BINARY" setting could point it elsewhere).
+    bundled_folder = os.path.join(os.path.dirname(imageio_ffmpeg.__file__), "")
+    ffmpeg_path = moviepy.config.FFMPEG_BINARY
+    assert ffmpeg_path.startswith(bundled_folder), (
+        f"ffmpeg isn't the one that comes with imageio-ffmpeg: {ffmpeg_path}"
+    )
 
     images_folder = os.path.join(work_directory, "panels")
     os.makedirs(images_folder)
@@ -108,7 +118,7 @@ def check_video(work_directory):
     )
 
     assert os.path.getsize(video_file) > 0, "empty video"
-    return "made a 2-panel video"
+    return "made a 2-panel video, with the ffmpeg that comes with the app"
 
 
 def check_mangadex_downloader(work_directory):
