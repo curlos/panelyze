@@ -1,6 +1,7 @@
 import contextlib
 import os
 import threading
+from typing import Any
 
 EMOTION_MODEL_NAME = "j-hartmann/emotion-english-distilroberta-base"
 # The exact version of the model, so a change to it on Hugging Face can't change the voice styles (like "MAGI_MODEL_REVISION" in magi.py).
@@ -153,7 +154,8 @@ class EmotionAnalyzer:
         The text's strongest emotion and how sure the model is (0 to 1).
         """
         # The model only reads about 512 words at a time. Longer text is cut off instead of raising an error.
-        result = self.emotion_pipeline(text, truncation=True)
+        # A list with one {"label": ..., "score": ...} (its type isn't known to the type checker with every transformers version).
+        result: Any = self.emotion_pipeline(text, truncation=True)
         return result[0]["label"], result[0]["score"]
 
     def get_voice_style(self, text, voice_styles):

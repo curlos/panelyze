@@ -246,10 +246,14 @@ def load_full_magi_model():
                 "the Magi model", magi_cache_folder, MAGI_DOWNLOAD_BYTES
             ),
         ):
-            model = Magiv2Model.from_pretrained(
-                "ragavsachdeva/magiv2",
-                revision=MAGI_MODEL_REVISION,
-                config=load_magi_config("full_config.json"),
+            # "cast": with some transformers versions, the type checker thinks it can return a tuple (it only does with "output_loading_info").
+            model = cast(
+                Magiv2Model,
+                Magiv2Model.from_pretrained(
+                    "ragavsachdeva/magiv2",
+                    revision=MAGI_MODEL_REVISION,
+                    config=load_magi_config("full_config.json"),
+                ),
             )
     except OSError as error:
         raise OSError(

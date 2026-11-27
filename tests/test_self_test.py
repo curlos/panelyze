@@ -39,3 +39,24 @@ def test_the_video_check_fails_when_ffmpeg_is_not_the_one_that_comes_with_the_ap
         AssertionError, match="isn't the one that comes with imageio-ffmpeg"
     ):
         self_test.check_video(str(tmp_path))
+
+
+def test_the_best_upscaler_check_fails_on_an_apple_silicon_mac_where_core_ml_does_not_load(
+    monkeypatch, tmp_path
+):
+    import platform
+    import sys
+
+    # Loaded before pretending to be a Mac below (on Windows, torch only loads its DLLs when it sees "win32").
+    import numpy  # noqa: F401
+    import spandrel  # noqa: F401
+    import torch  # noqa: F401
+
+    # Like coremltools 8.1 on Python 3.12 without setuptools: it doesn't load, so the app would quietly use the slower PyTorch.
+    monkeypatch.setattr(janai, "can_use_coreml", lambda: False)
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(platform, "machine", lambda: "arm64")
+    monkeypatch.setitem(sys.modules, "coremltools", None)
+
+    with pytest.raises(ImportError):
+        self_test.check_best_upscaler_libraries(str(tmp_path))

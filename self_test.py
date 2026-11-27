@@ -5,6 +5,7 @@ A quick check that everything Panelyze needs works, with no window: "python gui.
 """
 
 import os
+import platform
 import subprocess
 import sys
 import tempfile
@@ -192,6 +193,9 @@ def check_best_upscaler_libraries(work_directory):
 
     assert spandrel.ModelLoader
     if not can_use_coreml():
+        # On an Apple Silicon Mac, Core ML must work: if coremltools doesn't load (e.g. without setuptools, which coremltools 8.1 needs on Python 3.12), the app would quietly use the slower PyTorch instead.
+        if sys.platform == "darwin" and platform.machine() == "arm64":
+            import coremltools  # noqa: F401  (raises the real reason)
         return "spandrel loads (Core ML isn't used on this computer)"
 
     # The same steps as for a real "Best" model (see "convert_to_coreml" and "get_coreml_upscale_function" in janai.py), on a tiny one: the real ones take 252 MB.

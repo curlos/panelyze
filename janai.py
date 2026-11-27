@@ -387,6 +387,7 @@ def load_upscaler(model_path, use_neural_engine, report=print):
             )
 
     import torch
+    import torch.version
 
     # About 1.5 seconds for IllustrationJaNai on an M1, each time the app is opened.
     with show_extra_stage(get_load_step(name, "PyTorch"), PYTORCH_LOAD_DETAIL):

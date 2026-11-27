@@ -80,11 +80,12 @@ class StorageRow:
 
 def get_hugging_face_cache():
     """
-    Where Hugging Face keeps its downloads: "~/.cache/huggingface/hub", unless HF_HOME or HF_HUB_CACHE says otherwise.
+    Where Hugging Face keeps its downloads: "~/.cache/huggingface/hub", unless HF_HOME (or another of Hugging Face's settings) says otherwise.
     """
     from huggingface_hub import constants
 
-    return constants.HF_HUB_CACHE
+    # The pinned huggingface-hub 0.17.3 (what the app ships with) only has "HUGGINGFACE_HUB_CACHE". Newer versions have "HF_HUB_CACHE", which is what their transformers downloads to (it also follows an HF_HUB_CACHE setting), so that one is used when it's there.
+    return getattr(constants, "HF_HUB_CACHE", constants.HUGGINGFACE_HUB_CACHE)
 
 
 def get_size(paths):

@@ -24,7 +24,7 @@ def upscale_tile_like_nearest(tile):
 def test_pytorch_tiles_are_all_the_same_size_only_with_amd_s_pytorch(
     monkeypatch, hip_version, expected_fixed_tile_size
 ):
-    import torch
+    import torch.version
 
     # AMD's PyTorch (ROCm) works out each new tile size the first time it sees it, so there it's always 512x512.
     monkeypatch.setattr(torch.version, "hip", hip_version)

@@ -12,6 +12,7 @@ from gui_classes.ProgressPanel import get_download_detail
 import janai
 import storage
 import utils
+from storage import get_hugging_face_cache as real_get_hugging_face_cache
 from storage import get_output_directory as real_get_output_directory
 from storage import get_panelyze_folder as real_get_panelyze_folder
 from tests.fake_gui import (
@@ -555,3 +556,10 @@ def test_delete_all_asks_first_and_only_deletes_the_tools_own_folders(make_gui):
 
     assert not os.path.exists(downloads) and not os.path.exists(videos)
     assert os.path.exists(notes)
+
+
+def test_the_hugging_face_cache_is_found_with_the_pinned_huggingface_hub():
+    # The other tests use a fake cache in "tmp_path" (see conftest.py). This one runs the real function, which only reads where the cache is: the pinned huggingface-hub 0.17.3 (what the app ships with) has no "HF_HUB_CACHE", so using only that crashed Settings → Storage and the Magi and emotion downloads.
+    cache = real_get_hugging_face_cache()
+
+    assert isinstance(cache, str) and cache
